@@ -216,12 +216,12 @@ namespace HNTAS.Core.Api.Controllers
         }
 
         /// <summary>
-        /// Update Organization Details for a User
+        /// Update Organisation Details for a User
         /// </summary>
-        /// <remarks>Updates specific organization details for an existing user and generates an OrgId if not already set.
+        /// <remarks>Updates specific Organisation details for an existing user and generates an OrgId if not already set.
         /// Changes user status to 'Active' upon successful update. Returns the fully updated user object.</remarks>
         /// <param name="id">The  ID of the user to update.</param>
-        /// <param name="request">The organization details to update.</param>
+        /// <param name="request">The Organisation details to update.</param>
         /// <returns>The fully updated user object if successful.</returns>
         [HttpPatch("{id:length(24)}/org-details")]
         [Consumes(MediaTypeNames.Application.Json)]
@@ -343,7 +343,7 @@ namespace HNTAS.Core.Api.Controllers
                 {
                     Status = StatusCodes.Status500InternalServerError,
                     Title = "Internal Server Error",
-                    Detail = "An unexpected error occurred while updating organization details."
+                    Detail = "An unexpected error occurred while updating Organisation details."
                 });
             }
         }
@@ -357,7 +357,6 @@ namespace HNTAS.Core.Api.Controllers
         {
             try
             {
-
                 var existingUser = await _userService.GetByIdAsync(id);
 
                 if (existingUser == null)
@@ -439,7 +438,7 @@ namespace HNTAS.Core.Api.Controllers
                 return;
             }
 
-            string orgName = user.OrgDetails.OrgName ?? "Your Organization";
+            string orgName = user.OrgDetails.OrgName;
             string firstName = StringFormatter.ToTitleCaseSingleWord(user.OrgDetails.FirstName ?? "");
             string lastName = StringFormatter.ToTitleCaseSingleWord(user.OrgDetails.LastName ?? "");
             string fullName = $"{firstName} {lastName}".Trim();

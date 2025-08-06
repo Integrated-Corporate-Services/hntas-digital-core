@@ -1,6 +1,5 @@
 ﻿using AutoMapper;
 using HNTAS.Core.Api.Data.Models;
-using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Extensions;
 using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Models.Users;
@@ -15,7 +14,8 @@ namespace HNTAS.Core.Api.MappingProfiles
             CreateMap<OrgDetails, Organisation>()
             .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.OrgName))
             .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.OrgId))
-            .ForMember(dest => dest.CompaninesHouseNumber, opt => opt.MapFrom(src => src.CompaniesHouseNumber));
+            .ForMember(dest => dest.CompaninesHouseNumber, opt => opt.MapFrom(src => src.CompaniesHouseNumber))
+            .ForMember(dest => dest.Type, opt => opt.MapFrom(src => src.OrgType.GetDescription()));
 
 
             CreateMap<User, UserResponse>()
@@ -28,7 +28,7 @@ namespace HNTAS.Core.Api.MappingProfiles
             .ForMember(dest => dest.Organisation, opt => opt.MapFrom(src => src.OrgDetails))
             .ForMember(dest => dest.Roles, opt => opt.MapFrom(src =>
                 src.Roles.Select(role => role.GetDescription()).ToList()
-            ))  
+            ))
             .ForMember(dest => dest.HnIds, opt => opt.MapFrom(src =>
                 src.HnIds.Select(hnid => hnid).ToList()
             ))

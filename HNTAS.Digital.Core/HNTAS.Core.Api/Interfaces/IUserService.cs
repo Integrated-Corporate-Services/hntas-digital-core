@@ -10,6 +10,6 @@ namespace HNTAS.Core.Api.Interfaces
         Task CreateAsync(User newUser);
         Task UpdateAsync(string id, User updatedUser);
         Task RemoveAsync(string id);
-        Task<bool> IsOrganisationHasRpUser(string organisationId);
+        Task<bool> IsOrganisationExists(string organisationId);
     }
 }

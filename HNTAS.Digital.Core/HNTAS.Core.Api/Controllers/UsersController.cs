@@ -1,5 +1,4 @@
-﻿using Amazon.Runtime.Internal;
-using AutoMapper;
+﻿using AutoMapper;
 using HNTAS.Core.Api.Configuration;
 using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Enums;
@@ -18,15 +17,15 @@ namespace HNTAS.Core.Api.Controllers
     {
         private readonly IUserService _userService;
         private readonly ILogger<UsersController> _logger;
-        private readonly IGovUkNotifyService _emailService; 
-        private readonly ICounterService _orgCounterService; 
+        private readonly IGovUkNotifyService _emailService;
+        private readonly ICounterService _orgCounterService;
         private readonly NotificationSettings _notificationSettings;
         private readonly IMapper _mapper;
 
-        public UsersController(IUserService userService, 
-            ILogger<UsersController> logger, 
-            IGovUkNotifyService emailService, 
-            ICounterService orgCounterService, 
+        public UsersController(IUserService userService,
+            ILogger<UsersController> logger,
+            IGovUkNotifyService emailService,
+            ICounterService orgCounterService,
             IOptions<NotificationSettings> options,
             IMapper mapper)
         {
@@ -268,7 +267,7 @@ namespace HNTAS.Core.Api.Controllers
                 existingUser.OrgDetails.FirstName = request.OrgDetails.FirstName;
                 existingUser.OrgDetails.LastName = request.OrgDetails.LastName;
 
-                if(existingUser.Roles == null)
+                if (existingUser.Roles == null)
                 {
                     existingUser.Roles = new List<UserRole>() { request.Role };
                 }
@@ -375,7 +374,7 @@ namespace HNTAS.Core.Api.Controllers
                     existingUser.HnIds.Add(heatNetworkId);
                 }
 
-                await _userService.UpdateAsync(id, existingUser); 
+                await _userService.UpdateAsync(id, existingUser);
 
                 return NoContent(); // Return 204 No Content if the update was successful
 
@@ -431,26 +430,38 @@ namespace HNTAS.Core.Api.Controllers
 
 
         /// <summary>
-        /// Checks if an organization with the given Companies House Number has any registered users.
+        /// Checks if an organization with the Companies House Number any registered users.
         /// </summary>
         /// <param name="companiesHouseNumber">The Companies House Number to check.</param>
         /// <returns>True if at least one user is found for the organization, otherwise false.</returns>
-        [HttpGet("organisation/exists/{companiesHouseNumber}")]
+        [HttpGet("organisation/exists")]
         [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(bool))]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<bool>> CheckOrganisationExistsByCompaniesHouseNumber(string companiesHouseNumber)
+        public async Task<ActionResult<bool>> CheckOrganisationExistence(
+            [FromQuery] string? companiesHouseNumber)
         {
-            _logger.LogInformation("Checking if organisation with Companies House Number {CompaniesHouseNumber} has registered users.", companiesHouseNumber);
+            // Validate that at least one parameter is provided
+            if (string.IsNullOrWhiteSpace(companiesHouseNumber))
+            {
+                _logger.LogWarning("Invalid request: 'companiesHouseNumber' query parameter is required.");
+                return BadRequest("'companiesHouseNumber' must be provided.");
+            }
+
+            _logger.LogInformation("Checking if organisation with Companies House Number '{CompaniesHouseNumber}' has registered users.", companiesHouseNumber);
+
             try
             {
-                var exists = await _userService.IsOrganisationHasRpUser(companiesHouseNumber);
-                _logger.LogInformation("Organisation with Companies House Number {CompaniesHouseNumber} exists: {Exists}", companiesHouseNumber, exists);
+                bool exists = await _userService.IsOrganisationExists(companiesHouseNumber);
+
+                _logger.LogInformation("Organisation exists: {Exists}", exists);
+
                 return Ok(exists);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An error occurred while checking organisation existence for Companies House Number {CompaniesHouseNumber}.", companiesHouseNumber);
-                return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while checking organisation existence.");
+                _logger.LogError(ex, "An error occurred while checking organisation existence.");
+                return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred.");
             }
         }
 

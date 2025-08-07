@@ -29,7 +29,7 @@ namespace HNTAS.Core.Api.Services
             var mongoClient = new MongoClient(connectionString);
             var mongoDatabase = mongoClient.GetDatabase(dbSettings.Value.DatabaseName);
             _usersCollection = mongoDatabase.GetCollection<User>(dbSettings.Value.UsersCollectionName);
-           
+
         }
 
         // Get all users
@@ -56,9 +56,9 @@ namespace HNTAS.Core.Api.Services
         public async Task RemoveAsync(string id) =>
             await _usersCollection.DeleteOneAsync(user => user.Id == id);
 
-        public async Task<bool> IsOrganisationHasRpUser(string companiesHouseNumber)
+        public async Task<bool> IsOrganisationExists(string companiesHouseNumber)
         {
-           return  await _usersCollection.AsQueryable().AnyAsync(user => user.OrgDetails != null && user.OrgDetails.CompaniesHouseNumber == companiesHouseNumber);
+            return await _usersCollection.AsQueryable().AnyAsync(user => user.OrgDetails != null && user.OrgDetails.CompaniesHouseNumber == companiesHouseNumber);
         }
     }
 }

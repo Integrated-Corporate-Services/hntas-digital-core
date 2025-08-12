@@ -10,15 +10,15 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonElement("org_id")]
         public string? OrgId { get; set; }
 
-        [Required(ErrorMessage = "Organization Type is required.")]
+        [Required(ErrorMessage = "Organisation Type is required.")]
         [BsonElement("org_type")]
-        public string OrgType { get; set; } = null!;
+        [BsonRepresentation(BsonType.String)]
+        public OrganisationType OrgType { get; set; }
 
-        [Required(ErrorMessage = "Companies House Number is required.")]
         [BsonElement("companies_house_number")]
-        public string CompaniesHouseNumber { get; set; } = null!;
+        public string? CompaniesHouseNumber { get; set; }
 
-        [Required(ErrorMessage = "Organization Name is required.")]
+        [Required(ErrorMessage = "Organisation Name is required.")]
         [BsonElement("org_name")]
         public string OrgName { get; set; } = null!;
 
@@ -56,7 +56,7 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonElement("job_title")]
         public string? JobTitle { get; set; }
 
-        [Required(ErrorMessage = "Organization Registered Address is required.")]
+        [Required(ErrorMessage = "Organisation Registered Address is required.")]
         [BsonElement("org_registered_address")]
         public OrgRegisteredAddress OrgRegisteredAddress { get; set; } = null!;
     }

@@ -1,5 +1,4 @@
-﻿using Amazon.Runtime.Internal;
-using AutoMapper;
+﻿using AutoMapper;
 using HNTAS.Core.Api.Configuration;
 using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Enums;
@@ -18,15 +17,15 @@ namespace HNTAS.Core.Api.Controllers
     {
         private readonly IUserService _userService;
         private readonly ILogger<UsersController> _logger;
-        private readonly IGovUkNotifyService _emailService; 
-        private readonly ICounterService _orgCounterService; 
+        private readonly IGovUkNotifyService _emailService;
+        private readonly ICounterService _orgCounterService;
         private readonly NotificationSettings _notificationSettings;
         private readonly IMapper _mapper;
 
-        public UsersController(IUserService userService, 
-            ILogger<UsersController> logger, 
-            IGovUkNotifyService emailService, 
-            ICounterService orgCounterService, 
+        public UsersController(IUserService userService,
+            ILogger<UsersController> logger,
+            IGovUkNotifyService emailService,
+            ICounterService orgCounterService,
             IOptions<NotificationSettings> options,
             IMapper mapper)
         {
@@ -216,12 +215,12 @@ namespace HNTAS.Core.Api.Controllers
         }
 
         /// <summary>
-        /// Update Organization Details for a User
+        /// Update Organisation Details for a User
         /// </summary>
-        /// <remarks>Updates specific organization details for an existing user and generates an OrgId if not already set.
+        /// <remarks>Updates specific Organisation details for an existing user and generates an OrgId if not already set.
         /// Changes user status to 'Active' upon successful update. Returns the fully updated user object.</remarks>
         /// <param name="id">The  ID of the user to update.</param>
-        /// <param name="request">The organization details to update.</param>
+        /// <param name="request">The Organisation details to update.</param>
         /// <returns>The fully updated user object if successful.</returns>
         [HttpPatch("{id:length(24)}/org-details")]
         [Consumes(MediaTypeNames.Application.Json)]
@@ -268,7 +267,7 @@ namespace HNTAS.Core.Api.Controllers
                 existingUser.OrgDetails.FirstName = request.OrgDetails.FirstName;
                 existingUser.OrgDetails.LastName = request.OrgDetails.LastName;
 
-                if(existingUser.Roles == null)
+                if (existingUser.Roles == null)
                 {
                     existingUser.Roles = new List<UserRole>() { request.Role };
                 }
@@ -343,7 +342,7 @@ namespace HNTAS.Core.Api.Controllers
                 {
                     Status = StatusCodes.Status500InternalServerError,
                     Title = "Internal Server Error",
-                    Detail = "An unexpected error occurred while updating organization details."
+                    Detail = "An unexpected error occurred while updating Organisation details."
                 });
             }
         }
@@ -357,7 +356,6 @@ namespace HNTAS.Core.Api.Controllers
         {
             try
             {
-
                 var existingUser = await _userService.GetByIdAsync(id);
 
                 if (existingUser == null)
@@ -376,7 +374,7 @@ namespace HNTAS.Core.Api.Controllers
                     existingUser.HnIds.Add(heatNetworkId);
                 }
 
-                await _userService.UpdateAsync(id, existingUser); 
+                await _userService.UpdateAsync(id, existingUser);
 
                 return NoContent(); // Return 204 No Content if the update was successful
 
@@ -430,6 +428,43 @@ namespace HNTAS.Core.Api.Controllers
             }
         }
 
+
+        /// <summary>
+        /// Checks if an organization with the Companies House Number any registered users.
+        /// </summary>
+        /// <param name="companiesHouseNumber">The Companies House Number to check.</param>
+        /// <returns>True if at least one user is found for the organization, otherwise false.</returns>
+        [HttpGet("organisation/exists")]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(bool))]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<bool>> CheckOrganisationExistence(
+            [FromQuery] string? companiesHouseNumber)
+        {
+            // Validate that at least one parameter is provided
+            if (string.IsNullOrWhiteSpace(companiesHouseNumber))
+            {
+                _logger.LogWarning("Invalid request: 'companiesHouseNumber' query parameter is required.");
+                return BadRequest("'companiesHouseNumber' must be provided.");
+            }
+
+            _logger.LogInformation("Checking if organisation with Companies House Number '{CompaniesHouseNumber}' has registered users.", companiesHouseNumber);
+
+            try
+            {
+                bool exists = await _userService.IsOrganisationExists(companiesHouseNumber);
+
+                _logger.LogInformation("Organisation exists: {Exists}", exists);
+
+                return Ok(exists);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while checking organisation existence.");
+                return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred.");
+            }
+        }
+
         // --- Private Helper Method ---
         private async Task TrySendOrgCreatedEmailAsync(User user)
         {
@@ -439,7 +474,7 @@ namespace HNTAS.Core.Api.Controllers
                 return;
             }
 
-            string orgName = user.OrgDetails.OrgName ?? "Your Organization";
+            string orgName = user.OrgDetails.OrgName;
             string firstName = StringFormatter.ToTitleCaseSingleWord(user.OrgDetails.FirstName ?? "");
             string lastName = StringFormatter.ToTitleCaseSingleWord(user.OrgDetails.LastName ?? "");
             string fullName = $"{firstName} {lastName}".Trim();

@@ -4,6 +4,7 @@ using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
+using HNTAS.Core.Api.Models;
 using HNTAS.Core.Api.Models.Users;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
@@ -16,24 +17,31 @@ namespace HNTAS.Core.Api.Controllers
     public class UsersController : ControllerBase
     {
         private readonly IUserService _userService;
+        private readonly IHeatNetworkService _hnService;
         private readonly ILogger<UsersController> _logger;
         private readonly IGovUkNotifyService _emailService;
         private readonly ICounterService _orgCounterService;
         private readonly NotificationSettings _notificationSettings;
+        private readonly HntasServiceSettings _hntasServiceSettings;
         private readonly IMapper _mapper;
 
+
         public UsersController(IUserService userService,
+            IHeatNetworkService hnService,
             ILogger<UsersController> logger,
             IGovUkNotifyService emailService,
             ICounterService orgCounterService,
             IOptions<NotificationSettings> options,
+            IOptions<HntasServiceSettings> hntasServiceOptions,
             IMapper mapper)
         {
             _userService = userService;
+            _hnService = hnService;
             _logger = logger;
             _emailService = emailService;
             _orgCounterService = orgCounterService;
             _notificationSettings = options.Value;
+            _hntasServiceSettings = hntasServiceOptions.Value;
             _mapper = mapper;
         }
 
@@ -87,13 +95,6 @@ namespace HNTAS.Core.Api.Controllers
 
             try
             {
-                // Validate the ID format (optional, but good practice)
-                if (string.IsNullOrWhiteSpace(id) || id.Length != 24 || !System.Text.RegularExpressions.Regex.IsMatch(id, "^[0-9a-fA-F]{24}$"))
-                {
-                    _logger.LogWarning("Invalid user ID format: {Id}", id);
-                    return BadRequest("Invalid user ID format. Must be a 24-character hexadecimal string.");
-                }
-
                 var user = await _userService.GetByIdAsync(id);
 
                 if (user == null)
@@ -230,6 +231,18 @@ namespace HNTAS.Core.Api.Controllers
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<User>> UpdateOrgDetails(string id, [FromBody] UpdateOrgDetailsAndRolesRequest request)
         {
+            var (landline, extension, mobile) = ContactDetailsValidationHelper.GetValidatedContactDetails(
+                                                 request.OrgDetails.PreferredContactType,
+                                                 request.OrgDetails.LandlineNumber,
+                                                 request.OrgDetails.ContactNumberExtension,
+                                                 request.OrgDetails.MobileNumber,
+                                                 ModelState
+                                             );
+
+            request.OrgDetails.LandlineNumber = landline;
+            request.OrgDetails.ContactNumberExtension = extension;
+            request.OrgDetails.MobileNumber = mobile;
+
             if (!ModelState.IsValid)
             {
                 _logger.LogWarning("Invalid organisation details update data for user ID: {UserId}. Errors: {Errors}",
@@ -263,6 +276,7 @@ namespace HNTAS.Core.Api.Controllers
                 existingUser.OrgDetails.LandlineNumber = request.OrgDetails.LandlineNumber;
                 existingUser.OrgDetails.ContactNumberExtension = request.OrgDetails.ContactNumberExtension;
                 existingUser.OrgDetails.MobileNumber = request.OrgDetails.MobileNumber;
+
                 existingUser.OrgDetails.JobTitle = request.OrgDetails.JobTitle;
                 existingUser.OrgDetails.FirstName = request.OrgDetails.FirstName;
                 existingUser.OrgDetails.LastName = request.OrgDetails.LastName;
@@ -274,49 +288,6 @@ namespace HNTAS.Core.Api.Controllers
                 else if (!existingUser.Roles.Contains(request.Role))
                 {
                     existingUser.Roles.Add(request.Role);
-                }
-
-
-                switch (request.OrgDetails.PreferredContactType) // Use orgDetailsAndRolesRequest for validation logic
-                {
-                    case PreferredContactType.Landline:
-                        // If Landline is preferred, MobileNumber should be nullified and its validation removed
-                        existingUser.OrgDetails.MobileNumber = null; // Update the object that will be saved
-                        ModelState.Remove(nameof(request.OrgDetails.MobileNumber)); // Remove any existing errors for MobileNumber
-
-                        if (string.IsNullOrWhiteSpace(request.OrgDetails.LandlineNumber))
-                        {
-                            ModelState.AddModelError(nameof(request.OrgDetails.LandlineNumber), "Enter your landline number.");
-                        }
-                        break;
-                    case PreferredContactType.Mobile:
-                        // If Mobile is preferred, LandlineNumber and Extension should be nullified and their validation removed
-                        existingUser.OrgDetails.LandlineNumber = null;
-                        existingUser.OrgDetails.ContactNumberExtension = null;
-                        ModelState.Remove(nameof(request.OrgDetails.LandlineNumber));
-                        ModelState.Remove(nameof(request.OrgDetails.ContactNumberExtension));
-
-                        if (string.IsNullOrWhiteSpace(request.OrgDetails.MobileNumber))
-                        {
-                            ModelState.AddModelError(nameof(request.OrgDetails.MobileNumber), "Enter your mobile number.");
-                        }
-                        break;
-                    default:
-                        // If other or no preference, clear all numbers and remove their validation
-                        existingUser.OrgDetails.LandlineNumber = null;
-                        existingUser.OrgDetails.ContactNumberExtension = null;
-                        existingUser.OrgDetails.MobileNumber = null;
-                        ModelState.Remove(nameof(request.OrgDetails.LandlineNumber));
-                        ModelState.Remove(nameof(request.OrgDetails.ContactNumberExtension));
-                        ModelState.Remove(nameof(request.OrgDetails.MobileNumber));
-                        break;
-                }
-
-                if (!ModelState.IsValid)
-                {
-                    _logger.LogWarning("Conditional validation failed for org details update for user ID: {UserId}. Errors: {Errors}",
-                        id, string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
-                    return ValidationProblem(ModelState);
                 }
 
                 // Generate OrgId if it's not already set or is 0
@@ -345,6 +316,94 @@ namespace HNTAS.Core.Api.Controllers
                     Detail = "An unexpected error occurred while updating Organisation details."
                 });
             }
+        }
+
+
+        /// <summary>
+        /// Updates New User Invitation in the User object
+        /// </summary>
+        /// <param name="id"></param>
+        /// <param name="request"></param>
+        /// <returns>204 when the update is successful</returns>
+        [HttpPatch("{id:length(24)}/Invitation")]
+        [Consumes(MediaTypeNames.Application.Json)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult> UpdateInvitedUser(string id, [FromBody] UpdateInvitationRequest request)
+        {
+
+            var (landline, extension, mobile) = ContactDetailsValidationHelper.GetValidatedContactDetails(
+                                                 request.PreferredContactType,
+                                                 request.LandlineNumber,
+                                                 request.ContactNumberExtension,
+                                                 request.MobileNumber,
+                                                 ModelState
+                                             );
+
+            request.LandlineNumber = landline;
+            request.ContactNumberExtension = extension;
+            request.MobileNumber = mobile;
+
+            if (!ModelState.IsValid)
+            {
+                _logger.LogWarning("Invalid invitation data for user ID: {UserId}. Errors: {Errors}",
+                    id, string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
+                return ValidationProblem(ModelState);
+            }
+
+            try
+            {
+                var existingUser = await _userService.GetByIdAsync(id);
+                if (existingUser == null)
+                {
+                    _logger.LogWarning("User with ID {UserId} not found for invitation update.", id);
+                    return NotFound();
+                }
+
+                var newInvitation = new Invitation
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    InvitedEmail = request.EmailAddress,
+                    FirstName = request.FirstName,
+                    LastName = request.LastName,
+                    PreferredContactType = request.PreferredContactType,
+                    LandlineNumber = request.LandlineNumber,
+                    ContactNumberExtension = request.ContactNumberExtension,
+                    MobileNumber = request.MobileNumber,
+                    InvitedHnId = request.HnId,
+                    InvitedRoles = request.ContributorRoles,
+                    Status = request.Status,
+                    InvitedAt = DateTime.UtcNow
+                };
+
+                existingUser.Invitations ??= [];
+                existingUser.Invitations.Add(newInvitation);
+
+                await _userService.UpdateAsync(id, existingUser);
+                _logger.LogInformation("Invitation updated for user {UserId}. New invitation ID: {InvitationId}", id, newInvitation.Id);
+
+                await TrySendInvitationEmailAsync(newInvitation, existingUser.Id);
+                return NoContent(); // Return 204 No Content if the update was successful
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while updating heat network ID for user with ID: {UserId}", id);
+                return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while updating the heat network ID.");
+            }
+        }
+
+
+        /// <summary>
+        /// Gets list Contributor Roles from Enum class
+        /// </summary>
+        /// <returns>list Contributor Roles</returns>
+        [HttpGet("contributor-roles")]
+        [ProducesResponseType(typeof(List<EnumItemResponse>), StatusCodes.Status200OK)] // Explicitly defines success response type
+        public async Task<ActionResult> GetContributorRoles()
+        {
+            var roles = EnumHelper.GetEnumItems<ContributorRole>();
+            return Ok(roles);
         }
 
         [HttpPatch("{id:length(24)}/heatnetwork/{heatNetworkId}")]
@@ -497,6 +556,42 @@ namespace HNTAS.Core.Api.Controllers
                 _logger.LogInformation("Email sent successfully to {EmailId} for user {UserId}", user.EmailId, user.Id);
             else
                 _logger.LogWarning("Email failed to send to {EmailId} for user {UserId}", user.EmailId, user.Id);
+        }
+
+
+
+        // --- Private Helper Method ---
+        private async Task TrySendInvitationEmailAsync(Invitation invitation, string userId)
+        {
+            if (invitation == null || string.IsNullOrWhiteSpace(invitation.InvitedEmail))
+            {
+                _logger.LogInformation("Skipping email: missing Invitation or InvitedEmail for invitation {InvitationId}", invitation?.Id);
+                return;
+            }
+
+            var heatNetwork = await _hnService.GetByHnIdAsync(invitation.InvitedHnId);
+            if (heatNetwork == null)
+            {
+                _logger.LogWarning("Heat Network with ID {HeatNetworkId} not found for invitation {InvitationId}", invitation.InvitedHnId, invitation.Id);
+                return;
+            }
+
+            var fullUrl = $"{_hntasServiceSettings.BaseUrl.TrimEnd('/')}{_hntasServiceSettings.InvitationPath}?token={invitation.Id}";
+
+            var emailSent = await _emailService.SendEmailAsync(
+                invitation.InvitedEmail,
+                _notificationSettings.ContributorInvitationTemplatedId,
+                new Dictionary<string, dynamic>
+                {
+                    { "subject_name", heatNetwork.name },
+                    { "hntas-digital-service-link", fullUrl },
+                }
+            );
+
+            if (emailSent)
+                _logger.LogInformation("Email sent successfully to {EmailId} for user {UserId}", invitation.InvitedEmail, userId);
+            else
+                _logger.LogWarning("Email failed to send to {EmailId} for user {UserId}", invitation.InvitedEmail, userId);
         }
     }
 }

@@ -13,6 +13,9 @@ builder.Services.Configure<NotificationSettings>(
 builder.Services.Configure<AWSDocDbSettings>(
     builder.Configuration.GetSection("AWSDocDbSettings"));
 
+builder.Services.Configure<HntasServiceSettings>(
+    builder.Configuration.GetSection("HntasService"));
+
 // Register AutoMapper and scan for profiles
 builder.Services.AddAutoMapper(typeof(UserMappingProfile));
 

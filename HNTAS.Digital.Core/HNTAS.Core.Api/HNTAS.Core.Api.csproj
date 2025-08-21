@@ -10,6 +10,8 @@
 
   <ItemGroup>
     <Compile Remove="Controllers\PingController.cs" />
+    <Compile Remove="Controllers\TestController.cs" />
+    <Compile Remove="Controllers\WelcomeController.cs" />
   </ItemGroup>
 
   <ItemGroup>

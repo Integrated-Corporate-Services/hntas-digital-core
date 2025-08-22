@@ -13,10 +13,15 @@ builder.Services.Configure<NotificationSettings>(
 builder.Services.Configure<AWSDocDbSettings>(
     builder.Configuration.GetSection("AWSDocDbSettings"));
 
+builder.Services.Configure<HntasServiceSettings>(
+    builder.Configuration.GetSection("HntasService"));
+
 // Register AutoMapper and scan for profiles
 builder.Services.AddAutoMapper(typeof(UserMappingProfile));
 
 builder.Services.AddSingleton<IUserService, UserService>();
+builder.Services.AddSingleton<IOrganisationService, OrganisationService>();
+builder.Services.AddSingleton<IInvitationService, InvitationService>();
 builder.Services.AddSingleton<ICounterService, CounterService>();
 builder.Services.AddSingleton<IGovUkNotifyService, GovUkNotifyService>();
 builder.Services.AddSingleton<IHeatNetworkService, HeatNetworkService>();

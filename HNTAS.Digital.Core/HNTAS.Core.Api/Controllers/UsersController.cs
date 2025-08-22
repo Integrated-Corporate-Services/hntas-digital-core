@@ -4,500 +4,625 @@ using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
+using HNTAS.Core.Api.Models;
 using HNTAS.Core.Api.Models.Users;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using System.Net.Mime;
 
-namespace HNTAS.Core.Api.Controllers
+namespace HNTAS.Core.Api.Controllers;
+
+[Route("api/[controller]")]
+[ApiController]
+public class UsersController : ControllerBase
 {
-    [Route("api/[controller]")]
-    [ApiController]
-    public class UsersController : ControllerBase
+    private readonly IUserService _userService;
+    private readonly IOrganisationService _organizationService;
+    private readonly IInvitationService _invitationService;
+    private readonly IHeatNetworkService _hnService;
+    private readonly ILogger<UsersController> _logger;
+    private readonly IGovUkNotifyService _emailService;
+    private readonly ICounterService _orgCounterService;
+    private readonly NotificationSettings _notificationSettings;
+    private readonly HntasServiceSettings _hntasServiceSettings;
+    private readonly IMapper _mapper;
+
+
+    public UsersController(IUserService userService,
+                           IOrganisationService organizationService,
+                           IInvitationService invitationService,
+                           IHeatNetworkService hnService,
+                           ILogger<UsersController> logger,
+                           IGovUkNotifyService emailService,
+                           ICounterService orgCounterService,
+                           IOptions<NotificationSettings> options,
+                           IOptions<HntasServiceSettings> hntasServiceOptions,
+                           IMapper mapper)
     {
-        private readonly IUserService _userService;
-        private readonly ILogger<UsersController> _logger;
-        private readonly IGovUkNotifyService _emailService;
-        private readonly ICounterService _orgCounterService;
-        private readonly NotificationSettings _notificationSettings;
-        private readonly IMapper _mapper;
+        _userService = userService;
+        _organizationService = organizationService;
+        _invitationService = invitationService;
+        _hnService = hnService;
+        _logger = logger;
+        _emailService = emailService;
+        _orgCounterService = orgCounterService;
+        _notificationSettings = options.Value;
+        _hntasServiceSettings = hntasServiceOptions.Value;
+        _mapper = mapper;
+    }
 
-        public UsersController(IUserService userService,
-            ILogger<UsersController> logger,
-            IGovUkNotifyService emailService,
-            ICounterService orgCounterService,
-            IOptions<NotificationSettings> options,
-            IMapper mapper)
+    /// <summary>
+    /// Retrieves a list of all users.
+    /// </summary>
+    /// <returns>A list of user objects.</returns>
+    [HttpGet]
+    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<UserResponse>))]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<List<UserResponse>>> GetUsers()
+    {
+        _logger.LogInformation("Attempting to retrieve all users.");
+        try
         {
-            _userService = userService;
-            _logger = logger;
-            _emailService = emailService;
-            _orgCounterService = orgCounterService;
-            _notificationSettings = options.Value;
-            _mapper = mapper;
+            var users = await _userService.GetAsync();
+            var userResponseList = _mapper.Map<List<UserResponse>>(users);
+            _logger.LogInformation("Successfully retrieved {UserCount} users.", users.Count);
+            return Ok(userResponseList);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An error occurred while retrieving all users.");
+            return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while retrieving users.");
+        }
+    }
+
+    /// <summary>
+    /// Retrieves a list of all users.
+    /// </summary>
+    /// <returns>A list of user objects.</returns>
+    [HttpGet("user-details-by-id")]
+    [ProducesResponseType(typeof(UserDetailsResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(UserDetailsResponse))]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<UserDetailsResponse>> GetUsersDetails(string id)
+    {
+        _logger.LogInformation("Attempting to retrieve all users.");
+        try
+        {
+            var user = await _userService.GetUserWithDetailsAsync(id);
+            _logger.LogInformation("Successfully retrieved {UserCount} users.", user.Id);
+            return Ok(user);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An error occurred while retrieving all users.");
+            return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while retrieving users.");
+        }
+    }
+
+
+
+
+
+
+
+    // <summary>
+    /// Get a User by their ID
+    /// </summary>
+    /// <remarks>
+    /// Retrieves a single user profile from the database using their unique ID.
+    /// This endpoint is used to fetch the complete details of an existing user.
+    /// </remarks>
+    /// <param name="id">The unique ID (24-character hexadecimal string) of the user to retrieve.</param>
+    /// <returns>
+    /// A <see cref="StatusCodes.Status200OK"/> (OK) response with the found user object,
+    /// or a <see cref="StatusCodes.Status404NotFound"/> (Not Found) response if no user matches the provided ID.
+    /// </returns>
+    [HttpGet("{id:length(24)}", Name = "GetUserById")]
+    [ProducesResponseType(typeof(UserResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<UserResponse>> GetById(string id)
+    {
+        _logger.LogInformation("Attempting to retrieve user with ID: {Id}", id);
+        try
+        {
+            var user = await _userService.GetByIdAsync(id);
+
+            if (user == null)
+            {
+                _logger.LogWarning("User with ID {Id} not found.", id);
+                return NotFound();
+            }
+            _logger.LogInformation("Successfully retrieved user with ID: {Id}", id);
+            var userResponse = _mapper.Map<UserResponse>(user);
+            return Ok(userResponse);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error validating user ID format: {Id}", id);
+            return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while validating the user ID.");
+        }
+    }
+
+
+    /// <summary>
+    /// Get a User by their OneLogin ID
+    /// </summary>
+    /// <param name="oneLoginId"></param>
+    /// <returns></returns>
+    [HttpGet("onelogin/{oneLoginId}", Name = "GetUserByOneLoginId")]
+    [ProducesResponseType(typeof(UserResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<UserResponse>> GetUserByOneLoginId(string oneLoginId)
+    {
+        _logger.LogInformation("Attempting to retrieve user with ID: {Id}", oneLoginId);
+
+        try
+        {
+            var user = await _userService.GetByUserOneLoginIdAsync(oneLoginId);
+
+            if (user == null)
+            {
+                _logger.LogWarning("User with ID {Id} not found.", oneLoginId);
+                return NotFound();
+            }
+
+            _logger.LogInformation("Successfully retrieved user with ID: {Id}", oneLoginId);
+            var userResponse = _mapper.Map<UserResponse>(user);
+            return Ok(userResponse);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving user by OneLogin ID: {Id}", oneLoginId);
+            return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while retrieving the user.");
+        }
+    }
+
+
+    /// <summary>
+    /// Register initial user after login
+    /// </summary>
+    /// <remarks>Creates a new user entry with minimal details upon first login, setting status to pending org setup.</remarks>
+    /// <param name="registrationData">The initial user registration data (UserId, EmailId).</param>
+    /// <returns>A newly created user profile or an existing one if already registered.</returns>
+    [HttpPost("initial-entry")]
+    [Consumes(MediaTypeNames.Application.Json)]
+    [ProducesResponseType(typeof(string), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<string>> InitialRegisterUser([FromBody] InitialUserRegistrationRequest registrationData)
+    {
+        if (!ModelState.IsValid)
+        {
+            _logger.LogWarning("Invalid initial registration data for UserId: {UserId}, EmailId: {EmailId}. Errors: {Errors}",
+                registrationData.OneLoginId, registrationData.EmailId, string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
+            return ValidationProblem(ModelState);
         }
 
-        /// <summary>
-        /// Retrieves a list of all users.
-        /// </summary>
-        /// <returns>A list of user objects.</returns>
-        [HttpGet] // This defines the route as GET /api/users
-        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<UserResponse>))]
-        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<List<UserResponse>>> GetUsers()
+        try
         {
-            _logger.LogInformation("Attempting to retrieve all users.");
-            try
+            var existingUser = await _userService.GetByUserOneLoginIdAsync(registrationData.OneLoginId);
+
+            if (existingUser != null)
             {
-                var users = await _userService.GetAsync();
-
-                var usersResponse = _mapper.Map<List<UserResponse>>(users);
-
-                _logger.LogInformation("Successfully retrieved {UserCount} users.", users.Count);
-
-                return Ok(usersResponse); // Returns 200 OK with the list of users
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "An error occurred while retrieving all users.");
-                return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while retrieving users.");
-            }
-        }
-
-        // <summary>
-        /// Get a User by their ID
-        /// </summary>
-        /// <remarks>
-        /// Retrieves a single user profile from the database using their unique ID.
-        /// This endpoint is used to fetch the complete details of an existing user.
-        /// </remarks>
-        /// <param name="id">The unique ID (24-character hexadecimal string) of the user to retrieve.</param>
-        /// <returns>
-        ///   A <see cref="StatusCodes.Status200OK"/> (OK) response with the found user object,
-        ///   or a <see cref="StatusCodes.Status404NotFound"/> (Not Found) response if no user matches the provided ID.
-        /// </returns>
-        [HttpGet("{id:length(24)}", Name = "GetUserById")]
-        [ProducesResponseType(typeof(UserResponse), StatusCodes.Status200OK)] // Explicitly defines success response type
-        [ProducesResponseType(StatusCodes.Status404NotFound)] // Explicitly defines not found response
-        [ProducesResponseType(StatusCodes.Status500InternalServerError)] // Good practice to include for general errors
-        public async Task<ActionResult<UserResponse>> GetById(string id)
-        {
-            // Add logging for incoming request if desired
-            _logger.LogInformation("Attempting to retrieve user with ID: {Id}", id);
-
-            try
-            {
-                // Validate the ID format (optional, but good practice)
-                if (string.IsNullOrWhiteSpace(id) || id.Length != 24 || !System.Text.RegularExpressions.Regex.IsMatch(id, "^[0-9a-fA-F]{24}$"))
+                return Conflict(new ProblemDetails
                 {
-                    _logger.LogWarning("Invalid user ID format: {Id}", id);
-                    return BadRequest("Invalid user ID format. Must be a 24-character hexadecimal string.");
-                }
-
-                var user = await _userService.GetByIdAsync(id);
-
-                if (user == null)
-                {
-                    _logger.LogWarning("User with ID {Id} not found.", id);
-                    return NotFound();
-                }
-
-                var userResponse = _mapper.Map<UserResponse>(user);
-
-                _logger.LogInformation("Successfully retrieved user with ID: {Id}", id);
-
-                return Ok(userResponse);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error validating user ID format: {Id}", id);
-                return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while validating the user ID.");
-            }
-        }
-
-
-        /// <summary>
-        /// Get a User by their OneLogin ID
-        /// </summary>
-        /// <param name="oneLoginId"></param>
-        /// <returns></returns>
-        [HttpGet("onelogin/{oneLoginId}", Name = "GetUserByOneLoginId")]
-        [ProducesResponseType(typeof(UserResponse), StatusCodes.Status200OK)] // Explicitly defines success response type
-        [ProducesResponseType(StatusCodes.Status404NotFound)] // Explicitly defines not found response
-        [ProducesResponseType(StatusCodes.Status500InternalServerError)] // Good practice to include for general errors
-        public async Task<ActionResult<UserResponse>> GetUserByOneLoginId(string oneLoginId)
-        {
-            // Add logging for incoming request if desired
-            _logger.LogInformation("Attempting to retrieve user with ID: {Id}", oneLoginId);
-
-            try
-            {
-                var user = await _userService.GetByUserOneLoginIdAsync(oneLoginId);
-
-                if (user == null)
-                {
-                    _logger.LogWarning("User with ID {Id} not found.", oneLoginId);
-                    return NotFound();
-                }
-
-                _logger.LogInformation("Successfully retrieved user with ID: {Id}", oneLoginId);
-
-                var userResponse = _mapper.Map<UserResponse>(user);
-
-                return Ok(userResponse);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error retrieving user by OneLogin ID: {Id}", oneLoginId);
-                return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while retrieving the user.");
-            }
-        }
-
-
-        /// <summary>
-        /// Register initial user after login
-        /// </summary>
-        /// <remarks>Creates a new user entry with minimal details upon first login, setting status to pending org setup.</remarks>
-        /// <param name="registrationData">The initial user registration data (UserId, EmailId).</param>
-        /// <returns>A newly created user profile or an existing one if already registered.</returns>
-        [HttpPost("initial-entry")]
-        [Consumes(MediaTypeNames.Application.Json)]
-        [ProducesResponseType(typeof(string), StatusCodes.Status201Created)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(StatusCodes.Status409Conflict)]
-        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<string>> InitialRegisterUser([FromBody] InitialUserRegistrationRequest registrationData)
-        {
-            if (!ModelState.IsValid)
-            {
-                _logger.LogWarning("Invalid initial registration data for UserId: {UserId}, EmailId: {EmailId}. Errors: {Errors}",
-                    registrationData.OneLoginId, registrationData.EmailId, string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
-                return ValidationProblem(ModelState);
-            }
-
-            try
-            {
-                var existingUser = await _userService.GetByUserOneLoginIdAsync(registrationData.OneLoginId);
-
-                if (existingUser != null)
-                {
-                    return Conflict(new ProblemDetails
-                    {
-                        Status = StatusCodes.Status409Conflict,
-                        Title = "User Already Exists",
-                        Detail = $"A user with the provided UserId ({registrationData.OneLoginId}) already exists."
-                    });
-                }
-
-                var newUser = new User
-                {
-                    OneLoginId = registrationData.OneLoginId,
-                    EmailId = registrationData.EmailId,
-                    Status = registrationData.Status
-                };
-
-                await _userService.CreateAsync(newUser);
-
-                _logger.LogInformation("New user initially registered: {UserId} (DB Id: {Id})", newUser.OneLoginId, newUser.Id);
-
-                return StatusCode(StatusCodes.Status201Created, newUser.Id);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Unexpected error during initial user registration for UserId: {UserId}, EmailId: {EmailId}", registrationData.OneLoginId, registrationData.EmailId);
-                return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
-                {
-                    Status = StatusCodes.Status500InternalServerError,
-                    Title = "Internal Server Error",
-                    Detail = "An unexpected error occurred during initial user registration."
+                    Status = StatusCodes.Status409Conflict,
+                    Title = "User Already Exists",
+                    Detail = $"A user with the provided UserId ({registrationData.OneLoginId}) already exists."
                 });
             }
+
+            var newUser = new User
+            {
+                OneLoginId = registrationData.OneLoginId,
+                EmailId = registrationData.EmailId,
+                Status = registrationData.Status
+            };
+
+            await _userService.CreateAsync(newUser);
+
+            _logger.LogInformation("New user initially registered: {UserId} (DB Id: {Id})", newUser.OneLoginId, newUser.Id);
+
+            return StatusCode(StatusCodes.Status201Created, newUser.Id);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error during initial user registration for UserId: {UserId}, EmailId: {EmailId}", registrationData.OneLoginId, registrationData.EmailId);
+            return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
+            {
+                Status = StatusCodes.Status500InternalServerError,
+                Title = "Internal Server Error",
+                Detail = "An unexpected error occurred during initial user registration."
+            });
+        }
+    }
+
+    /// <summary>
+    /// Update Organisation Details for a User
+    /// </summary>
+    [HttpPatch("{id:length(24)}/org-details")]
+    [Consumes(MediaTypeNames.Application.Json)]
+    [ProducesResponseType(typeof(User), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<User>> UpdateOrgDetails(string id, [FromBody] UpdateUserOrganisationRequest request)
+    {
+        // Contact details validation logic remains the same
+        var (landline, extension, mobile) = ContactDetailsValidationHelper.GetValidatedContactDetails(
+            request.PreferredContactType,
+            request.LandlineNumber,
+            request.ContactNumberExtension,
+            request.MobileNumber,
+            ModelState
+        );
+
+        request.LandlineNumber = landline;
+        request.ContactNumberExtension = extension;
+        request.MobileNumber = mobile;
+
+        if (!ModelState.IsValid)
+        {
+            _logger.LogWarning("Invalid organisation details update data for user ID: {UserId}. Errors: {Errors}",
+                id, string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
+            return ValidationProblem(ModelState);
         }
 
-        /// <summary>
-        /// Update Organisation Details for a User
-        /// </summary>
-        /// <remarks>Updates specific Organisation details for an existing user and generates an OrgId if not already set.
-        /// Changes user status to 'Active' upon successful update. Returns the fully updated user object.</remarks>
-        /// <param name="id">The  ID of the user to update.</param>
-        /// <param name="request">The Organisation details to update.</param>
-        /// <returns>The fully updated user object if successful.</returns>
-        [HttpPatch("{id:length(24)}/org-details")]
-        [Consumes(MediaTypeNames.Application.Json)]
-        [ProducesResponseType(typeof(User), StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<User>> UpdateOrgDetails(string id, [FromBody] UpdateOrgDetailsAndRolesRequest request)
+        try
         {
-            if (!ModelState.IsValid)
-            {
-                _logger.LogWarning("Invalid organisation details update data for user ID: {UserId}. Errors: {Errors}",
-                    id, string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
-                return ValidationProblem(ModelState);
-            }
-
             var existingUser = await _userService.GetByIdAsync(id);
-
             if (existingUser == null)
             {
                 _logger.LogWarning("User with ID {UserId} not found for organisation details update.", id);
                 return NotFound();
             }
 
-            try
+            // Create a new Organization document using the data from the request
+            var newOrg = new Organisation
             {
-                if (existingUser.OrgDetails == null)
-                {
-                    existingUser.OrgDetails = new OrgDetails();
-                }
+                OrgId = $"ORG{await _orgCounterService.GetNextSequenceValue("orgId_sequence"):D7}",
+                Type = request.Organisation.Type,
+                CompaniesHouseNumber = request.Organisation.CompaniesHouseNumber,
+                Name = request.Organisation.Name,
+                RegisteredAddress = _mapper.Map<RegisteredAddress>(request.Organisation.RegisteredAddress)
+            };
 
-                // Map properties from orgDetailsAndRolesRequest payload#
-                existingUser.OrgDetails.OrgType = request.OrgDetails.OrgType;
-                existingUser.OrgDetails.CompaniesHouseNumber = request.OrgDetails.CompaniesHouseNumber;
-                existingUser.OrgDetails.OrgName = request.OrgDetails.OrgName;
-                existingUser.OrgDetails.OrgRegisteredAddress = request.OrgDetails.OrgRegisteredAddress;
+            await _organizationService.CreateAsync(newOrg); // Save the new organization to its collection
 
-                //Rp contact details
-                existingUser.OrgDetails.PreferredContactType = request.OrgDetails.PreferredContactType;
-                existingUser.OrgDetails.LandlineNumber = request.OrgDetails.LandlineNumber;
-                existingUser.OrgDetails.ContactNumberExtension = request.OrgDetails.ContactNumberExtension;
-                existingUser.OrgDetails.MobileNumber = request.OrgDetails.MobileNumber;
-                existingUser.OrgDetails.JobTitle = request.OrgDetails.JobTitle;
-                existingUser.OrgDetails.FirstName = request.OrgDetails.FirstName;
-                existingUser.OrgDetails.LastName = request.OrgDetails.LastName;
+            // Update the existing User document to link to the new Organization
+            existingUser.OrgId = newOrg.OrgId;
+            existingUser.FirstName = request.FirstName;
+            existingUser.LastName = request.LastName;
+            existingUser.JobTitle = request.JobTitle;
+            existingUser.PreferredContactType = request.PreferredContactType;
+            existingUser.LandlineNumber = request.LandlineNumber;
+            existingUser.MobileNumber = request.MobileNumber;
+            existingUser.Status = UserStatus.Active; // Set status as active here
 
-                if (existingUser.Roles == null)
-                {
-                    existingUser.Roles = new List<UserRole>() { request.Role };
-                }
-                else if (!existingUser.Roles.Contains(request.Role))
-                {
-                    existingUser.Roles.Add(request.Role);
-                }
-
-
-                switch (request.OrgDetails.PreferredContactType) // Use orgDetailsAndRolesRequest for validation logic
-                {
-                    case PreferredContactType.Landline:
-                        // If Landline is preferred, MobileNumber should be nullified and its validation removed
-                        existingUser.OrgDetails.MobileNumber = null; // Update the object that will be saved
-                        ModelState.Remove(nameof(request.OrgDetails.MobileNumber)); // Remove any existing errors for MobileNumber
-
-                        if (string.IsNullOrWhiteSpace(request.OrgDetails.LandlineNumber))
-                        {
-                            ModelState.AddModelError(nameof(request.OrgDetails.LandlineNumber), "Enter your landline number.");
-                        }
-                        break;
-                    case PreferredContactType.Mobile:
-                        // If Mobile is preferred, LandlineNumber and Extension should be nullified and their validation removed
-                        existingUser.OrgDetails.LandlineNumber = null;
-                        existingUser.OrgDetails.ContactNumberExtension = null;
-                        ModelState.Remove(nameof(request.OrgDetails.LandlineNumber));
-                        ModelState.Remove(nameof(request.OrgDetails.ContactNumberExtension));
-
-                        if (string.IsNullOrWhiteSpace(request.OrgDetails.MobileNumber))
-                        {
-                            ModelState.AddModelError(nameof(request.OrgDetails.MobileNumber), "Enter your mobile number.");
-                        }
-                        break;
-                    default:
-                        // If other or no preference, clear all numbers and remove their validation
-                        existingUser.OrgDetails.LandlineNumber = null;
-                        existingUser.OrgDetails.ContactNumberExtension = null;
-                        existingUser.OrgDetails.MobileNumber = null;
-                        ModelState.Remove(nameof(request.OrgDetails.LandlineNumber));
-                        ModelState.Remove(nameof(request.OrgDetails.ContactNumberExtension));
-                        ModelState.Remove(nameof(request.OrgDetails.MobileNumber));
-                        break;
-                }
-
-                if (!ModelState.IsValid)
-                {
-                    _logger.LogWarning("Conditional validation failed for org details update for user ID: {UserId}. Errors: {Errors}",
-                        id, string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
-                    return ValidationProblem(ModelState);
-                }
-
-                // Generate OrgId if it's not already set or is 0
-                if (string.IsNullOrWhiteSpace(existingUser.OrgDetails.OrgId))
-                {
-                    long nextSequence = await _orgCounterService.GetNextSequenceValue("orgId_sequence");
-                    existingUser.OrgDetails.OrgId = $"ORG{nextSequence:D7}";
-                }
-
-
-                await _userService.UpdateAsync(id, existingUser);
-
-                _logger.LogInformation("Organisation details and status updated for user {UserId}. Generated OrgId: {OrgId}", id, existingUser.OrgDetails.OrgId);
-
-                await TrySendOrgCreatedEmailAsync(existingUser);
-
-                return Ok(existingUser);
-            }
-            catch (Exception ex)
+            if (existingUser.Roles == null)
             {
-                _logger.LogError(ex, "Error updating organisation details for user {UserId}", id);
-                return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
-                {
-                    Status = StatusCodes.Status500InternalServerError,
-                    Title = "Internal Server Error",
-                    Detail = "An unexpected error occurred while updating Organisation details."
-                });
+                existingUser.Roles = new List<UserRole>() { request.Role };
             }
+            else if (!existingUser.Roles.Contains(request.Role))
+            {
+                existingUser.Roles.Add(request.Role);
+            }
+
+            await _userService.UpdateAsync(id, existingUser);
+
+            _logger.LogInformation("Organisation details and status updated for user {UserId}. Generated OrgId: {OrgId}", id, newOrg.Id);
+
+            await TrySendOrgCreatedEmailAsync(existingUser, newOrg); // Pass the new Org document
+
+            return Ok(existingUser);
         }
-
-        [HttpPatch("{id:length(24)}/heatnetwork/{heatNetworkId}")]
-        [Consumes(MediaTypeNames.Application.Json)]
-        [ProducesResponseType(StatusCodes.Status204NoContent)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult> UpdateHeatNetworkId(string id, [FromRoute] string heatNetworkId)
+        catch (Exception ex)
         {
-            try
+            _logger.LogError(ex, "Error updating organisation details for user {UserId}", id);
+            return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
             {
-                var existingUser = await _userService.GetByIdAsync(id);
-
-                if (existingUser == null)
-                {
-                    _logger.LogWarning("User with ID {UserId} not found for heat network ID update.", id);
-                    return NotFound();
-                }
-
-
-                if (existingUser.HnIds == null)
-                {
-                    existingUser.HnIds = new List<string>() { heatNetworkId };
-                }
-                else if (!existingUser.HnIds.Contains(heatNetworkId))
-                {
-                    existingUser.HnIds.Add(heatNetworkId);
-                }
-
-                await _userService.UpdateAsync(id, existingUser);
-
-                return NoContent(); // Return 204 No Content if the update was successful
-
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "An error occurred while updating heat network ID for user with ID: {UserId}", id);
-                return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while updating the heat network ID.");
-            }
-        }
-
-
-        /// <summary>
-        /// Deletes a user by their ID.
-        /// </summary>
-        /// <param name="id">The ID of the user to delete.</param>
-        /// <returns>
-        /// A 204 No Content response if the user was successfully deleted.
-        /// A 404 Not Found response if the user with the specified ID does not exist.
-        /// A 500 Internal Server Error for unexpected issues.
-        /// </returns>
-        [HttpDelete("{id}")] // This defines the route as DELETE /api/users/{id}
-        [ProducesResponseType(StatusCodes.Status204NoContent)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> DeleteUser(string id)
-        {
-            _logger.LogInformation("Attempting to delete user with ID: {UserId}", id);
-
-            // First, optionally check if the user exists before attempting to delete.
-            // This is good practice to return a 404 rather than just a 200/204 on non-existent delete.
-            var existingUser = await _userService.GetByIdAsync(id); // Assuming you have a GetByIdAsync
-            if (existingUser == null)
-            {
-                _logger.LogWarning("Delete request for user ID: {UserId} failed. User not found.", id);
-                return NotFound(); // Return 404 Not Found
-            }
-
-            try
-            {
-                // Changed to RemoveAsync and no longer checking a boolean return value
-                await _userService.RemoveAsync(id);
-
-                _logger.LogInformation("User with ID: {UserId} successfully removed.", id);
-                return NoContent(); // Return 204 No Content
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "An error occurred while deleting user with ID: {UserId}", id);
-                return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while deleting the user.");
-            }
-        }
-
-
-        /// <summary>
-        /// Checks if an organization with the Companies House Number any registered users.
-        /// </summary>
-        /// <param name="companiesHouseNumber">The Companies House Number to check.</param>
-        /// <returns>True if at least one user is found for the organization, otherwise false.</returns>
-        [HttpGet("organisation/exists")]
-        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(bool))]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<bool>> CheckOrganisationExistence(
-            [FromQuery] string? companiesHouseNumber)
-        {
-            // Validate that at least one parameter is provided
-            if (string.IsNullOrWhiteSpace(companiesHouseNumber))
-            {
-                _logger.LogWarning("Invalid request: 'companiesHouseNumber' query parameter is required.");
-                return BadRequest("'companiesHouseNumber' must be provided.");
-            }
-
-            _logger.LogInformation("Checking if organisation with Companies House Number '{CompaniesHouseNumber}' has registered users.", companiesHouseNumber);
-
-            try
-            {
-                bool exists = await _userService.IsOrganisationExists(companiesHouseNumber);
-
-                _logger.LogInformation("Organisation exists: {Exists}", exists);
-
-                return Ok(exists);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "An error occurred while checking organisation existence.");
-                return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred.");
-            }
-        }
-
-        // --- Private Helper Method ---
-        private async Task TrySendOrgCreatedEmailAsync(User user)
-        {
-            if (user?.OrgDetails == null || string.IsNullOrWhiteSpace(user.EmailId) || string.IsNullOrWhiteSpace(user.OrgDetails.OrgId))
-            {
-                _logger.LogInformation("Skipping email: missing User, OrgDetails, EmailId, or OrgId for user {UserId}", user?.Id);
-                return;
-            }
-
-            string orgName = user.OrgDetails.OrgName;
-            string firstName = StringFormatter.ToTitleCaseSingleWord(user.OrgDetails.FirstName ?? "");
-            string lastName = StringFormatter.ToTitleCaseSingleWord(user.OrgDetails.LastName ?? "");
-            string fullName = $"{firstName} {lastName}".Trim();
-
-            string formattedAddress = StringFormatter.FormatAddress(user.OrgDetails.OrgRegisteredAddress);
-
-            var emailSent = await _emailService.SendEmailAsync(
-                user.EmailId,
-                _notificationSettings.OrgCreatedEmailTemplateId,
-                new Dictionary<string, dynamic>
-                {
-                    { "orgName", orgName },
-                    { "orgId", user.OrgDetails.OrgId },
-                    { "fullName", fullName },
-                    { "address", formattedAddress }
-                }
-            );
-
-            if (emailSent)
-                _logger.LogInformation("Email sent successfully to {EmailId} for user {UserId}", user.EmailId, user.Id);
-            else
-                _logger.LogWarning("Email failed to send to {EmailId} for user {UserId}", user.EmailId, user.Id);
+                Status = StatusCodes.Status500InternalServerError,
+                Title = "Internal Server Error",
+                Detail = "An unexpected error occurred while updating Organisation details."
+            });
         }
     }
-}
 
+
+    /// <summary>
+    /// Updates New User Invitation in the User object
+    /// </summary>
+    /// <param name="id"></param>
+    /// <param name="request"></param>
+    /// <returns>204 when the update is successful</returns>
+    [HttpPatch("{id:length(24)}/Invitation")]
+    [Consumes(MediaTypeNames.Application.Json)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult> UpdateInvitedUser(string id, [FromBody] UpdateInvitationRequest request)
+    {
+        // Validation logic for contact details remains the same
+        var (landline, extension, mobile) = ContactDetailsValidationHelper.GetValidatedContactDetails(
+            request.PreferredContactType,
+            request.LandlineNumber,
+            request.ContactNumberExtension,
+            request.MobileNumber,
+            ModelState
+        );
+
+        request.LandlineNumber = landline;
+        request.ContactNumberExtension = extension;
+        request.MobileNumber = mobile;
+
+        if (!ModelState.IsValid)
+        {
+            _logger.LogWarning("Invalid invitation data for user ID: {UserId}. Errors: {Errors}",
+                id, string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
+            return ValidationProblem(ModelState);
+        }
+
+        try
+        {
+            var existingUser = await _userService.GetByIdAsync(id);
+            if (existingUser == null)
+            {
+                _logger.LogWarning("User with ID {UserId} not found for invitation update.", id);
+                return NotFound();
+            }
+
+            // Create a new Invitation document and save it to the new collection
+            var newInvitation = new Invitation
+            {
+                Id = Guid.NewGuid().ToString(),
+                FirstName = request.FirstName,
+                LastName = request.LastName,
+                PreferredContactType = request.PreferredContactType,
+                LandlineNumber = request.LandlineNumber,
+                MobileNumber = request.MobileNumber,
+                InviterUserId = existingUser.Id, // Link to the user who sent the invite
+                InvitedEmail = request.EmailAddress,
+                InvitedHnId = request.HnId,
+                InvitedRoles = request.ContributorRoles,
+                Status = InvitationStatus.Invited, // Status should be 'Invited' for a new invitation
+                InvitedAt = DateTime.UtcNow
+            };
+
+            await _invitationService.CreateAsync(newInvitation); // Save the invitation to its collection
+
+            _logger.LogInformation("Invitation sent by user {UserId}. New invitation ID: {InvitationId}", id, newInvitation.Id);
+
+            // Send invitation email
+            await TrySendInvitationEmailAsync(newInvitation, existingUser.Id);
+
+            return NoContent(); // Return 204 No Content if the update was successful
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An error occurred while creating an invitation for user with ID: {UserId}", id);
+            return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while creating the invitation.");
+        }
+    }
+
+
+    /// <summary>
+    /// Gets list Contributor Roles from Enum class
+    /// </summary>
+    /// <returns>list Contributor Roles</returns>
+    [HttpGet("contributor-roles")]
+    [ProducesResponseType(typeof(List<EnumItemResponse>), StatusCodes.Status200OK)]
+    public async Task<ActionResult> GetContributorRoles()
+    {
+        var roles = EnumHelper.GetEnumItems<ContributorRole>();
+        return Ok(roles);
+    }
+
+    // Remaining methods (UpdateHeatNetworkId, DeleteUser, CheckOrganisationExistence) are unchanged as they don't involve the nested documents that were moved.
+
+    [HttpPatch("{id:length(24)}/heatnetwork/{heatNetworkId}")]
+    [Consumes(MediaTypeNames.Application.Json)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult> UpdateHeatNetworkId(string id, [FromRoute] string heatNetworkId)
+    {
+        try
+        {
+            var existingUser = await _userService.GetByIdAsync(id);
+            if (existingUser == null)
+            {
+                _logger.LogWarning("User with ID {UserId} not found for heat network ID update.", id);
+                return NotFound();
+            }
+
+            if (existingUser.HnIds == null)
+            {
+                existingUser.HnIds = new List<string>() { heatNetworkId };
+            }
+            else if (!existingUser.HnIds.Contains(heatNetworkId))
+            {
+                existingUser.HnIds.Add(heatNetworkId);
+            }
+
+            await _userService.UpdateAsync(id, existingUser);
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An error occurred while updating heat network ID for user with ID: {UserId}", id);
+            return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while updating the heat network ID.");
+        }
+    }
+
+
+    [HttpDelete("{id}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> DeleteUser(string id)
+    {
+        _logger.LogInformation("Attempting to delete user with ID: {UserId}", id);
+        var existingUser = await _userService.GetByIdAsync(id);
+        if (existingUser == null)
+        {
+            _logger.LogWarning("Delete request for user ID: {UserId} failed. User not found.", id);
+            return NotFound();
+        }
+
+        try
+        {
+            await _userService.RemoveAsync(id);
+            _logger.LogInformation("User with ID: {UserId} successfully removed.", id);
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An error occurred while deleting user with ID: {UserId}", id);
+            return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while deleting the user.");
+        }
+    }
+
+
+    [HttpGet("organisation/exists")]
+    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(bool))]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<bool>> CheckOrganisationExistence(
+        [FromQuery] string? companiesHouseNumber)
+    {
+        if (string.IsNullOrWhiteSpace(companiesHouseNumber))
+        {
+            _logger.LogWarning("Invalid request: 'companiesHouseNumber' query parameter is required.");
+            return BadRequest("'companiesHouseNumber' must be provided.");
+        }
+
+        _logger.LogInformation("Checking if organisation with Companies House Number '{CompaniesHouseNumber}' has registered users.", companiesHouseNumber);
+
+        try
+        {
+            bool exists = await _organizationService.IsOrganizationExists(companiesHouseNumber);
+            _logger.LogInformation("Organisation exists: {Exists}", exists);
+            return Ok(exists);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An error occurred while checking organisation existence.");
+            return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred.");
+        }
+    }
+
+    [HttpGet("managed-users")]
+    [ProducesResponseType(typeof(ManagedUserResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [Produces("application/json")]
+    public async Task<ActionResult<ManagedUserResponse>> GetManagedUsersAsync(string userId)
+    {
+        var user = await _userService.GetByIdAsync(userId);
+        if (user == null)
+        {
+            _logger.LogWarning("User with ID {UserId} not found.", userId);
+            return null;
+        }
+
+        _logger.LogInformation("Successfully retrieved managed users for user ID: {UserId}", userId);
+
+        var managedUser = new ManagedUserResponse
+        {
+            ResponsibleUser = _mapper.Map<UserResponse>(user)
+        };
+
+        var invitations = await _invitationService.GetByInvitedUserIdAsync(user.Id);
+        var invitedEmails = invitations.Select(i => i.InvitedEmail).Distinct().ToList();
+        var registeredUsers = await _userService.GetRegisteredUsers(invitedEmails);
+
+        if (registeredUsers != null || registeredUsers.Any())
+        {
+            // Exclude the responsible user from the registered users list
+            registeredUsers = registeredUsers.Where(ru => ru.EmailId != user.EmailId).ToList();
+            managedUser.RegisteredUsers = _mapper.Map<List<UserResponse>>(registeredUsers);
+        }
+
+        var invitedUsers = invitations
+                   .Where(i => !registeredUsers.Any(u => u.EmailId == i.InvitedEmail)).ToList();
+
+
+        if (invitedUsers != null || invitedUsers.Count != 0)
+        {
+            managedUser.InvitedUsers = _mapper.Map<List<InvitedUserResponse>>(invitedUsers);
+        }
+
+        _logger.LogInformation("Managed users retrieved successfully for user ID: {UserId}", userId);
+        return Ok(managedUser);
+    }
+
+    // --- Private Helper Method ---
+    private async Task TrySendOrgCreatedEmailAsync(User user, Organisation organization)
+    {
+        if (user == null || string.IsNullOrWhiteSpace(user.EmailId) || string.IsNullOrWhiteSpace(user.OrgId) || organization == null)
+        {
+            _logger.LogInformation("Skipping email: missing User, Organization, EmailId, or OrgId for user {UserId}", user?.Id);
+            return;
+        }
+
+        string orgName = organization.Name;
+        string firstName = StringFormatter.ToTitleCaseSingleWord(user.FirstName ?? "");
+        string lastName = StringFormatter.ToTitleCaseSingleWord(user.LastName ?? "");
+        string fullName = $"{firstName} {lastName}".Trim();
+        string formattedAddress = StringFormatter.FormatAddress(organization.RegisteredAddress);
+
+        var emailSent = await _emailService.SendEmailAsync(
+            user.EmailId,
+            _notificationSettings.OrgCreatedEmailTemplateId,
+            new Dictionary<string, dynamic>
+            {
+                { "orgName", orgName },
+                { "orgId", user.OrgId },
+                { "fullName", fullName },
+                { "address", formattedAddress }
+            }
+        );
+
+        if (emailSent)
+            _logger.LogInformation("Email sent successfully to {EmailId} for user {UserId}", user.EmailId, user.Id);
+        else
+            _logger.LogWarning("Email failed to send to {EmailId} for user {UserId}", user.EmailId, user.Id);
+    }
+
+
+    // --- Private Helper Method ---
+    private async Task TrySendInvitationEmailAsync(Invitation invitation, string userId)
+    {
+        if (invitation == null || string.IsNullOrWhiteSpace(invitation.InvitedEmail))
+        {
+            _logger.LogInformation("Skipping email: missing Invitation or InvitedEmail for invitation {InvitationId}", invitation?.Id);
+            return;
+        }
+
+        var heatNetwork = await _hnService.GetByHnIdAsync(invitation.InvitedHnId);
+        if (heatNetwork == null)
+        {
+            _logger.LogWarning("Heat Network with ID {HeatNetworkId} not found for invitation {InvitationId}", invitation.InvitedHnId, invitation.Id);
+            return;
+        }
+
+        var fullUrl = $"{_hntasServiceSettings.BaseUrl.TrimEnd('/')}{_hntasServiceSettings.InvitationPath}?token={invitation.Id}";
+
+        var emailSent = await _emailService.SendEmailAsync(
+            invitation.InvitedEmail,
+            _notificationSettings.ContributorInvitationTemplatedId,
+            new Dictionary<string, dynamic>
+            {
+                { "subject_name", heatNetwork.Name },
+                { "hntas-digital-service-link", fullUrl },
+            }
+        );
+
+        if (emailSent)
+            _logger.LogInformation("Email sent successfully to {EmailId} for user {UserId}", invitation.InvitedEmail, userId);
+        else
+            _logger.LogWarning("Email failed to send to {EmailId} for user {UserId}", invitation.InvitedEmail, userId);
+    }
+}

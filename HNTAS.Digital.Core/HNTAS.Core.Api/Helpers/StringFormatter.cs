@@ -14,7 +14,7 @@ namespace HNTAS.Core.Api.Helpers
             return char.ToUpper(input[0]) + input.Substring(1).ToLower();
         }
 
-        public static string FormatAddress(OrgRegisteredAddress? address)
+        public static string FormatAddress(RegisteredAddress? address)
         {
             if (address == null)
             {

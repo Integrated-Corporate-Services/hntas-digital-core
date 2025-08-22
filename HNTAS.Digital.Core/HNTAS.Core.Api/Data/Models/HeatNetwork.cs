@@ -9,13 +9,13 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonRepresentation(BsonType.ObjectId)]
         public string? Id { get; set; }
 
-        [BsonElement("hn_id")]
-        public string? hn_id { get; set; }
+        [BsonElement("hnId")]
+        public string? HnId { get; set; }
 
         [BsonElement("location")]
-        public string location { get; set; }
+        public string Location { get; set; }
 
         [BsonElement("name")]
-        public string name { get; set; }
+        public string Name { get; set; }
     }
 }

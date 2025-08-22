@@ -39,12 +39,12 @@ namespace HNTAS.Core.Api.Services
 
         public async Task<HeatNetwork> GetByHnIdAsync(string hnId)
         {
-            return await _hnCollection.Find(hn => hn.hn_id == hnId).FirstOrDefaultAsync();
+            return await _hnCollection.Find(hn => hn.HnId == hnId).FirstOrDefaultAsync();
         }
 
         public async Task<List<HeatNetwork>> GetByHnIdsAsync(List<string> hnIds)
         {
-            var filter = Builders<HeatNetwork>.Filter.In(hn => hn.hn_id, hnIds);
+            var filter = Builders<HeatNetwork>.Filter.In(hn => hn.HnId, hnIds);
             return await _hnCollection.Find(filter).ToListAsync();
         }
     }

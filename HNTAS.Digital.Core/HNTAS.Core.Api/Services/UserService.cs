@@ -12,8 +12,6 @@ namespace HNTAS.Core.Api.Services
     public class UserService : IUserService
     {
         private readonly IMongoCollection<User> _usersCollection;
-        private readonly IMongoCollection<Organisation> _organisationsCollection;
-        private readonly IMongoCollection<HeatNetwork> _heatNetworksCollection;
         private readonly ILogger<UserService> _logger;
 
         public UserService(IOptions<AWSDocDbSettings> dbSettings, ILogger<UserService> logger)
@@ -32,8 +30,6 @@ namespace HNTAS.Core.Api.Services
             var mongoDatabase = mongoClient.GetDatabase(dbSettings.Value.DatabaseName);
 
             _usersCollection = mongoDatabase.GetCollection<User>(dbSettings.Value.UsersCollectionName);
-            _organisationsCollection = mongoDatabase.GetCollection<Organisation>("organisations");
-            _heatNetworksCollection = mongoDatabase.GetCollection<HeatNetwork>("heatNetworks");
         }
 
         public async Task<List<User>> GetAsync() =>
@@ -55,7 +51,7 @@ namespace HNTAS.Core.Api.Services
             await _usersCollection.DeleteOneAsync(u => u.Id == id);
 
         public async Task<List<User>> GetRegisteredUsers(List<string> invitedEmails) =>
-                await _usersCollection.Find(u => invitedEmails.Contains(u.EmailId)).ToListAsync();
+             await _usersCollection.Find(u => invitedEmails.Contains(u.EmailId)).ToListAsync();
 
         public async Task<UserDetailsResponse> GetUserWithDetailsAsync(string userId)
         {

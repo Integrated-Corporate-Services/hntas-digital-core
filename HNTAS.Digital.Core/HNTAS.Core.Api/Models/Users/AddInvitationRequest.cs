@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace HNTAS.Core.Api.Models.Users
 {
-    public class UpdateInvitationRequest
+    public class AddInvitationRequest
     {
         [Required(ErrorMessage = "EmailAddress is required.")]
         [EmailAddress(ErrorMessage = "Enter a valid email address.")]
@@ -38,6 +38,5 @@ namespace HNTAS.Core.Api.Models.Users
 
         [Required(ErrorMessage = "Status is required.")]
         public InvitationStatus Status { get; set; }
-
     }
 }

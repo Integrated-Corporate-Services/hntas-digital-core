@@ -1,5 +1,4 @@
 ﻿using AutoMapper;
-using HNTAS.Core.Api.Configuration;
 using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Helpers;
@@ -7,7 +6,6 @@ using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
 using HNTAS.Core.Api.Models.Users;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
 using System.Net.Mime;
 
 namespace HNTAS.Core.Api.Controllers;
@@ -19,35 +17,26 @@ public class UsersController : ControllerBase
     private readonly IUserService _userService;
     private readonly IOrganisationService _organizationService;
     private readonly IInvitationService _invitationService;
-    private readonly IHeatNetworkService _hnService;
     private readonly ILogger<UsersController> _logger;
-    private readonly IGovUkNotifyService _emailService;
     private readonly ICounterService _orgCounterService;
-    private readonly NotificationSettings _notificationSettings;
-    private readonly HntasServiceSettings _hntasServiceSettings;
     private readonly IMapper _mapper;
+    private readonly IEmailService _emailService;
 
 
     public UsersController(IUserService userService,
                            IOrganisationService organizationService,
                            IInvitationService invitationService,
-                           IHeatNetworkService hnService,
                            ILogger<UsersController> logger,
-                           IGovUkNotifyService emailService,
                            ICounterService orgCounterService,
-                           IOptions<NotificationSettings> options,
-                           IOptions<HntasServiceSettings> hntasServiceOptions,
-                           IMapper mapper)
+                           IMapper mapper,
+                           IEmailService emailService)
     {
         _userService = userService;
         _organizationService = organizationService;
         _invitationService = invitationService;
-        _hnService = hnService;
         _logger = logger;
         _emailService = emailService;
         _orgCounterService = orgCounterService;
-        _notificationSettings = options.Value;
-        _hntasServiceSettings = hntasServiceOptions.Value;
         _mapper = mapper;
     }
 
@@ -98,11 +87,6 @@ public class UsersController : ControllerBase
             return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while retrieving users.");
         }
     }
-
-
-
-
-
 
 
     // <summary>
@@ -300,6 +284,7 @@ public class UsersController : ControllerBase
             existingUser.PreferredContactType = request.PreferredContactType;
             existingUser.LandlineNumber = request.LandlineNumber;
             existingUser.MobileNumber = request.MobileNumber;
+            existingUser.ContactNumberExtension = request.ContactNumberExtension;
             existingUser.Status = UserStatus.Active; // Set status as active here
 
             if (existingUser.Roles == null)
@@ -315,7 +300,7 @@ public class UsersController : ControllerBase
 
             _logger.LogInformation("Organisation details and status updated for user {UserId}. Generated OrgId: {OrgId}", id, newOrg.Id);
 
-            await TrySendOrgCreatedEmailAsync(existingUser, newOrg); // Pass the new Org document
+            await _emailService.TrySendOrgCreatedEmailAsync(existingUser, newOrg); // Pass the new Org document
 
             return Ok(existingUser);
         }
@@ -331,79 +316,97 @@ public class UsersController : ControllerBase
         }
     }
 
-
-    /// <summary>
-    /// Updates New User Invitation in the User object
-    /// </summary>
-    /// <param name="id"></param>
-    /// <param name="request"></param>
-    /// <returns>204 when the update is successful</returns>
-    [HttpPatch("{id:length(24)}/Invitation")]
+    [HttpPatch("accept-invitation")]
     [Consumes(MediaTypeNames.Application.Json)]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(string), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    public async Task<ActionResult> UpdateInvitedUser(string id, [FromBody] UpdateInvitationRequest request)
+    public async Task<ActionResult> AcceptInvitationAsync(InvitedUserRequest request)
     {
-        // Validation logic for contact details remains the same
-        var (landline, extension, mobile) = ContactDetailsValidationHelper.GetValidatedContactDetails(
-            request.PreferredContactType,
-            request.LandlineNumber,
-            request.ContactNumberExtension,
-            request.MobileNumber,
-            ModelState
-        );
-
-        request.LandlineNumber = landline;
-        request.ContactNumberExtension = extension;
-        request.MobileNumber = mobile;
-
         if (!ModelState.IsValid)
         {
-            _logger.LogWarning("Invalid invitation data for user ID: {UserId}. Errors: {Errors}",
-                id, string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
+            var errors = string.Join("; ", ModelState.Values
+                .SelectMany(v => v.Errors)
+                .Select(e => e.ErrorMessage));
+
+            _logger.LogWarning("Invalid invited user data. Errors: {Errors}", errors);
             return ValidationProblem(ModelState);
         }
 
         try
         {
-            var existingUser = await _userService.GetByIdAsync(id);
-            if (existingUser == null)
+            // Retrieve invitation
+            var invitation = await _invitationService.GetByIdAsync(request.InvitationId);
+            if (invitation == null)
             {
-                _logger.LogWarning("User with ID {UserId} not found for invitation update.", id);
-                return NotFound();
+                _logger.LogWarning("Invitation not found for email: {Email}", request.InvitedEmail);
+                return NotFound(new ProblemDetails
+                {
+                    Status = StatusCodes.Status404NotFound,
+                    Title = "Invitation Not Found",
+                    Detail = $"No invitation found for email ({request.InvitedEmail})."
+                });
             }
 
-            // Create a new Invitation document and save it to the new collection
-            var newInvitation = new Invitation
+            // Mark invitation as accepted
+            invitation.Status = InvitationStatus.Accepted;
+            invitation.AcceptedAt = DateTime.UtcNow;
+            await _invitationService.UpdateAsync(invitation.Id, invitation);
+
+            // Check for existing user
+            var existingUser = await _userService.GetByUserOneLoginIdAsync(request.OneLoginId);
+            if (existingUser != null)
             {
-                Id = Guid.NewGuid().ToString(),
-                FirstName = request.FirstName,
-                LastName = request.LastName,
-                PreferredContactType = request.PreferredContactType,
-                LandlineNumber = request.LandlineNumber,
-                MobileNumber = request.MobileNumber,
-                InviterUserId = existingUser.Id, // Link to the user who sent the invite
-                InvitedEmail = request.EmailAddress,
-                InvitedHnId = request.HnId,
-                InvitedRoles = request.ContributorRoles,
-                Status = InvitationStatus.Invited, // Status should be 'Invited' for a new invitation
-                InvitedAt = DateTime.UtcNow
-            };
+                existingUser.HnIds ??= new List<string>();
+                if (!existingUser.HnIds.Contains(invitation.InvitedHnId))
+                {
+                    existingUser.HnIds.Add(invitation.InvitedHnId);
+                }
+                // Add any new roles from the invitation
+                existingUser.HnRoleMappings = existingUser.HnRoleMappings ?? new List<HnRoleMapping>();
+                foreach (var role in invitation.InvitedRoles)
+                {
+                    // Update HnRoleMappings
+                    var hnRoleMapping = existingUser.HnRoleMappings.FirstOrDefault(m => m.HnId == invitation.InvitedHnId);
+                    if (hnRoleMapping == null)
+                    {
+                        hnRoleMapping = new HnRoleMapping
+                        {
+                            HnId = invitation.InvitedHnId,
+                            Role = role,
+                        };
+                        existingUser.HnRoleMappings.Add(hnRoleMapping);
+                    }
+                    else if (!(hnRoleMapping.Role == role))
+                    {
+                        hnRoleMapping.Role = role;
+                    }
+                }
+                await _userService.UpdateAsync(existingUser.Id, existingUser);
 
-            await _invitationService.CreateAsync(newInvitation); // Save the invitation to its collection
-
-            _logger.LogInformation("Invitation sent by user {UserId}. New invitation ID: {InvitationId}", id, newInvitation.Id);
-
-            // Send invitation email
-            await TrySendInvitationEmailAsync(newInvitation, existingUser.Id);
-
-            return NoContent(); // Return 204 No Content if the update was successful
+                _logger.LogInformation("Existing invited user updated: {UserId})", existingUser.Id);
+                return Ok(existingUser.Id);
+            }
+            else
+            {
+                // Create new user from invitation
+                var newUser = BuildUserFromInvitation(request, invitation);
+                await _userService.CreateAsync(newUser);
+                _logger.LogInformation("New invited user registered: {UserId} (DB Id: {Id})", newUser.OneLoginId, newUser.Id);
+                return StatusCode(StatusCodes.Status201Created, newUser.Id);
+            }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "An error occurred while creating an invitation for user with ID: {UserId}", id);
-            return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while creating the invitation.");
+            _logger.LogError(ex, "Error during invited user registration. OneLoginId: {UserId}, Email: {Email}", request.OneLoginId, request.InvitedEmail);
+            return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
+            {
+                Status = StatusCodes.Status500InternalServerError,
+                Title = "Internal Server Error",
+                Detail = "An unexpected error occurred while registering the invited user."
+            });
         }
     }
 
@@ -417,6 +420,19 @@ public class UsersController : ControllerBase
     public async Task<ActionResult> GetContributorRoles()
     {
         var roles = EnumHelper.GetEnumItems<ContributorRole>();
+        return Ok(roles);
+    }
+
+
+    /// <summary>
+    /// Gets list Contributor Roles from Enum class
+    /// </summary>
+    /// <returns>list Contributor Roles</returns>
+    [HttpGet("user-roles")]
+    [ProducesResponseType(typeof(List<EnumItemResponse>), StatusCodes.Status200OK)]
+    public async Task<ActionResult> GetUserRoles()
+    {
+        var roles = EnumHelper.GetEnumItems<UserRole>();
         return Ok(roles);
     }
 
@@ -558,71 +574,67 @@ public class UsersController : ControllerBase
         return Ok(managedUser);
     }
 
-    // --- Private Helper Method ---
-    private async Task TrySendOrgCreatedEmailAsync(User user, Organisation organization)
+    [HttpGet("registered-users")]
+    [ProducesResponseType(typeof(List<UserResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [Produces("application/json")]
+    public async Task<ActionResult<List<UserResponse>>> GetRegisteredUsersAsync(string userId)
     {
-        if (user == null || string.IsNullOrWhiteSpace(user.EmailId) || string.IsNullOrWhiteSpace(user.OrgId) || organization == null)
+        var user = await _userService.GetByIdAsync(userId);
+        if (user == null)
         {
-            _logger.LogInformation("Skipping email: missing User, Organization, EmailId, or OrgId for user {UserId}", user?.Id);
-            return;
+            _logger.LogWarning("User with ID {UserId} not found.", userId);
+            return NotFound(); // Return 404 Not Found
         }
 
-        string orgName = organization.Name;
-        string firstName = StringFormatter.ToTitleCaseSingleWord(user.FirstName ?? "");
-        string lastName = StringFormatter.ToTitleCaseSingleWord(user.LastName ?? "");
-        string fullName = $"{firstName} {lastName}".Trim();
-        string formattedAddress = StringFormatter.FormatAddress(organization.RegisteredAddress);
+        _logger.LogInformation("Attempting to retrieve managed contributors for user ID: {UserId}", userId);
 
-        var emailSent = await _emailService.SendEmailAsync(
-            user.EmailId,
-            _notificationSettings.OrgCreatedEmailTemplateId,
-            new Dictionary<string, dynamic>
-            {
-                { "orgName", orgName },
-                { "orgId", user.OrgId },
-                { "fullName", fullName },
-                { "address", formattedAddress }
-            }
-        );
+        var invitations = await _invitationService.GetByInvitedUserIdAsync(user.Id);
+        var invitedEmails = invitations.Select(i => i.InvitedEmail).Distinct().ToList();
 
-        if (emailSent)
-            _logger.LogInformation("Email sent successfully to {EmailId} for user {UserId}", user.EmailId, user.Id);
-        else
-            _logger.LogWarning("Email failed to send to {EmailId} for user {UserId}", user.EmailId, user.Id);
+        var registeredUsers = await _userService.GetRegisteredUsers(invitedEmails);
+
+        // Always check for null before calling .Any()
+        if (registeredUsers == null || !registeredUsers.Any())
+        {
+            _logger.LogInformation("No contributors found for user ID: {UserId}", userId);
+            return Ok(new List<UserResponse>()); // Return an empty list to avoid null reference issues
+        }
+
+        // Exclude the responsible user from the contributors list
+        var filteredUsers = registeredUsers.Where(ru => ru.EmailId != user.EmailId).ToList();
+
+        _logger.LogInformation("Successfully retrieved {Count} managed contributors for user ID: {UserId}", filteredUsers.Count, userId);
+
+        return Ok(_mapper.Map<List<UserResponse>>(filteredUsers));
     }
 
-
-    // --- Private Helper Method ---
-    private async Task TrySendInvitationEmailAsync(Invitation invitation, string userId)
+    private User BuildUserFromInvitation(InvitedUserRequest request, Invitation invitation)
     {
-        if (invitation == null || string.IsNullOrWhiteSpace(invitation.InvitedEmail))
+        var user = new User
         {
-            _logger.LogInformation("Skipping email: missing Invitation or InvitedEmail for invitation {InvitationId}", invitation?.Id);
-            return;
-        }
+            OneLoginId = request.OneLoginId,
+            EmailId = request.InvitedEmail,
+            FirstName = invitation.FirstName,
+            LastName = invitation.LastName,
+            JobTitle = null,
+            PreferredContactType = invitation.PreferredContactType,
+            LandlineNumber = invitation.LandlineNumber,
+            MobileNumber = invitation.MobileNumber,
+            ContactNumberExtension = invitation.ContactNumberExtension,
+            Status = UserStatus.Active,
+            OrgId = request.InviterOrgId,
+            Roles = [UserRole.Contributor],
+            HnIds = [invitation.InvitedHnId],
+            HnRoleMappings = [new HnRoleMapping
+                                {
+                                    HnId = invitation.InvitedHnId,
+                                    Role = invitation.InvitedRoles.FirstOrDefault()
+                                }
+                            ]
+        };
 
-        var heatNetwork = await _hnService.GetByHnIdAsync(invitation.InvitedHnId);
-        if (heatNetwork == null)
-        {
-            _logger.LogWarning("Heat Network with ID {HeatNetworkId} not found for invitation {InvitationId}", invitation.InvitedHnId, invitation.Id);
-            return;
-        }
-
-        var fullUrl = $"{_hntasServiceSettings.BaseUrl.TrimEnd('/')}{_hntasServiceSettings.InvitationPath}?token={invitation.Id}";
-
-        var emailSent = await _emailService.SendEmailAsync(
-            invitation.InvitedEmail,
-            _notificationSettings.ContributorInvitationTemplatedId,
-            new Dictionary<string, dynamic>
-            {
-                { "subject_name", heatNetwork.Name },
-                { "hntas-digital-service-link", fullUrl },
-            }
-        );
-
-        if (emailSent)
-            _logger.LogInformation("Email sent successfully to {EmailId} for user {UserId}", invitation.InvitedEmail, userId);
-        else
-            _logger.LogWarning("Email failed to send to {EmailId} for user {UserId}", invitation.InvitedEmail, userId);
+        return user;
     }
+
 }

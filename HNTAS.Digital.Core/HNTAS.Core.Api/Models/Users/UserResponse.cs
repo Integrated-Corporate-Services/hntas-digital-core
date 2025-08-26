@@ -1,4 +1,7 @@
-﻿namespace HNTAS.Core.Api.Models.Users
+﻿using HNTAS.Core.Api.Data.Models;
+using HNTAS.Core.Api.Enums;
+
+namespace HNTAS.Core.Api.Models.Users
 {
     public class UserResponse
     {
@@ -8,15 +11,17 @@
         public string? FirstName { get; set; }
         public string? LastName { get; set; }
         public string? FullName { get; set; }
-        public string JobTitle { get; set; }
-        public string? PreferredContactType { get; set; }
+        public string? JobTitle { get; set; }
+        public PreferredContactType? PreferredContactType { get; set; }
         public string? LandlineNumber { get; set; }
         public string? MobileNumber { get; set; }
+        public string? ContactNumberExtension { get; set; }
         public string? OrgId { get; set; }
-        public List<string>? Roles { get; set; }
-        public string Status { get; set; }
+        public List<UserRole> Roles { get; set; }
+        public UserStatus Status { get; set; }
+        public List<string> HnIds { get; set; }
 
-        public List<string>? HnIds { get; set; }
+        public List<HnRoleMapping> hnRoleMappings { get; set; }
 
     }
 }

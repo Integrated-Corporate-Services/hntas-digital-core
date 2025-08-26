@@ -40,12 +40,18 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonElement("mobileNumber")]
         public string? MobileNumber { get; set; }
 
+        [BsonElement("contactNumberExtension")]
+        public string? ContactNumberExtension { get; set; }
+
         [BsonElement("hnIds")]
-        public List<string>? HnIds { get; set; }
+        public List<string> HnIds { get; set; } = [];
 
         [BsonElement("roles")]
         [BsonRepresentation(BsonType.String)]
-        public List<UserRole>? Roles { get; set; }
+        public List<UserRole> Roles { get; set; } = [];
+
+        [BsonElement("hnRoleMappings")]
+        public List<HnRoleMapping> HnRoleMappings { get; set; } = [];
 
         [BsonElement("status")]
         [BsonRepresentation(BsonType.String)]

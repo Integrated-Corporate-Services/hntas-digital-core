@@ -1,10 +1,12 @@
-﻿using HNTAS.Core.Api.Helpers;
+﻿using HNTAS.Core.Api.Enums;
+using HNTAS.Core.Api.Helpers;
 
 namespace HNTAS.Core.Api.Models
 {
     public class InvitedUserResponse
     {
         public string Id { get; set; }
+        public string InviterUserId { get; set; }
         public string Email { get; set; }
         public string FirstName { get; set; }
         public string LastName { get; set; }
@@ -22,9 +24,9 @@ namespace HNTAS.Core.Api.Models
                 return $"{formattedFirst} {formattedLast}".Trim();
             }
         }
-
-        public List<string> Roles { get; set; }
-        public string Status { get; set; }
+        public string InvitedHnId { get; set; }
+        public List<ContributorRole> Roles { get; set; }
+        public InvitationStatus Status { get; set; }
         public DateTime InvitedAt { get; set; }
         public DateTime? AcceptedAt { get; set; }
         public DateTime? RejectedAt { get; set; }

@@ -183,5 +183,39 @@ namespace HNTAS.Core.Api.Controllers
 
             return NoContent();
         }
+
+
+        /// <summary>
+        /// Rejects a pending invitation by ID.
+        /// </summary>
+        /// <param name="invitationId">The ID of the invitation to reject.</param>
+        /// <returns>204 No Content if successful; 404 if not found; 400 if already accepted or rejected.</returns>
+        [HttpPost("{invitationId}/Reject")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> RejectInvitation(string invitationId)
+        {
+            var invitation = await _invitationService.GetByIdAsync(invitationId);
+            if (invitation == null)
+            {
+                _logger.LogWarning("Invitation not found for ID: {InvitationId}", invitationId);
+                return NotFound();
+            }
+
+            if (invitation.Status != InvitationStatus.Invited)
+            {
+                return BadRequest("Only pending invitations can be rejected.");
+            }
+
+            invitation.Status = InvitationStatus.Rejected;
+            invitation.RejectedAt = DateTime.UtcNow;
+
+            await _invitationService.UpdateAsync(invitationId, invitation);
+
+            _logger.LogInformation("Invitation {InvitationId} was rejected.", invitationId);
+            return NoContent();
+        }
+
     }
 }

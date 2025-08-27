@@ -1,4 +1,5 @@
 ﻿using HNTAS.Core.Api.Data.Models;
+using HNTAS.Core.Api.Enums;
 using MongoDB.Bson.Serialization.Attributes;
 
 namespace HNTAS.Core.Api.Models.Users
@@ -13,7 +14,7 @@ namespace HNTAS.Core.Api.Models.Users
         public string? CompaniesHouseNumber { get; set; }
 
         [BsonElement("type")]
-        public string Type { get; set; }
+        public OrganisationType Type { get; set; }
 
         [BsonElement("registeredAddress")]
         public RegisteredAddress RegisteredAddress { get; set; }

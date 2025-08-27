@@ -1,6 +1,5 @@
 ﻿using AutoMapper;
 using HNTAS.Core.Api.Data.Models;
-using HNTAS.Core.Api.Extensions;
 using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Models;
 using HNTAS.Core.Api.Models.Users;
@@ -27,17 +26,18 @@ namespace HNTAS.Core.Api.MappingProfiles
                 ))
                 .ForMember(dest => dest.JobTitle, opt => opt.MapFrom(src => src.JobTitle))
                 .ForMember(dest => dest.PreferredContactType, opt => opt.MapFrom(src =>
-                    src.PreferredContactType != null ? src.PreferredContactType.GetDescription() : null
+                    src.PreferredContactType != null ? src.PreferredContactType : null
                 ))
                 .ForMember(dest => dest.LandlineNumber, opt => opt.MapFrom(src => src.LandlineNumber))
                 .ForMember(dest => dest.MobileNumber, opt => opt.MapFrom(src => src.MobileNumber))
+                .ForMember(dest => dest.ContactNumberExtension, opt => opt.MapFrom(src => src.ContactNumberExtension))
                 .ForMember(dest => dest.OrgId, opt => opt.MapFrom(src => src.OrgId))
                 .ForMember(dest => dest.HnIds, opt => opt.MapFrom(src => src.HnIds))
                 .ForMember(dest => dest.Roles, opt => opt.MapFrom(src =>
-                    src.Roles != null ? src.Roles.Select(role => role.GetDescription()).ToList() : null
+                    src.Roles != null ? src.Roles.Select(role => role).ToList() : null
                 ))
                 .ForMember(dest => dest.Status, opt => opt.MapFrom(src =>
-                    src.Status.GetDescription()
+                    src.Status
                 ));
 
 
@@ -47,7 +47,7 @@ namespace HNTAS.Core.Api.MappingProfiles
             .ForMember(dest => dest.FirstName, opt => opt.MapFrom(src => src.FirstName))
             .ForMember(dest => dest.LastName, opt => opt.MapFrom(src => src.LastName))
             .ForMember(dest => dest.Email, opt => opt.MapFrom(src => src.InvitedEmail))
-            .ForMember(dest => dest.Roles, opt => opt.MapFrom(src => src.InvitedRoles.Select(r => r.GetDescription()).ToList()))
+            .ForMember(dest => dest.Roles, opt => opt.MapFrom(src => src.InvitedRoles.ToList()))
             .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status.ToString()))
             .ForMember(dest => dest.InvitedAt, opt => opt.MapFrom(src => src.InvitedAt))
             .ForMember(dest => dest.AcceptedAt, opt => opt.MapFrom(src => src.AcceptedAt))

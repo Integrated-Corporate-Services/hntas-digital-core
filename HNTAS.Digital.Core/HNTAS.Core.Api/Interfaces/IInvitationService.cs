@@ -6,6 +6,7 @@ namespace HNTAS.Core.Api.Interfaces
     {
         Task<List<Invitation>> GetAsync();
         Task<Invitation> GetByIdAsync(string id);
+        Task<Invitation> GetByEmailAsync(string invitedEmail, string hnId);
         Task<List<Invitation>> GetByInvitedUserIdAsync(string inviterUserId);
         Task CreateAsync(Invitation newInvitation);
         Task UpdateAsync(string id, Invitation updatedInvitation);

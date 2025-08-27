@@ -52,5 +52,14 @@ namespace HNTAS.Core.Api.Services
         // Remove an invitation by ID
         public async Task RemoveAsync(string id) =>
             await _invitationsCollection.DeleteOneAsync(invitation => invitation.Id == id);
+
+        public async Task<Invitation> GetByEmailAsync(string invitedEmail, string hnId) =>
+          await _invitationsCollection
+              .Find(invitation =>
+                  invitation.InvitedEmail == invitedEmail &&
+                  invitation.InvitedHnId == hnId &&
+                  invitation.Status == Enums.InvitationStatus.Invited)
+              .SortByDescending(invitation => invitation.InvitedAt)
+              .FirstOrDefaultAsync();
     }
 }

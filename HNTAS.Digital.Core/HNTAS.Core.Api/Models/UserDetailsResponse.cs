@@ -1,4 +1,5 @@
-﻿using HNTAS.Core.Api.Helpers;
+﻿using HNTAS.Core.Api.Enums;
+using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Models.Users;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
@@ -39,7 +40,7 @@ namespace HNTAS.Core.Api.Models
         public string? JobTitle { get; set; }
 
         [BsonElement("preferredContactType")]
-        public string? PreferredContactType { get; set; }
+        public PreferredContactType? PreferredContactType { get; set; }
 
         [BsonElement("landlineNumber")]
         public string? LandlineNumber { get; set; }
@@ -51,7 +52,7 @@ namespace HNTAS.Core.Api.Models
         public string Status { get; set; }
 
         [BsonElement("roles")]
-        public List<string>? Roles { get; set; }
+        public List<UserRole>? Roles { get; set; }
 
         [BsonElement("organisation")]
         public OrganisationResponse? Organisation { get; set; }

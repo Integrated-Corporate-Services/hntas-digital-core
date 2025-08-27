@@ -13,15 +13,9 @@ namespace HNTAS.Core.Api.Enums
         RegulatoryContact = 1,
 
         /// <summary>
-        /// Represents a third-party user role.
-        /// </summary>
-        [Description("Third Party")]
-        ThirdParty = 2,
-
-        /// <summary>
         /// Represents a contributor user role.
         /// </summary>
         [Description("Contributor")]
-        Contributor = 3,
+        Contributor = 2,
     }
 }

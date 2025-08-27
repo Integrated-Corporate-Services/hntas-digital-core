@@ -8,8 +8,8 @@ namespace HNTAS.Core.Api.Data.Models
     public class Invitation
     {
         [BsonId]
-        [BsonRepresentation(BsonType.String)]
-        public string Id { get; set; } = null!;
+        [BsonRepresentation(BsonType.ObjectId)]
+        public string? Id { get; set; }
 
         [Required(ErrorMessage = "Inviter User Id is required.")]
         [BsonElement("inviterUserId")] // Added to link to the user who sent the invite

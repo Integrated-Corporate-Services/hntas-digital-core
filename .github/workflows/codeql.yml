@@ -29,17 +29,6 @@ jobs:
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '9.0.x'
-        
-    - name: Install Mono and msbuild
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y mono-complete
-        
-    - name: Check msbuild version
-      run: msbuild -version
-        
-    - name: Build project
-      run: msbuild HNTAS.Digital.Core/HNTAS.Digital.Core.sln
 
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v3
@@ -47,7 +36,7 @@ jobs:
         languages: ${{ matrix.language }}
 
     - name: Build .NET project
-      run: dotnet build --configuration Release
+      run: dotnet build HNTAS.Digital.Core/HNTAS.Digital.Core.sln --configuration Release
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v3

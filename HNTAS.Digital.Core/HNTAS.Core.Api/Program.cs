@@ -35,9 +35,6 @@ builder.Services.AddControllers().AddJsonOptions(options =>
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi("HNTAS.Core.Api");
 
-builder.Logging.AddAWSProvider(builder.Configuration.GetAWSLoggingConfigSection());
-builder.Logging.SetMinimumLevel(LogLevel.Information);
-
 Console.WriteLine("***********************************");
 Console.WriteLine("Environment: " + builder.Environment.EnvironmentName);
 

@@ -22,9 +22,17 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonRepresentation(BsonType.DateTime)]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+        [BsonElement("createdBy")]
+        [BsonRepresentation(BsonType.ObjectId)]
+        public string CreatedBy { get; set; } = null!;
+
         [BsonElement("updatedAt")]
         [BsonRepresentation(BsonType.DateTime)]
-        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime? UpdatedAt { get; set; }
+
+        [BsonElement("updatedBy")]
+        [BsonRepresentation(BsonType.ObjectId)]
+        public string? UpdatedBy { get; set; }
 
         [BsonElement("journeyData")]
         public SoaJourneyData? JourneyData { get; set; }
@@ -39,6 +47,9 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonRepresentation(BsonType.String)]
         public List<ConnectionType>? ConnectionTypes { get; set; }
 
+        [BsonElement("heatNetworkElements")]
+        public List<HeatNetworkElement> HeatNetworkElements { get; set; } = [];
+
     }
 
     public class NetworkTypeSelection
@@ -50,5 +61,19 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonElement("otherNetworkDescription")]
         public string? OtherNetworkDescription { get; set; }
     }
+
+    public class HeatNetworkElement
+    {
+        [BsonElement("name")]
+        [BsonRepresentation(BsonType.String)]
+        public HeatNetworkElementType Name { get; set; }
+
+        [BsonElement("count")]
+        public int Count { get; set; }
+
+        [BsonElement("locations")]
+        public List<string> Locations { get; set; } = new List<string>();
+    }
+
 
 }

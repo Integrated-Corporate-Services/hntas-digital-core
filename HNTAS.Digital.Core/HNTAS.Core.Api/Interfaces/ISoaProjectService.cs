@@ -7,8 +7,10 @@ namespace HNTAS.Core.Api.Interfaces
     {
         Task<SoaProject> GetByIdAsync(string id);
         Task<SoaProject> GetByHeatNetworkIdAsync(string hnId);
-        Task<SoaProject> CreateAsync(string hnId);
-        Task UpdateNetworkTypeAsync(string hnId, NetworkTypeSelection networkTypeSelection);
-        Task UpdateConnectionTypesAsync(string hnId, List<ConnectionType> connectionTypes);
+        Task<SoaProject> CreateAsync(string hnId, string createdBy);
+        Task UpdateNetworkTypeAsync(string hnId, string updatedBy, NetworkTypeSelection networkTypeSelection);
+        Task UpdateConnectionTypesAsync(string hnId, string updatedBy, List<ConnectionType> connectionTypes);
+        Task UpdateHeatNetworkElementsAsync(string hnId, List<HeatNetworkElement> elements, string updatedBy);
+        Task UpdateElementLocationsAsync(string projectId, HeatNetworkElementType elementType, List<string> locations, string updatedBy);
     }
 }

@@ -60,7 +60,5 @@ namespace HNTAS.Core.Api.Models
         [BsonElement("neatNetworks")]
         public List<HeatNetworkResponse>? HeatNetworks { get; set; }
 
-
-
     }
 }

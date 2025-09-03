@@ -561,9 +561,13 @@ public class UsersController : ControllerBase
             managedUser.RegisteredUsers = _mapper.Map<List<UserResponse>>(registeredUsers);
         }
 
-        //var invitedUsers = invitations
-        //           .Where(i => !registeredUsers.Any(u => u.EmailId == i.InvitedEmail)).ToList();
-        var invitedUsers = invitations.OrderByDescending(i => i.InvitedAt).ToList();
+        var invitedUsers = invitations.ToList()
+        .Where(i =>
+            !registeredUsers.Any(u =>
+                u.EmailId == i.InvitedEmail &&
+                u.HnRoleMappings.Any(x => x.HnId == i.InvitedHnId)))
+        .OrderByDescending(i => i.InvitedAt)
+        .ToList();
 
 
         if (invitedUsers != null || invitedUsers.Count != 0)

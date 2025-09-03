@@ -26,7 +26,7 @@ namespace HNTAS.Core.Api.Services
             var mongoClient = new MongoClient(connectionString);
             var mongoDatabase = mongoClient.GetDatabase(dbSettings.Value.DatabaseName);
             _hnCollection = mongoDatabase.GetCollection<HeatNetwork>(dbSettings.Value.HeatNetworksCollectionName);
-           
+
         }
 
         public async Task CreateAsync(HeatNetwork newHeatNetwork) =>
@@ -34,12 +34,17 @@ namespace HNTAS.Core.Api.Services
 
         public async Task<List<HeatNetwork>> GetAsync()
         {
-           return await _hnCollection.Find(_ => true).ToListAsync();
+            return await _hnCollection.Find(_ => true).ToListAsync();
+        }
+
+        public async Task<HeatNetwork> GetByHnIdAsync(string hnId)
+        {
+            return await _hnCollection.Find(hn => hn.HnId == hnId).FirstOrDefaultAsync();
         }
 
         public async Task<List<HeatNetwork>> GetByHnIdsAsync(List<string> hnIds)
         {
-            var filter = Builders<HeatNetwork>.Filter.In(hn => hn.hn_id, hnIds);
+            var filter = Builders<HeatNetwork>.Filter.In(hn => hn.HnId, hnIds);
             return await _hnCollection.Find(filter).ToListAsync();
         }
     }

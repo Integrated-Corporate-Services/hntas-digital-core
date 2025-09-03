@@ -35,7 +35,7 @@ namespace HNTAS.Core.Api.Controllers
             {
                 var heatNetworks = await _hnService.GetAsync();
 
-              
+
                 _logger.LogInformation("Successfully retrieved {HeatNetworkCount} heatNetworks.", heatNetworks.Count);
 
                 return Ok(heatNetworks); // Returns 200 OK with the list of users
@@ -48,13 +48,13 @@ namespace HNTAS.Core.Api.Controllers
         }
 
         [HttpGet("hnIds")]
-        [Consumes(MediaTypeNames.Application.Json)] 
+        [Consumes(MediaTypeNames.Application.Json)]
         [ProducesResponseType(typeof(List<HeatNetwork>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<List<HeatNetwork>>> GetHeatNetworksByHnIds([FromQuery] string hnIdsString)
-        { 
+        {
             // Split the comma-separated string of IDs into a List<string>
             List<string> hnIds = hnIdsString?.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList() ?? new List<string>();
 
@@ -103,17 +103,17 @@ namespace HNTAS.Core.Api.Controllers
 
             try
             {
-                if (String.IsNullOrWhiteSpace(heatNetworkDetails.hn_id)) 
+                if (String.IsNullOrWhiteSpace(heatNetworkDetails.HnId))
                 {
                     var sequenceID = await _counterService.GetNextSequenceValue("heatNetworkId_sequence");
                     var heatNetworkId = $"HN{sequenceID:D7}";
-                    heatNetworkDetails.hn_id = heatNetworkId;
-                    _logger.LogInformation("Generated new heat network ID: {HeatNetworkId}", heatNetworkDetails.hn_id);
+                    heatNetworkDetails.HnId = heatNetworkId;
+                    _logger.LogInformation("Generated new heat network ID: {HeatNetworkId}", heatNetworkDetails.HnId);
 
                 }
 
                 await _hnService.CreateAsync(heatNetworkDetails);
-                _logger.LogInformation("New heat network initially registered: {HNID} (DB Id: {Id})", heatNetworkDetails.hn_id, heatNetworkDetails.Id);
+                _logger.LogInformation("New heat network initially registered: {HNID} (DB Id: {Id})", heatNetworkDetails.HnId, heatNetworkDetails.Id);
 
                 return CreatedAtAction(nameof(AddHeatNetwork), new { id = heatNetworkDetails.Id }, heatNetworkDetails);
             }

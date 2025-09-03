@@ -2,6 +2,7 @@
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
+
 namespace HNTAS.Core.Api.Data.Models
 {
     public class User
@@ -10,27 +11,50 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonRepresentation(BsonType.ObjectId)]
         public string? Id { get; set; }
 
-        [BsonElement("onelogin_id")]
+        [BsonElement("oneloginId")]
         public string OneLoginId { get; set; }
 
-        [BsonElement("org_details")]
-        public OrgDetails? OrgDetails { get; set; }
+        [BsonElement("orgId")]
+        public string? OrgId { get; set; }
 
-        [BsonElement("email_id")]
+        [BsonElement("firstName")]
+        public string? FirstName { get; set; }
+
+        [BsonElement("lastName")]
+        public string? LastName { get; set; }
+
+        [BsonElement("jobTitle")]
+        public string? JobTitle { get; set; }
+
+        [BsonElement("emailId")]
         public string EmailId { get; set; }
 
-        [BsonElement("hn_ids")]
-        public List<string>? HnIds { get; set; }
+        // This field was "preferred_contact_type" but is now "preferredContactType"
+        [BsonElement("preferredContactType")]
+        [BsonRepresentation(BsonType.String)]
+        public PreferredContactType? PreferredContactType { get; set; }
+
+        [BsonElement("landlineNumber")]
+        public string? LandlineNumber { get; set; }
+
+        [BsonElement("mobileNumber")]
+        public string? MobileNumber { get; set; }
+
+        [BsonElement("contactNumberExtension")]
+        public string? ContactNumberExtension { get; set; }
+
+        [BsonElement("hnIds")]
+        public List<string> HnIds { get; set; } = [];
 
         [BsonElement("roles")]
-        [BsonRepresentation(BsonType.String)] // Store enum names as strings in DB
-        public List<UserRole>? Roles { get; set; }
+        [BsonRepresentation(BsonType.String)]
+        public List<UserRole> Roles { get; set; } = [];
+
+        [BsonElement("hnRoleMappings")]
+        public List<HnRoleMapping> HnRoleMappings { get; set; } = [];
 
         [BsonElement("status")]
-        [BsonRepresentation(BsonType.String)] // Store enum name as string in DB
-        public UserStatus? Status { get; set; }
-
-        [BsonElement("invitations")]
-        public List<Invitation>? Invitations { get; set; }
+        [BsonRepresentation(BsonType.String)]
+        public UserStatus Status { get; set; }
     }
 }

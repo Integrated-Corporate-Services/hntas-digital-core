@@ -1,4 +1,5 @@
 ﻿using HNTAS.Core.Api.Data.Models;
+using HNTAS.Core.Api.Models;
 
 namespace HNTAS.Core.Api.Interfaces
 {
@@ -10,6 +11,7 @@ namespace HNTAS.Core.Api.Interfaces
         Task CreateAsync(User newUser);
         Task UpdateAsync(string id, User updatedUser);
         Task RemoveAsync(string id);
-        Task<bool> IsOrganisationExists(string organisationId);
+        Task<List<User>> GetRegisteredUsers(List<string> invitedEmails);
+        Task<UserDetailsResponse> GetUserWithDetailsAsync(string userId);
     }
 }

@@ -10,6 +10,8 @@
 
   <ItemGroup>
     <Compile Remove="Controllers\PingController.cs" />
+    <Compile Remove="Controllers\TestController.cs" />
+    <Compile Remove="Controllers\WelcomeController.cs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -17,7 +19,7 @@
     <PackageReference Include="GovukNotify" Version="7.2.0" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.5" />
     <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.22.1-Preview.1" />
-    <PackageReference Include="MongoDB.Driver" Version="3.4.0" />
+    <PackageReference Include="MongoDB.Driver" Version="3.4.3" />
     <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="9.0.3" />
   </ItemGroup>
 

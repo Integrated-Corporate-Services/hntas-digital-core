@@ -126,5 +126,27 @@ namespace HNTAS.Core.Api.Services
             await _soaProjectCollection.UpdateOneAsync(filter, update);
         }
 
+
+        public async Task UpdateElementDocumentsAsync(
+            string hnId,
+            HeatNetworkElementType elementType,
+            List<UploadedDocument> documents,
+            string updatedBy)
+        {
+            var enumAsString = elementType.ToString();
+
+            var filter = Builders<SoaProject>.Filter.And(
+                Builders<SoaProject>.Filter.Eq(p => p.HnId, hnId),
+                Builders<SoaProject>.Filter.Eq("journeyData.heatNetworkElements.name", enumAsString)
+            );
+
+            var update = Builders<SoaProject>.Update
+                .Set(p => p.UpdatedAt, DateTime.UtcNow)
+                .Set(p => p.UpdatedBy, updatedBy)
+                .Set("journeyData.heatNetworkElements.$.documents", documents);
+
+            await _soaProjectCollection.UpdateOneAsync(filter, update);
+        }
+
     }
 }

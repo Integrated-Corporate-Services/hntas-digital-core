@@ -219,6 +219,43 @@ namespace HNTAS.Core.Api.Controllers
             }
         }
 
+        [HttpPost("element-documents")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> SaveElementDocuments([FromBody] UpdateElementDocumentsRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                _logger.LogWarning("Invalid SaveDocuments request: {@Errors}", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage));
+                return BadRequest(ModelState);
+            }
+
+            _logger.LogInformation("Saving documents for element type: {ElementType} in HN ID: {HnId} by {UpdatedBy}. Document count: {DocumentCount}",
+                request.ElementType, request.HnId, request.UpdatedBy, request.Documents?.Count ?? 0);
+
+            var project = await _soaProjectService.GetByHeatNetworkIdAsync(request.HnId);
+            if (project == null)
+            {
+                _logger.LogWarning("SOA project not found for document save: {HnId}", request.HnId);
+                return NotFound();
+            }
+
+            try
+            {
+                await _soaProjectService.UpdateElementDocumentsAsync(request.HnId, request.ElementType, request.Documents, request.UpdatedBy);
+                _logger.LogInformation("Documents updated successfully for element type: {ElementType} in HN ID: {HnId} by {UpdatedBy}",
+                    request.ElementType, request.HnId, request.UpdatedBy);
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to update documents for element type: {ElementType} in HN ID: {HnId} by {UpdatedBy}",
+                    request.ElementType, request.HnId, request.UpdatedBy);
+                throw;
+            }
+        }
+
 
     }
 }

@@ -17,5 +17,30 @@ namespace HNTAS.Core.Api.Enums
         /// </summary>
         [Description("Contributor")]
         Contributor = 2,
+
+        /// <summary>
+        /// Represents a designer user role.
+        /// </summary>
+        [Description("Designer")]
+        Designer = 3,
+
+        /// <summary>
+        /// Represents a contractor user role.
+        /// </summary>
+        [Description("Contractor")]
+        Contractor = 4,
+
+        /// <summary>
+        /// Represents a operator user role.
+        /// </summary>
+        [Description("Operator")]
+        Operator = 5,
+
+        /// <summary>
+        /// Represents a assessor user role.
+        /// </summary>
+        [Description("Assessor")]
+        Assessor = 6,
+
     }
 }

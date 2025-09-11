@@ -11,6 +11,14 @@ namespace HNTAS.Core.Api.Enums
         [Description("Designated Contractor")]
         DesignatedContractor = 2,
         [Description("Designated Operator")]
-        DesignatedOperator = 3
+        DesignatedOperator = 3,
+        [Description("Contributing Designer")]
+        ContributingDesigner = 4,
+        [Description("Contributing Contractor")]
+        ContributingContractor = 5,
+        [Description("Contributing Operator")]
+        ContributingOperator = 6,
+        [Description("Assessor")]
+        Assessor = 7
     }
 }

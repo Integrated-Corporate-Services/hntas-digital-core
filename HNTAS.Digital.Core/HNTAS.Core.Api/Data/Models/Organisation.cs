@@ -26,4 +26,5 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonElement("registeredAddress")] // Changed from "registered_address"
         public RegisteredAddress RegisteredAddress { get; set; }
     }
+
 }

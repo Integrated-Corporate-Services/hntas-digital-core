@@ -84,6 +84,41 @@ namespace HNTAS.Core.Api.Controllers
             }
         }
 
+        [HttpGet("{hnId}")]
+        [Consumes(MediaTypeNames.Application.Json)]
+        [ProducesResponseType(typeof(HeatNetwork), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<HeatNetwork>> GetHeatNetworkByHnId(string hnId)
+        {
+            // Validate input ID
+            if (string.IsNullOrEmpty(hnId))
+            {
+                _logger.LogWarning("GetHeatNetworkByHnId called with a null or empty ID.");
+                return BadRequest("Please provide a valid heat network ID in the URL.");
+            }
+
+            try
+            {
+                var heatNetwork = await _hnService.GetByHnIdAsync(hnId);
+
+                if (heatNetwork == null)
+                {
+                    _logger.LogInformation("No heat network found for the provided ID.");
+                    return NotFound("No heat network found for the given ID.");
+                }
+
+                return Ok(heatNetwork);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while retrieving heat network for the provided ID.");
+                return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while retrieving the heat network.");
+            }
+        }
+
+
 
         [HttpPost("add-heat-network")]
         [Consumes(MediaTypeNames.Application.Json)]

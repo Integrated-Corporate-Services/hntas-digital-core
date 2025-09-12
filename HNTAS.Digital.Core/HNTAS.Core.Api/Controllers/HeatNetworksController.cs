@@ -105,7 +105,7 @@ namespace HNTAS.Core.Api.Controllers
 
                 if (heatNetwork == null)
                 {
-                    _logger.LogInformation("No heat network found for the provided ID: {HeatNetworkId}", hnId);
+                    _logger.LogInformation("No heat network found for the provided ID.");
                     return NotFound("No heat network found for the given ID.");
                 }
 
@@ -113,7 +113,7 @@ namespace HNTAS.Core.Api.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An error occurred while retrieving heat network for ID: {HeatNetworkId}", hnId);
+                _logger.LogError(ex, "An error occurred while retrieving heat network for the provided ID.");
                 return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while retrieving the heat network.");
             }
         }

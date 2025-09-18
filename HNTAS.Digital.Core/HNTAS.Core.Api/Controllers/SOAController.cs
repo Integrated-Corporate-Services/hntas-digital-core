@@ -1,4 +1,5 @@
 ﻿using HNTAS.Core.Api.Data.Models;
+using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models.Soa;
 using Microsoft.AspNetCore.Mvc;
@@ -7,45 +8,26 @@ namespace HNTAS.Core.Api.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class SoaProjectController : ControllerBase
+    public class SOAController : ControllerBase
     {
-        private readonly ISoaProjectService _soaProjectService;
-        private readonly ILogger<SoaProjectController> _logger;
+        private readonly ISoaService _soaService;
+        private readonly ILogger<SOAController> _logger;
 
-        public SoaProjectController(ISoaProjectService soaProjectService, ILogger<SoaProjectController> logger)
+        public SOAController(ISoaService soaProjectService, ILogger<SOAController> logger)
         {
-            _soaProjectService = soaProjectService;
+            _soaService = soaProjectService;
             _logger = logger;
-        }
-
-        [HttpGet("{projectId}")]
-        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(SoaProject))]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<SoaProject>> Get(string projectId)
-        {
-            _logger.LogInformation("Retrieving SOA project with ID: {ProjectId}", projectId);
-
-            var project = await _soaProjectService.GetByIdAsync(projectId);
-
-            if (project == null)
-            {
-                _logger.LogWarning("SOA project not found: {ProjectId}", projectId);
-                return NotFound();
-            }
-
-            _logger.LogInformation("SOA project retrieved successfully: {ProjectId}", projectId);
-            return Ok(project);
         }
 
 
         [HttpGet("heat-network/{hnId}")]
-        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(SoaProject))]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(Soa))]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<SoaProject>> GetByHeatNetworkIdAsync(string hnId)
+        public async Task<ActionResult<Soa>> GetByHeatNetworkIdAsync(string hnId)
         {
             _logger.LogInformation("Retrieving SOA project for Heat Network ID: {HeatNetworkId}", hnId);
 
-            var project = await _soaProjectService.GetByHeatNetworkIdAsync(hnId);
+            var project = await _soaService.GetByHeatNetworkIdAsync(hnId);
 
             if (project == null)
             {
@@ -58,29 +40,37 @@ namespace HNTAS.Core.Api.Controllers
         }
 
         [HttpPost("create")]
-        [ProducesResponseType(StatusCodes.Status201Created, Type = typeof(SoaProject))]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(Soa))]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> CreateProject([FromQuery] string hnId, [FromQuery] string createdBy)
         {
-            _logger.LogInformation("Creating new SOA project for Heat Network ID: {HeatNetworkId} by {UpdatedBy}", hnId, createdBy);
+            _logger.LogInformation("Creating new SOA data for Heat Network ID: {HeatNetworkId} by {CreatedBy}", hnId, createdBy);
 
-            if (string.IsNullOrEmpty(hnId))
+            if (string.IsNullOrWhiteSpace(hnId))
             {
                 _logger.LogWarning("Heat Network ID is missing in create request.");
                 return BadRequest("Heat Network ID is required.");
             }
 
-            if (string.IsNullOrEmpty(createdBy))
+            if (string.IsNullOrWhiteSpace(createdBy))
             {
-                _logger.LogWarning("UpdatedBy is missing in create request.");
-                return BadRequest("UpdatedBy is required.");
+                _logger.LogWarning("CreatedBy is missing in create request.");
+                return BadRequest("CreatedBy is required.");
             }
 
-            var newProject = await _soaProjectService.CreateAsync(hnId, createdBy);
+            var soa = await _soaService.CreateAsync(hnId, createdBy);
 
-            _logger.LogInformation("SOA project created successfully with ID: {ProjectId}", newProject.Id);
-            return CreatedAtAction(nameof(Get), new { projectId = newProject.Id }, newProject);
+            if (soa == null)
+            {
+                _logger.LogWarning("Failed to create SOA data for Heat Network ID: {HeatNetworkId}", hnId);
+                return BadRequest("Unable to create SOA data.");
+            }
+
+            _logger.LogInformation("SOA data embedded successfully for Heat Network ID: {HeatNetworkId}", hnId);
+            return Ok(soa);
         }
+
+
 
         [HttpPatch("connections")]
         [ProducesResponseType(StatusCodes.Status200OK)]
@@ -102,14 +92,14 @@ namespace HNTAS.Core.Api.Controllers
                 return BadRequest("UpdatedBy is required.");
             }
 
-            var project = await _soaProjectService.GetByHeatNetworkIdAsync(request.HnId);
+            var project = await _soaService.GetByHeatNetworkIdAsync(request.HnId);
             if (project == null)
             {
                 _logger.LogWarning("SOA project not found for connection update: {HeatNetworkId}", request.HnId);
                 return NotFound();
             }
 
-            await _soaProjectService.UpdateConnectionTypesAsync(request.HnId, request.UpdatedBy, request.ConnectionTypes);
+            await _soaService.UpdateConnectionTypesAsync(request.HnId, request.UpdatedBy, request.ConnectionTypes);
             _logger.LogInformation("Connection types updated for Heat Network ID: {HeatNetworkId}", request.HnId);
 
             return Ok();
@@ -136,14 +126,14 @@ namespace HNTAS.Core.Api.Controllers
                 return BadRequest("UpdatedBy is required.");
             }
 
-            var project = await _soaProjectService.GetByHeatNetworkIdAsync(hnId);
+            var project = await _soaService.GetByHeatNetworkIdAsync(hnId);
             if (project == null)
             {
                 _logger.LogWarning("SOA project not found for network type update: {HeatNetworkId}", hnId);
                 return NotFound();
             }
 
-            await _soaProjectService.UpdateNetworkTypeAsync(hnId, updatedBy, networkTypeSelection);
+            await _soaService.UpdateNetworkTypeAsync(hnId, updatedBy, networkTypeSelection);
             _logger.LogInformation("Network type updated for Heat Network ID: {HeatNetworkId}", hnId);
 
             return Ok();
@@ -169,14 +159,14 @@ namespace HNTAS.Core.Api.Controllers
                 return BadRequest("UpdatedBy is required.");
             }
 
-            var project = await _soaProjectService.GetByHeatNetworkIdAsync(hnId);
+            var project = await _soaService.GetByHeatNetworkIdAsync(hnId);
             if (project == null)
             {
                 _logger.LogWarning("SOA project not found for network type update: {HeatNetworkId}", hnId);
                 return NotFound();
             }
 
-            await _soaProjectService.UpdateHeatNetworkElementsAsync(hnId, networkElements, updatedBy);
+            await _soaService.UpdateHeatNetworkElementsAsync(hnId, networkElements, updatedBy);
             _logger.LogInformation("Network type updated for Heat Network ID: {HeatNetworkId}", hnId);
 
             return Ok();
@@ -197,7 +187,7 @@ namespace HNTAS.Core.Api.Controllers
             _logger.LogInformation("Saving locations for element type: {ElementType} in HN ID: {HnId} by {UpdatedBy}. Location count: {LocationCount}",
                 request.ElementType, request.HnId, request.UpdatedBy, request.Locations?.Count ?? 0);
 
-            var project = await _soaProjectService.GetByHeatNetworkIdAsync(request.HnId);
+            var project = await _soaService.GetByHeatNetworkIdAsync(request.HnId);
             if (project == null)
             {
                 _logger.LogWarning("SOA project not found for location save: {HnId}", request.HnId);
@@ -206,7 +196,7 @@ namespace HNTAS.Core.Api.Controllers
 
             try
             {
-                await _soaProjectService.UpdateElementLocationsAsync(request.HnId, request.ElementType, request.Locations, request.UpdatedBy);
+                await _soaService.UpdateElementLocationsAsync(request.HnId, request.ElementType, request.Locations, request.UpdatedBy);
                 _logger.LogInformation("Locations updated successfully for element type: {ElementType} in HN ID: {HnId} by {UpdatedBy}",
                     request.ElementType, request.HnId, request.UpdatedBy);
                 return Ok();
@@ -234,7 +224,7 @@ namespace HNTAS.Core.Api.Controllers
             _logger.LogInformation("Saving documents for element type: {ElementType} in HN ID: {HnId} by {UpdatedBy}. Document count: {DocumentCount}",
                 request.ElementType, request.HnId, request.UpdatedBy, request.Documents?.Count ?? 0);
 
-            var project = await _soaProjectService.GetByHeatNetworkIdAsync(request.HnId);
+            var project = await _soaService.GetByHeatNetworkIdAsync(request.HnId);
             if (project == null)
             {
                 _logger.LogWarning("SOA project not found for document save: {HnId}", request.HnId);
@@ -243,7 +233,7 @@ namespace HNTAS.Core.Api.Controllers
 
             try
             {
-                await _soaProjectService.UpdateElementDocumentsAsync(request.HnId, request.ElementType, request.Documents, request.UpdatedBy);
+                await _soaService.UpdateElementDocumentsAsync(request.HnId, request.ElementType, request.Documents, request.UpdatedBy);
                 _logger.LogInformation("Documents updated successfully for element type: {ElementType} in HN ID: {HnId} by {UpdatedBy}",
                     request.ElementType, request.HnId, request.UpdatedBy);
                 return Ok();
@@ -256,6 +246,115 @@ namespace HNTAS.Core.Api.Controllers
             }
         }
 
+
+        [HttpPost("assessment-plan")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> SaveAssessmentPlan([FromBody] UpdateAssessmentPlanRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                _logger.LogWarning("Invalid SaveAssessmentPlan request: {@Errors}", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage));
+                return BadRequest(ModelState);
+            }
+
+            _logger.LogInformation("Saving assessment plan for HN ID: {HnId}, Phase: {Phase}, Stage: {Stage}, UploadedBy: {UpdatedBy}",
+                request.HnId, request.Phase, request.Stage, request.UpdatedBy);
+
+            var project = await _soaService.GetByHeatNetworkIdAsync(request.HnId);
+            if (project == null)
+            {
+                _logger.LogWarning("SOA project not found for assessment plan save: {HnId}", request.HnId);
+                return NotFound();
+            }
+
+            var document = new AssessmentPlanDocument
+            {
+                FileName = request.FileName,
+                S3Key = request.S3Key,
+                Phase = request.Phase,
+                Stage = request.Stage,
+                UploadedAt = DateTime.UtcNow,
+                UploadedBy = request.UpdatedBy
+            };
+
+            try
+            {
+                await _soaService.UpdateAssessmentPlanDocumentAsync(request.HnId, document);
+                _logger.LogInformation("Assessment plan saved successfully for HN ID: {HnId}, Phase: {Phase}, Stage: {Stage}, UploadedBy: {UpdatedBy}",
+                    request.HnId, request.Phase, request.Stage, request.UpdatedBy);
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to save assessment plan for HN ID: {HnId}, Phase: {Phase}, Stage: {Stage}, UploadedBy: {UpdatedBy}",
+                    request.HnId, request.Phase, request.Stage, request.UpdatedBy);
+                throw;
+            }
+        }
+
+        [HttpDelete("{hnId}")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> DeleteSoaProject(string hnId)
+        {
+            if (string.IsNullOrWhiteSpace(hnId))
+            {
+                _logger.LogWarning("Delete request received with empty HN ID.");
+                return BadRequest("Heat Network ID is required.");
+            }
+
+            _logger.LogInformation("Attempting to delete SOA project for HN ID: {HnId}", hnId);
+
+            var project = await _soaService.GetByHeatNetworkIdAsync(hnId);
+            if (project == null)
+            {
+                _logger.LogWarning("SOA project not found for deletion: {HnId}", hnId);
+                return NotFound();
+            }
+
+            try
+            {
+                await _soaService.DeleteByHeatNetworkIdAsync(hnId);
+                _logger.LogInformation("SOA project deleted successfully for HN ID: {HnId}", hnId);
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to delete SOA project for HN ID: {HnId}", hnId);
+                throw;
+            }
+        }
+
+
+        [HttpPut("update-soa-status")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> UpdateSoaStatus([FromBody] UpdateSoaStatusRequest request)
+        {
+            _logger.LogInformation("Updating SOA status to {Status} for HN ID: {HnId} by {UpdatedBy}", request.Status, request.HnId, request.UpdatedBy);
+
+            if (string.IsNullOrWhiteSpace(request.HnId))
+                return BadRequest("Heat Network ID is required.");
+
+            if (string.IsNullOrWhiteSpace(request.UpdatedBy))
+                return BadRequest("UpdatedBy is required.");
+
+            if (!Enum.IsDefined(typeof(SoaStatus), request.Status))
+                return BadRequest($"Invalid SOA status: {request.Status}");
+
+            var soa = await _soaService.UpdateStatusAsync(request.HnId, request.Status, request.UpdatedBy);
+
+            if (soa == null)
+            {
+                _logger.LogWarning("No SOA found to update for HN ID: {HnId}", request.HnId);
+                return BadRequest("SOA not found.");
+            }
+
+            return NoContent();
+        }
 
     }
 }

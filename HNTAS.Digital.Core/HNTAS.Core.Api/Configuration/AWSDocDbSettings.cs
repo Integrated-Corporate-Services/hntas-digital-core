@@ -9,7 +9,5 @@
         public string InvitationsCollectionName { get; set; }
         public string CountersCollectionName { get; set; }
         public string HeatNetworksCollectionName { get; set; }
-
-        public string SoaProjectCollectionName { get; set; }
     }
 }

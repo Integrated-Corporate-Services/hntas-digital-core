@@ -20,5 +20,8 @@ namespace HNTAS.Core.Api.Data.Models
 
         [BsonElement("pathway")]
         public string Pathway { get; set; }
+
+        [BsonElement("soa")]
+        public Soa? Soa { get; set; }
     }
 }

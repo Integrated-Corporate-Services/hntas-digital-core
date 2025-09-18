@@ -25,50 +25,52 @@ namespace HNTAS.Core.Api.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<ActionResult<Soa>> GetByHeatNetworkIdAsync(string hnId)
         {
-            _logger.LogInformation("Retrieving SOA project for Heat Network ID: {HeatNetworkId}", hnId);
+            _logger.LogInformation("Retrieving SOA project for Heat Network ID: {HnId}", hnId);
 
             var project = await _soaService.GetByHeatNetworkIdAsync(hnId);
 
-            if (project == null)
+            if (project is null)
             {
-                _logger.LogWarning("SOA project not found for Heat Network ID: {HeatNetworkId}", hnId);
+                _logger.LogWarning("SOA project not found for Heat Network ID: {HnId}", hnId);
                 return NotFound();
             }
 
-            _logger.LogInformation("SOA project retrieved successfully for Heat Network ID: {HeatNetworkId}", hnId);
+            _logger.LogInformation("SOA project retrieved successfully for Heat Network ID: {HnId}", hnId);
             return Ok(project);
         }
+
 
         [HttpPost("create")]
         [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(Soa))]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> CreateProject([FromQuery] string hnId, [FromQuery] string createdBy)
         {
-            _logger.LogInformation("Creating new SOA data for Heat Network ID: {HeatNetworkId} by {CreatedBy}", hnId, createdBy);
-
             if (string.IsNullOrWhiteSpace(hnId))
             {
-                _logger.LogWarning("Heat Network ID is missing in create request.");
+                _logger.LogWarning("Create request rejected: missing Heat Network ID.");
                 return BadRequest("Heat Network ID is required.");
             }
 
             if (string.IsNullOrWhiteSpace(createdBy))
             {
-                _logger.LogWarning("CreatedBy is missing in create request.");
+                _logger.LogWarning("Create request rejected: missing CreatedBy.");
                 return BadRequest("CreatedBy is required.");
             }
 
+            _logger.LogInformation("Initiating SOA creation for Heat Network ID: {HnId} by user: {CreatedBy}", hnId, createdBy);
+
             var soa = await _soaService.CreateAsync(hnId, createdBy);
 
-            if (soa == null)
+            if (soa is null)
             {
-                _logger.LogWarning("Failed to create SOA data for Heat Network ID: {HeatNetworkId}", hnId);
+                _logger.LogWarning("SOA creation failed for Heat Network ID: {HnId}", hnId);
                 return BadRequest("Unable to create SOA data.");
             }
 
-            _logger.LogInformation("SOA data embedded successfully for Heat Network ID: {HeatNetworkId}", hnId);
+            _logger.LogInformation("SOA data successfully created for Heat Network ID: {HnId}", hnId);
             return Ok(soa);
         }
+
 
 
 
@@ -78,7 +80,7 @@ namespace HNTAS.Core.Api.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> UpdateConnections([FromBody] UpdateConnectionsRequest request)
         {
-            _logger.LogInformation("Updating connection types for Heat Network ID: {HeatNetworkId} by {UpdatedBy}", request.HnId, request.UpdatedBy);
+            _logger.LogInformation("Updating connection types for Heat Network ID: {HnId} by {UpdatedBy}", request.HnId, request.UpdatedBy);
 
             if (string.IsNullOrEmpty(request.HnId))
             {
@@ -95,12 +97,12 @@ namespace HNTAS.Core.Api.Controllers
             var project = await _soaService.GetByHeatNetworkIdAsync(request.HnId);
             if (project == null)
             {
-                _logger.LogWarning("SOA project not found for connection update: {HeatNetworkId}", request.HnId);
+                _logger.LogWarning("SOA project not found for connection update: {HnId}", request.HnId);
                 return NotFound();
             }
 
             await _soaService.UpdateConnectionTypesAsync(request.HnId, request.UpdatedBy, request.ConnectionTypes);
-            _logger.LogInformation("Connection types updated for Heat Network ID: {HeatNetworkId}", request.HnId);
+            _logger.LogInformation("Connection types updated for Heat Network ID: {HnId}", request.HnId);
 
             return Ok();
         }
@@ -112,7 +114,7 @@ namespace HNTAS.Core.Api.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> UpdateNetworkType([FromQuery] string hnId, [FromQuery] string updatedBy, [FromBody] NetworkTypeSelection networkTypeSelection)
         {
-            _logger.LogInformation("Updating network type for Heat Network ID: {HeatNetworkId} by {UpdatedBy}", hnId, updatedBy);
+            _logger.LogInformation("Updating network type for Heat Network ID: {hnId} by {UpdatedBy}", hnId, updatedBy);
 
             if (string.IsNullOrEmpty(hnId))
             {
@@ -129,12 +131,12 @@ namespace HNTAS.Core.Api.Controllers
             var project = await _soaService.GetByHeatNetworkIdAsync(hnId);
             if (project == null)
             {
-                _logger.LogWarning("SOA project not found for network type update: {HeatNetworkId}", hnId);
+                _logger.LogWarning("SOA project not found for network type update: {hnId}", hnId);
                 return NotFound();
             }
 
             await _soaService.UpdateNetworkTypeAsync(hnId, updatedBy, networkTypeSelection);
-            _logger.LogInformation("Network type updated for Heat Network ID: {HeatNetworkId}", hnId);
+            _logger.LogInformation("Network type updated for Heat Network ID: {hnId}", hnId);
 
             return Ok();
         }
@@ -145,7 +147,7 @@ namespace HNTAS.Core.Api.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> UpdateNetworkElements([FromQuery] string hnId, [FromQuery] string updatedBy, [FromBody] List<HeatNetworkElement> networkElements)
         {
-            _logger.LogInformation("Updating network type for Heat Network ID: {HeatNetworkId} by {UpdatedBy}", hnId, updatedBy);
+            _logger.LogInformation("Updating network type for Heat Network ID: {hnId} by {UpdatedBy}", hnId, updatedBy);
 
             if (string.IsNullOrEmpty(hnId))
             {
@@ -162,12 +164,12 @@ namespace HNTAS.Core.Api.Controllers
             var project = await _soaService.GetByHeatNetworkIdAsync(hnId);
             if (project == null)
             {
-                _logger.LogWarning("SOA project not found for network type update: {HeatNetworkId}", hnId);
+                _logger.LogWarning("SOA project not found for network type update: {hnId}", hnId);
                 return NotFound();
             }
 
             await _soaService.UpdateHeatNetworkElementsAsync(hnId, networkElements, updatedBy);
-            _logger.LogInformation("Network type updated for Heat Network ID: {HeatNetworkId}", hnId);
+            _logger.LogInformation("Network type updated for Heat Network ID: {hnId}", hnId);
 
             return Ok();
         }

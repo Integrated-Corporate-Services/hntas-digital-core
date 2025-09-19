@@ -1,16 +1,19 @@
-﻿using System.ComponentModel;
+﻿
+using System.ComponentModel;
 using System.Text.Json.Serialization;
 
 namespace HNTAS.Core.Api.Enums
 {
     [JsonConverter(typeof(JsonStringEnumConverter))]
-    public enum SoaProjectStatus
+    public enum SoaStatus
     {
         [Description("In Progress")]
         InProgress = 1,
+        [Description("Submitted")]
+        Submitted = 2,
         [Description("Complete")]
-        Complete = 2,
+        Complete = 3,
         [Description("Archived")]
-        Archived
+        Archived = 4
     }
 }

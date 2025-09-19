@@ -75,7 +75,9 @@ namespace HNTAS.Core.Api.MappingProfiles
             .ForMember(dest => dest.NetworkType, opt => opt.MapFrom(src => src.NetworkType))
             .ForMember(dest => dest.ConnectionTypes, opt => opt.MapFrom(src => src.ConnectionTypes))
             .ForMember(dest => dest.HeatNetworkElements, opt => opt.MapFrom(src => src.HeatNetworkElements))
-            .ForMember(dest => dest.AssessmentPlans, opt => opt.MapFrom(src => src.AssessmentPlans));
+            .ForMember(dest => dest.AssessmentDocs, opt => opt.MapFrom(src => src.AssessmentDocs))
+            .ForMember(dest => dest.AssessorDocs, opt => opt.MapFrom(src => src.AssessorDocs))
+            .ForMember(dest => dest.CertifierDocs, opt => opt.MapFrom(src => src.CertifierDocs));
 
             CreateMap<NetworkTypeSelection, NetworkTypeResponse>()
             .ForMember(dest => dest.Type, opt => opt.MapFrom(src => src.Type.ToString()))
@@ -94,16 +96,6 @@ namespace HNTAS.Core.Api.MappingProfiles
             .ForMember(dest => dest.Stage, opt => opt.MapFrom(src => src.Stage))
             .ForMember(dest => dest.UploadedAt, opt => opt.MapFrom(src => src.UploadedAt))
             .ForMember(dest => dest.UploadedBy, opt => opt.MapFrom(src => src.UploadedBy));
-
-            CreateMap<AssessmentPlanDocument, AssessmentPlanDocumentResponse>()
-            .ForMember(dest => dest.FileName, opt => opt.MapFrom(src => src.FileName))
-            .ForMember(dest => dest.S3Key, opt => opt.MapFrom(src => src.S3Key))
-            .ForMember(dest => dest.Phase, opt => opt.MapFrom(src => src.Phase))
-            .ForMember(dest => dest.Stage, opt => opt.MapFrom(src => src.Stage))
-            .ForMember(dest => dest.UploadedAt, opt => opt.MapFrom(src => src.UploadedAt))
-            .ForMember(dest => dest.UploadedBy, opt => opt.MapFrom(src => src.UploadedBy));
-
-
         }
     }
 }

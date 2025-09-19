@@ -174,7 +174,7 @@ namespace HNTAS.Core.Api.Controllers
             return Ok();
         }
 
-        [HttpPost("element-locations")]
+        [HttpPatch("element-locations")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -211,7 +211,7 @@ namespace HNTAS.Core.Api.Controllers
             }
         }
 
-        [HttpPost("element-documents")]
+        [HttpPatch("element-documents")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -292,6 +292,130 @@ namespace HNTAS.Core.Api.Controllers
             {
                 _logger.LogError(ex, "Failed to save assessment plan for HN ID: {HnId}, Phase: {Phase}, Stage: {Stage}, UploadedBy: {UpdatedBy}",
                     request.HnId, request.Phase, request.Stage, request.UpdatedBy);
+                throw;
+            }
+        }
+
+        [HttpDelete("{hnId}")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> DeleteSoaProject(string hnId)
+        {
+            if (string.IsNullOrWhiteSpace(hnId))
+            {
+                _logger.LogWarning("Delete request received with empty HN ID.");
+                return BadRequest("Heat Network ID is required.");
+            }
+
+            _logger.LogInformation("Attempting to delete SOA project for HN ID: {HnId}", hnId);
+
+            var project = await _soaService.GetByHeatNetworkIdAsync(hnId);
+            if (project == null)
+            {
+                _logger.LogWarning("SOA project not found for deletion: {HnId}", hnId);
+                return NotFound();
+            }
+
+            try
+            {
+                await _soaService.DeleteByHeatNetworkIdAsync(hnId);
+                _logger.LogInformation("SOA project deleted successfully for HN ID: {HnId}", hnId);
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to delete SOA project for HN ID: {HnId}", hnId);
+                throw;
+            }
+        }
+
+
+        [HttpPut("update-soa-status")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> UpdateSoaStatus([FromBody] UpdateSoaStatusRequest request)
+        {
+            _logger.LogInformation("Updating SOA status to {Status} for HN ID: {HnId} by {UpdatedBy}", request.Status, request.HnId, request.UpdatedBy);
+
+            if (string.IsNullOrWhiteSpace(request.HnId))
+                return BadRequest("Heat Network ID is required.");
+
+            if (string.IsNullOrWhiteSpace(request.UpdatedBy))
+                return BadRequest("UpdatedBy is required.");
+
+            if (!Enum.IsDefined(typeof(SoaStatus), request.Status))
+                return BadRequest($"Invalid SOA status: {request.Status}");
+
+            var soa = await _soaService.UpdateStatusAsync(request.HnId, request.Status, request.UpdatedBy);
+
+            if (soa == null)
+            {
+                _logger.LogWarning("No SOA found to update for HN ID: {HnId}", request.HnId);
+                return BadRequest("SOA not found.");
+            }
+
+
+        [HttpPatch("document-update")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> SaveDocument([FromBody] UpdateDocumentRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                _logger.LogWarning("Invalid SaveDocument request: {@Errors}",
+                    ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage));
+                return BadRequest(ModelState);
+            }
+
+            _logger.LogInformation("Saving {DocumentType} document for HN ID: {HnId}, Phase: {Phase}, Stage: {Stage}, UploadedBy: {UploadedBy}",
+                request.DocumentType, request.HnId, request.Phase, request.Stage, request.UploadedBy);
+
+            var project = await _soaService.GetByHeatNetworkIdAsync(request.HnId);
+            if (project == null)
+            {
+                _logger.LogWarning("SOA not found for {DocumentType} document save: {HnId}", request.DocumentType, request.HnId);
+                return NotFound();
+            }
+
+            var document = new Document
+            {
+                FileName = request.FileName,
+                S3Key = request.S3Key,
+                Phase = request.Phase,
+                Stage = request.Stage,
+                UploadedAt = DateTime.UtcNow,
+                UploadedBy = request.UploadedBy
+            };
+
+            try
+            {
+                switch (request.DocumentType)
+                {
+                    case DocumentType.Assessment:
+                        await _soaService.UpdateAssessmentDocumentAsync(request.HnId, document);
+                        break;
+                    case DocumentType.Assessor:
+                        await _soaService.UpdateAssessorDocumentAsync(request.HnId, document);
+                        break;
+                    case DocumentType.Certifier:
+                        await _soaService.UpdateCertifierDocumentAsync(request.HnId, document);
+                        break;
+                    default:
+                        _logger.LogWarning("Unsupported document type: {DocumentType}", request.DocumentType);
+                        return BadRequest($"Unsupported document type: {request.DocumentType}");
+                }
+
+                _logger.LogInformation("{DocumentType} document saved successfully for HN ID: {HnId}, Phase: {Phase}, Stage: {Stage}, UploadedBy: {UploadedBy}",
+                    request.DocumentType, request.HnId, request.Phase, request.Stage, request.UploadedBy);
+
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to save {DocumentType} document for HN ID: {HnId}, Phase: {Phase}, Stage: {Stage}, UploadedBy: {UploadedBy}",
+                    request.DocumentType, request.HnId, request.Phase, request.Stage, request.UploadedBy);
                 throw;
             }
         }

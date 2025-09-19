@@ -27,5 +27,6 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonElement("uploadedBy")]
         [BsonRepresentation(BsonType.ObjectId)]
         public string UploadedBy { get; set; } = null!;
+
     }
 }

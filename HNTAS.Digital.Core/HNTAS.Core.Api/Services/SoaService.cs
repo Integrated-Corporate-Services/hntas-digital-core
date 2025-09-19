@@ -171,16 +171,16 @@ namespace HNTAS.Core.Api.Services
             await _heatNetworkCollection.UpdateOneAsync(filter, update);
         }
 
-        public async Task UpdateAssessmentPlanDocumentAsync(string hnId, AssessmentPlanDocument document)
+        public async Task UpdateAssessmentDocumentAsync(string hnId, Document document)
         {
             var updateFilter = Builders<HeatNetwork>.Filter.And(
                 Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
-                Builders<HeatNetwork>.Filter.ElemMatch(hn => hn.Soa!.JourneyData.AssessmentPlans,
+                Builders<HeatNetwork>.Filter.ElemMatch(hn => hn.Soa!.JourneyData.AssessmentDocs,
                     ap => ap.Phase == document.Phase)
             );
 
             var update = Builders<HeatNetwork>.Update
-                .Set("soa.journeyData.assessmentPlans.$", document)
+                .Set("soa.journeyData.assessmentDocs.$", document)
                 .Set(hn => hn.Soa!.UpdatedAt, DateTime.UtcNow)
                 .Set(hn => hn.Soa.UpdatedBy, document.UploadedBy);
 
@@ -191,13 +191,71 @@ namespace HNTAS.Core.Api.Services
                 var insertFilter = Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId);
 
                 var insertUpdate = Builders<HeatNetwork>.Update
-                    .Push("soa.journeyData.assessmentPlans", document)
+                    .Push("soa.journeyData.assessmentDocs", document)
                     .Set(hn => hn.Soa!.UpdatedAt, DateTime.UtcNow)
                     .Set(hn => hn.Soa.UpdatedBy, document.UploadedBy);
 
                 await _heatNetworkCollection.UpdateOneAsync(insertFilter, insertUpdate);
             }
         }
+
+        public async Task UpdateAssessorDocumentAsync(string hnId, Document document)
+        {
+            var updateFilter = Builders<HeatNetwork>.Filter.And(
+                Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
+                Builders<HeatNetwork>.Filter.ElemMatch(hn => hn.Soa!.JourneyData.AssessorDocs,
+                    ad => ad.Phase == document.Phase)
+            );
+
+            var update = Builders<HeatNetwork>.Update
+                .Set("soa.journeyData.assessorDocs.$", document)
+                .Set(hn => hn.Soa!.UpdatedAt, DateTime.UtcNow)
+                .Set(hn => hn.Soa.UpdatedBy, document.UploadedBy);
+
+            var result = await _heatNetworkCollection.UpdateOneAsync(updateFilter, update);
+
+            if (result.ModifiedCount == 0)
+            {
+                var insertFilter = Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId);
+
+                var insertUpdate = Builders<HeatNetwork>.Update
+                    .Push("soa.journeyData.assessorDocs", document)
+                    .Set(hn => hn.Soa!.UpdatedAt, DateTime.UtcNow)
+                    .Set(hn => hn.Soa.UpdatedBy, document.UploadedBy);
+
+                await _heatNetworkCollection.UpdateOneAsync(insertFilter, insertUpdate);
+            }
+        }
+
+        public async Task UpdateCertifierDocumentAsync(string hnId, Document document)
+        {
+            var updateFilter = Builders<HeatNetwork>.Filter.And(
+                Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
+                Builders<HeatNetwork>.Filter.ElemMatch(hn => hn.Soa!.JourneyData.CertifierDocs,
+                    cd => cd.Phase == document.Phase)
+            );
+
+            var update = Builders<HeatNetwork>.Update
+                .Set("soa.journeyData.certifierDocs.$", document)
+                .Set(hn => hn.Soa!.UpdatedAt, DateTime.UtcNow)
+                .Set(hn => hn.Soa.UpdatedBy, document.UploadedBy);
+
+            var result = await _heatNetworkCollection.UpdateOneAsync(updateFilter, update);
+
+            if (result.ModifiedCount == 0)
+            {
+                var insertFilter = Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId);
+
+                var insertUpdate = Builders<HeatNetwork>.Update
+                    .Push("soa.journeyData.certifierDocs", document)
+                    .Set(hn => hn.Soa!.UpdatedAt, DateTime.UtcNow)
+                    .Set(hn => hn.Soa.UpdatedBy, document.UploadedBy);
+
+                await _heatNetworkCollection.UpdateOneAsync(insertFilter, insertUpdate);
+            }
+        }
+
+
 
         public async Task DeleteByHeatNetworkIdAsync(string hnId)
         {

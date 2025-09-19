@@ -27,7 +27,21 @@ namespace HNTAS.Core.Api.Models.Soa
         public NetworkTypeResponse? NetworkType { get; set; }
         public List<string>? ConnectionTypes { get; set; }
         public List<HeatNetworkElementResponse> HeatNetworkElements { get; set; } = new();
-        public List<AssessmentPlanDocumentResponse> AssessmentPlans { get; set; } = new();
+        public List<UploadedAssessmentDocumentResponse> AssessmentDocs { get; set; } = new();
+        public List<UploadedAssessorDocumentResponse> AssessorDocs { get; set; } = new();
+        public List<UploadedCertifierDocumentResponse> CertifierDocs { get; set; } = new();
+    }
+
+    public class UploadedAssessmentDocumentResponse : UploadedDocumentResponse
+    {
+    }
+
+    public class UploadedAssessorDocumentResponse : UploadedDocumentResponse
+    {
+    }
+
+    public class UploadedCertifierDocumentResponse : UploadedDocumentResponse
+    {
     }
 
     public class NetworkTypeResponse
@@ -44,6 +58,16 @@ namespace HNTAS.Core.Api.Models.Soa
         public List<UploadedDocumentResponse> Documents { get; set; } = new();
     }
     public class UploadedDocumentResponse
+    {
+        public string FileName { get; set; } = null!;
+        public string S3Key { get; set; } = null!;
+        public string Phase { get; set; } = null!;
+        public string Stage { get; set; } = null!;
+        public DateTime UploadedAt { get; set; }
+        public string UploadedBy { get; set; } = null!;
+    }
+
+    public class UploadedDocumentResponse2
     {
         public string FileName { get; set; } = null!;
         public string S3Key { get; set; } = null!;

@@ -616,6 +616,29 @@ public class UsersController : ControllerBase
 
     private User BuildUserFromInvitation(InvitedUserRequest request, Invitation invitation)
     {
+        var roles = new List<UserRole> { };
+        foreach (var role in invitation.InvitedRoles)
+        {
+            if (role == ContributorRole.DesignatedDesigner || role == ContributorRole.ContributingDesigner)
+            {
+                roles.Add(UserRole.Designer);
+            }
+            else if (role == ContributorRole.DesignatedContractor || role == ContributorRole.ContributingContractor)
+            {
+                roles.Add(UserRole.Contractor);
+            }
+            else if (role == ContributorRole.DesignatedOperator || role == ContributorRole.ContributingOperator)
+            {
+                roles.Add(UserRole.Operator);
+            }
+            else if (role == ContributorRole.Assessor)
+            {
+                roles.Add(UserRole.Assessor);
+            }else
+            {
+                roles.Add(UserRole.Contributor);
+            }
+        }
         var user = new User
         {
             OneLoginId = request.OneLoginId,
@@ -629,7 +652,7 @@ public class UsersController : ControllerBase
             ContactNumberExtension = invitation.ContactNumberExtension,
             Status = UserStatus.Active,
             OrgId = request.InviterOrgId,
-            Roles = [UserRole.Contributor],
+            Roles = roles,
             HnIds = [invitation.InvitedHnId],
             HnRoleMappings = [new HnRoleMapping
                                 {

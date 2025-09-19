@@ -16,7 +16,13 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonElement("heatNetworkElements")]
         public List<HeatNetworkElement> HeatNetworkElements { get; set; } = [];
 
-        [BsonElement("assessmentPlans")]
-        public List<AssessmentPlanDocument> AssessmentPlans { get; set; } = [];
+        [BsonElement("assessmentDocs")]
+        public List<UploadedDocument> AssessmentDocs { get; set; } = [];
+
+        [BsonElement("assessorDocs")]
+        public List<UploadedDocument> AssessorDocs { get; set; } = [];
+
+        [BsonElement("certifierDocs")]
+        public List<UploadedDocument> CertifierDocs { get; set; } = [];
     }
 }

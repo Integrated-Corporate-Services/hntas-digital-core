@@ -96,6 +96,11 @@ namespace HNTAS.Core.Api.MappingProfiles
             .ForMember(dest => dest.Stage, opt => opt.MapFrom(src => src.Stage))
             .ForMember(dest => dest.UploadedAt, opt => opt.MapFrom(src => src.UploadedAt))
             .ForMember(dest => dest.UploadedBy, opt => opt.MapFrom(src => src.UploadedBy));
+
+
+            CreateMap<UploadedDocument, UploadedAssessmentDocumentResponse>();
+            CreateMap<UploadedDocument, UploadedAssessorDocumentResponse>();
+            CreateMap<UploadedDocument, UploadedCertifierDocumentResponse>();
         }
     }
 }

@@ -62,7 +62,7 @@ namespace HNTAS.Core.Api.Models.Soa
         public string FileName { get; set; } = null!;
         public string S3Key { get; set; } = null!;
         public string Phase { get; set; } = null!;
-        public string Stage { get; set; } = null!;
+        public string? Stage { get; set; }
         public DateTime UploadedAt { get; set; }
         public string UploadedBy { get; set; } = null!;
     }

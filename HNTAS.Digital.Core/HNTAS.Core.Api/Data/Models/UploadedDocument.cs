@@ -18,7 +18,7 @@ namespace HNTAS.Core.Api.Data.Models
 
         [BsonElement("stage")]
         [BsonRepresentation(BsonType.String)]
-        public SoaStage Stage { get; set; }
+        public SoaStage? Stage { get; set; }
 
         [BsonElement("uploadedAt")]
         [BsonRepresentation(BsonType.DateTime)]

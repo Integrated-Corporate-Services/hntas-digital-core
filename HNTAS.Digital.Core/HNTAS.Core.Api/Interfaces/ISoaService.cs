@@ -14,6 +14,8 @@ namespace HNTAS.Core.Api.Interfaces
         Task UpdateHeatNetworkElementsAsync(string hnId, List<HeatNetworkElement> elements, string updatedBy);
         Task UpdateElementLocationsAsync(string projectId, HeatNetworkElementType elementType, List<string> locations, string updatedBy);
         Task UpdateElementDocumentsAsync(string hnId, HeatNetworkElementType elementType, List<UploadedDocument> documents, string updatedBy);
-        Task UpdateAssessmentPlanDocumentAsync(string hnId, AssessmentPlanDocument document);
+        Task UpdateAssessmentDocumentAsync(string hnId, Document document);
+        Task UpdateAssessorDocumentAsync(string hnId, Document document);
+        Task UpdateCertifierDocumentAsync(string hnId, Document document);
     }
 }

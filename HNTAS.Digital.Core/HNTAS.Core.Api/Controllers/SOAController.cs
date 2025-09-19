@@ -174,7 +174,7 @@ namespace HNTAS.Core.Api.Controllers
             return Ok();
         }
 
-        [HttpPost("element-locations")]
+        [HttpPatch("element-locations")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -211,7 +211,7 @@ namespace HNTAS.Core.Api.Controllers
             }
         }
 
-        [HttpPost("element-documents")]
+        [HttpPatch("element-documents")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -249,49 +249,66 @@ namespace HNTAS.Core.Api.Controllers
         }
 
 
-        [HttpPost("assessment-plan")]
+        [HttpPatch("document-update")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> SaveAssessmentPlan([FromBody] UpdateAssessmentPlanRequest request)
+        public async Task<IActionResult> SaveDocument([FromBody] UpdateDocumentRequest request)
         {
             if (!ModelState.IsValid)
             {
-                _logger.LogWarning("Invalid SaveAssessmentPlan request: {@Errors}", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage));
+                _logger.LogWarning("Invalid SaveDocument request: {@Errors}",
+                    ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage));
                 return BadRequest(ModelState);
             }
 
-            _logger.LogInformation("Saving assessment plan for HN ID: {HnId}, Phase: {Phase}, Stage: {Stage}, UploadedBy: {UpdatedBy}",
-                request.HnId, request.Phase, request.Stage, request.UpdatedBy);
+            _logger.LogInformation("Saving {DocumentType} document for HN ID: {HnId}, Phase: {Phase}, Stage: {Stage}, UploadedBy: {UploadedBy}",
+                request.DocumentType, request.HnId, request.Phase, request.Stage, request.UploadedBy);
 
             var project = await _soaService.GetByHeatNetworkIdAsync(request.HnId);
             if (project == null)
             {
-                _logger.LogWarning("SOA project not found for assessment plan save: {HnId}", request.HnId);
+                _logger.LogWarning("SOA not found for {DocumentType} document save: {HnId}", request.DocumentType, request.HnId);
                 return NotFound();
             }
 
-            var document = new AssessmentPlanDocument
+            var document = new Document
             {
                 FileName = request.FileName,
                 S3Key = request.S3Key,
                 Phase = request.Phase,
                 Stage = request.Stage,
                 UploadedAt = DateTime.UtcNow,
-                UploadedBy = request.UpdatedBy
+                UploadedBy = request.UploadedBy
             };
 
             try
             {
-                await _soaService.UpdateAssessmentPlanDocumentAsync(request.HnId, document);
-                _logger.LogInformation("Assessment plan saved successfully for HN ID: {HnId}, Phase: {Phase}, Stage: {Stage}, UploadedBy: {UpdatedBy}",
-                    request.HnId, request.Phase, request.Stage, request.UpdatedBy);
+                switch (request.DocumentType)
+                {
+                    case DocumentType.Assessment:
+                        await _soaService.UpdateAssessmentDocumentAsync(request.HnId, document);
+                        break;
+                    case DocumentType.Assessor:
+                        await _soaService.UpdateAssessorDocumentAsync(request.HnId, document);
+                        break;
+                    case DocumentType.Certifier:
+                        await _soaService.UpdateCertifierDocumentAsync(request.HnId, document);
+                        break;
+                    default:
+                        _logger.LogWarning("Unsupported document type: {DocumentType}", request.DocumentType);
+                        return BadRequest($"Unsupported document type: {request.DocumentType}");
+                }
+
+                _logger.LogInformation("{DocumentType} document saved successfully for HN ID: {HnId}, Phase: {Phase}, Stage: {Stage}, UploadedBy: {UploadedBy}",
+                    request.DocumentType, request.HnId, request.Phase, request.Stage, request.UploadedBy);
+
                 return Ok();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to save assessment plan for HN ID: {HnId}, Phase: {Phase}, Stage: {Stage}, UploadedBy: {UpdatedBy}",
-                    request.HnId, request.Phase, request.Stage, request.UpdatedBy);
+                _logger.LogError(ex, "Failed to save {DocumentType} document for HN ID: {HnId}, Phase: {Phase}, Stage: {Stage}, UploadedBy: {UploadedBy}",
+                    request.DocumentType, request.HnId, request.Phase, request.Stage, request.UploadedBy);
                 throw;
             }
         }

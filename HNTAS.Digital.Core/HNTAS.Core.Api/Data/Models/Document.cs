@@ -4,7 +4,7 @@ using MongoDB.Bson.Serialization.Attributes;
 
 namespace HNTAS.Core.Api.Data.Models
 {
-    public class AssessmentPlanDocument
+    public class Document
     {
         [BsonElement("phase")]
         [BsonRepresentation(BsonType.String)]

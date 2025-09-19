@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace HNTAS.Core.Api.Models.Soa
 {
-    public class UpdateAssessmentPlanRequest
+    public class UpdateDocumentRequest
     {
         [Required]
         public string HnId { get; set; } = string.Empty;
@@ -14,12 +14,15 @@ namespace HNTAS.Core.Api.Models.Soa
         public SoaStage? Stage { get; set; }
 
         [Required]
-        public string UpdatedBy { get; set; } = string.Empty;
+        public string UploadedBy { get; set; } = string.Empty;
 
         [Required]
         public string FileName { get; set; } = string.Empty;
 
         [Required]
         public string S3Key { get; set; } = string.Empty;
+
+        [Required]
+        public DocumentType DocumentType { get; set; }
     }
 }

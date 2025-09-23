@@ -19,6 +19,8 @@ namespace HNTAS.Core.Api.Enums
         [Description("Contributing Operator")]
         ContributingOperator = 6,
         [Description("Assessor")]
-        Assessor = 7
+        Assessor = 7,
+        [Description("Certifier")]
+        Certifier = 8,
     }
 }

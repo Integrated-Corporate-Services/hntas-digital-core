@@ -2,7 +2,7 @@
 
 namespace HNTAS.Core.Api.Models
 {
-    public class HeatNetworkResponse
+    public class HeatNetworkUserResponse
     {
         [BsonElement("hnId")]
         public string HnId { get; set; }

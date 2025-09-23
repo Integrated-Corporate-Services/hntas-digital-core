@@ -634,7 +634,12 @@ public class UsersController : ControllerBase
             else if (role == ContributorRole.Assessor)
             {
                 roles.Add(UserRole.Assessor);
-            }else
+            }
+            else if (role == ContributorRole.Certifier)
+            {
+                roles.Add(UserRole.Certifier);
+            }
+            else
             {
                 roles.Add(UserRole.Contributor);
             }

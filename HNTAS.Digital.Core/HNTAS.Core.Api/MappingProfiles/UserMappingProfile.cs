@@ -2,6 +2,7 @@
 using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Models;
+using HNTAS.Core.Api.Models.Soa;
 using HNTAS.Core.Api.Models.Users;
 
 namespace HNTAS.Core.Api.MappingProfiles
@@ -52,6 +53,54 @@ namespace HNTAS.Core.Api.MappingProfiles
             .ForMember(dest => dest.InvitedAt, opt => opt.MapFrom(src => src.InvitedAt))
             .ForMember(dest => dest.AcceptedAt, opt => opt.MapFrom(src => src.AcceptedAt))
             .ForMember(dest => dest.RejectedAt, opt => opt.MapFrom(src => src.RejectedAt));
+
+
+            CreateMap<HeatNetwork, HeatNetworkResponse>()
+            .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
+            .ForMember(dest => dest.HnId, opt => opt.MapFrom(src => src.HnId))
+            .ForMember(dest => dest.Location, opt => opt.MapFrom(src => src.Location))
+            .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name))
+            .ForMember(dest => dest.Pathway, opt => opt.MapFrom(src => src.Pathway))
+            .ForMember(dest => dest.Soa, opt => opt.MapFrom(src => src.Soa));
+
+            CreateMap<Soa, SoaResponse>()
+            .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status.ToString()))
+            .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => src.CreatedAt))
+            .ForMember(dest => dest.CreatedBy, opt => opt.MapFrom(src => src.CreatedBy))
+            .ForMember(dest => dest.UpdatedAt, opt => opt.MapFrom(src => src.UpdatedAt))
+            .ForMember(dest => dest.UpdatedBy, opt => opt.MapFrom(src => src.UpdatedBy))
+            .ForMember(dest => dest.JourneyData, opt => opt.MapFrom(src => src.JourneyData));
+
+            CreateMap<SoaJourneyData, JourneyDataResponse>()
+            .ForMember(dest => dest.NetworkType, opt => opt.MapFrom(src => src.NetworkType))
+            .ForMember(dest => dest.ConnectionTypes, opt => opt.MapFrom(src => src.ConnectionTypes))
+            .ForMember(dest => dest.HeatNetworkElements, opt => opt.MapFrom(src => src.HeatNetworkElements))
+            .ForMember(dest => dest.AssessmentDocs, opt => opt.MapFrom(src => src.AssessmentDocs))
+            .ForMember(dest => dest.AssessorDocs, opt => opt.MapFrom(src => src.AssessorDocs))
+            .ForMember(dest => dest.CertifierDocs, opt => opt.MapFrom(src => src.CertifierDocs));
+
+            CreateMap<NetworkTypeSelection, NetworkTypeResponse>()
+            .ForMember(dest => dest.Type, opt => opt.MapFrom(src => src.Type.ToString()))
+            .ForMember(dest => dest.OtherNetworkDescription, opt => opt.MapFrom(src => src.OtherNetworkDescription));
+
+            CreateMap<HeatNetworkElement, HeatNetworkElementResponse>()
+            .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name))
+            .ForMember(dest => dest.Count, opt => opt.MapFrom(src => src.Count))
+            .ForMember(dest => dest.Locations, opt => opt.MapFrom(src => src.Locations))
+            .ForMember(dest => dest.Documents, opt => opt.MapFrom(src => src.Documents));
+
+            CreateMap<UploadedDocument, UploadedDocumentResponse>()
+            .ForMember(dest => dest.FileName, opt => opt.MapFrom(src => src.FileName))
+            .ForMember(dest => dest.S3Key, opt => opt.MapFrom(src => src.S3Key))
+            .ForMember(dest => dest.Phase, opt => opt.MapFrom(src => src.Phase))
+            .ForMember(dest => dest.Stage, opt => opt.MapFrom(src => src.Stage))
+            .ForMember(dest => dest.UploadedAt, opt => opt.MapFrom(src => src.UploadedAt))
+            .ForMember(dest => dest.UploadedBy, opt => opt.MapFrom(src => src.UploadedBy));
+
+
+            CreateMap<UploadedDocument, UploadedAssessmentDocumentResponse>();
+            CreateMap<UploadedDocument, UploadedAssessorDocumentResponse>();
+            CreateMap<UploadedDocument, UploadedCertifierDocumentResponse>();
         }
     }
 }

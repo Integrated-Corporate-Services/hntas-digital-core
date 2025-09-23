@@ -42,5 +42,11 @@ namespace HNTAS.Core.Api.Enums
         [Description("Assessor")]
         Assessor = 6,
 
+        /// <summary>
+        /// Represents a certifier user role.
+        /// </summary>
+        [Description("Certifier")]
+        Certifier = 7,
+
     }
 }

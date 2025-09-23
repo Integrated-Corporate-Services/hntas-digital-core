@@ -1,5 +1,7 @@
-﻿using HNTAS.Core.Api.Data.Models;
+﻿using AutoMapper;
+using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Interfaces;
+using HNTAS.Core.Api.Models.Soa;
 using Microsoft.AspNetCore.Mvc;
 using System.Net.Mime;
 
@@ -12,12 +14,14 @@ namespace HNTAS.Core.Api.Controllers
         private readonly IHeatNetworkService _hnService;
         private readonly ILogger<HeatNetworksController> _logger;
         private readonly ICounterService _counterService;
+        private readonly IMapper _mapper;
 
-        public HeatNetworksController(IHeatNetworkService hnService, ILogger<HeatNetworksController> logger, ICounterService counterService)
+        public HeatNetworksController(IHeatNetworkService hnService, ILogger<HeatNetworksController> logger, ICounterService counterService, IMapper mapper)
         {
             _hnService = hnService;
             _logger = logger;
             _counterService = counterService;
+            _mapper = mapper;
         }
 
 
@@ -26,19 +30,18 @@ namespace HNTAS.Core.Api.Controllers
         /// </summary>
         /// <returns>A list of user objects.</returns>
         [HttpGet] // This defines the route as GET /api/users
-        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<HeatNetwork>))]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<HeatNetworkResponse>))]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<List<HeatNetwork>>> GetHeatNetworks()
+        public async Task<ActionResult<List<HeatNetworkResponse>>> GetHeatNetworks()
         {
             _logger.LogInformation("Attempting to retrieve all heat networks.");
             try
             {
                 var heatNetworks = await _hnService.GetAsync();
-
-
+                var heatNetworksResponse = _mapper.Map<List<HeatNetworkResponse>>(heatNetworks);
                 _logger.LogInformation("Successfully retrieved {HeatNetworkCount} heatNetworks.", heatNetworks.Count);
 
-                return Ok(heatNetworks); // Returns 200 OK with the list of users
+                return Ok(heatNetworksResponse); // Returns 200 OK with the list of users
             }
             catch (Exception ex)
             {
@@ -49,11 +52,11 @@ namespace HNTAS.Core.Api.Controllers
 
         [HttpGet("hnIds")]
         [Consumes(MediaTypeNames.Application.Json)]
-        [ProducesResponseType(typeof(List<HeatNetwork>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(List<HeatNetworkResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<List<HeatNetwork>>> GetHeatNetworksByHnIds([FromQuery] string hnIdsString)
+        public async Task<ActionResult<List<HeatNetworkResponse>>> GetHeatNetworksByHnIds([FromQuery] string hnIdsString)
         {
             // Split the comma-separated string of IDs into a List<string>
             List<string> hnIds = hnIdsString?.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList() ?? new List<string>();
@@ -75,7 +78,9 @@ namespace HNTAS.Core.Api.Controllers
                     return NotFound("No heat networks found for the given IDs.");
                 }
 
-                return Ok(heatNetworks);
+                var heatNetworksResponse = _mapper.Map<List<HeatNetworkResponse>>(heatNetworks);
+
+                return Ok(heatNetworksResponse);
             }
             catch (Exception ex)
             {
@@ -86,11 +91,11 @@ namespace HNTAS.Core.Api.Controllers
 
         [HttpGet("{hnId}")]
         [Consumes(MediaTypeNames.Application.Json)]
-        [ProducesResponseType(typeof(HeatNetwork), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(HeatNetworkResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<HeatNetwork>> GetHeatNetworkByHnId(string hnId)
+        public async Task<ActionResult<HeatNetworkResponse>> GetHeatNetworkByHnId(string hnId)
         {
             // Validate input ID
             if (string.IsNullOrEmpty(hnId))
@@ -105,29 +110,29 @@ namespace HNTAS.Core.Api.Controllers
 
                 if (heatNetwork == null)
                 {
-                    _logger.LogInformation("No heat network found for the provided ID.");
+                    _logger.LogInformation("No heat network found for the provided ID: {HeatNetworkId}", hnId);
                     return NotFound("No heat network found for the given ID.");
                 }
 
-                return Ok(heatNetwork);
+                var heatNetworkResponse = _mapper.Map<HeatNetworkResponse>(heatNetwork);
+
+                return Ok(heatNetworkResponse);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An error occurred while retrieving heat network for the provided ID.");
+                _logger.LogError(ex, "An error occurred while retrieving heat network for ID: {HeatNetworkId}", hnId);
                 return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while retrieving the heat network.");
             }
         }
 
-
-
         [HttpPost("add-heat-network")]
         [Consumes(MediaTypeNames.Application.Json)]
-        [ProducesResponseType(typeof(HeatNetwork), StatusCodes.Status201Created)]
+        [ProducesResponseType(typeof(HeatNetworkResponse), StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<HeatNetwork>> AddHeatNetwork([FromBody] HeatNetwork heatNetworkDetails)
+        public async Task<ActionResult<HeatNetworkResponse>> AddHeatNetwork([FromBody] HeatNetwork heatNetworkDetails)
         {
             //if (!ModelState.IsValid)
             //{

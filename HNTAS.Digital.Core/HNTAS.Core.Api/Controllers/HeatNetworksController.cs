@@ -180,5 +180,30 @@ namespace HNTAS.Core.Api.Controllers
                 });
             }
         }
+
+        // GET: api/HeatNetworks/{hnid}/assessor-impartiality
+        [HttpGet("{hnid}/assessor-impartiality")]
+        [Consumes(MediaTypeNames.Application.Json)]
+        [ProducesResponseType(typeof(bool), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<bool>> GetAssessorImpartiality(string hnid)
+        {
+            var heatnetwork = await _hnService.GetByHnIdAsync(hnid);
+            if (heatnetwork == null || heatnetwork.Soa.JourneyData == null)
+                return NotFound();
+
+            return Ok(heatnetwork.Soa.JourneyData.HasAssessorDeclaredImpartiality);
+        }
+
+        // POST: api/HeatNetworks/{hnid}/assessor-impartiality
+        [HttpPost("{hnid}/assessor-impartiality")]
+        public async Task<ActionResult<bool>> SetAssessorImpartiality(string hnid)
+        {
+            var updated = await _hnService.UpdateAssessorImpartialityAsync(hnid);
+            if (!updated)
+                return NotFound();
+
+            return updated;
+        }
     }
 }

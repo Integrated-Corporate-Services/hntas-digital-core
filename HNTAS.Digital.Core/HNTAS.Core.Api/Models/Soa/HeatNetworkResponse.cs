@@ -27,6 +27,7 @@ namespace HNTAS.Core.Api.Models.Soa
         public NetworkTypeResponse? NetworkType { get; set; }
         public List<string>? ConnectionTypes { get; set; }
         public List<HeatNetworkElementResponse> HeatNetworkElements { get; set; } = new();
+        public bool HasAssessorDeclaredImpartiality { get; set; } = false;
         public List<UploadedAssessmentDocumentResponse> AssessmentDocs { get; set; } = new();
         public List<UploadedAssessorDocumentResponse> AssessorDocs { get; set; } = new();
         public List<UploadedCertifierDocumentResponse> CertifierDocs { get; set; } = new();

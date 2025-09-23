@@ -47,5 +47,15 @@ namespace HNTAS.Core.Api.Services
             var filter = Builders<HeatNetwork>.Filter.In(hn => hn.HnId, hnIds);
             return await _hnCollection.Find(filter).ToListAsync();
         }
+
+        public async Task<bool> UpdateAssessorImpartialityAsync(string hnid)
+        {
+            var update = Builders<HeatNetwork>.Update.Set("soa.journeyData.hasAssessorDeclaredImpartiality", true);
+            var result = await _hnCollection.UpdateOneAsync(
+                hn => hn.HnId == hnid,
+                update
+            );
+            return result.MatchedCount > 0;
+        }
     }
 }

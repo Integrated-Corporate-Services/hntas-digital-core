@@ -16,6 +16,9 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonElement("heatNetworkElements")]
         public List<HeatNetworkElement> HeatNetworkElements { get; set; } = [];
 
+        [BsonElement("hasAssessorDeclaredImpartiality")]
+        public bool HasAssessorDeclaredImpartiality { get; set; } = false;
+
         [BsonElement("assessmentDocs")]
         public List<UploadedDocument> AssessmentDocs { get; set; } = [];
 

@@ -3,6 +3,7 @@ using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models.Soa;
 using Microsoft.AspNetCore.Mvc;
+using System.ComponentModel.DataAnnotations;
 
 namespace HNTAS.Core.Api.Controllers
 {
@@ -12,11 +13,16 @@ namespace HNTAS.Core.Api.Controllers
     {
         private readonly ISoaService _soaService;
         private readonly ILogger<SOAController> _logger;
-
-        public SOAController(ISoaService soaProjectService, ILogger<SOAController> logger)
+        private readonly IEmailService _emailService;
+        private readonly IHeatNetworkService _heatNetworkService;
+        private readonly IUserService _userService;
+        public SOAController(ISoaService soaProjectService, ILogger<SOAController> logger, IEmailService emailService, IHeatNetworkService heatNetworkService, IUserService userService)
         {
             _soaService = soaProjectService;
             _logger = logger;
+            _emailService = emailService;
+            _heatNetworkService = heatNetworkService;
+            _userService = userService;
         }
 
 
@@ -358,6 +364,9 @@ namespace HNTAS.Core.Api.Controllers
             if (string.IsNullOrWhiteSpace(request.HnId))
                 return BadRequest("Heat Network ID is required.");
 
+            if (string.IsNullOrWhiteSpace(request.HnName))
+                return BadRequest("Heat Network Name is required.");
+
             if (string.IsNullOrWhiteSpace(request.UpdatedBy))
                 return BadRequest("UpdatedBy is required.");
 
@@ -365,6 +374,7 @@ namespace HNTAS.Core.Api.Controllers
                 return BadRequest($"Invalid SOA status: {request.Status}");
 
             var soa = await _soaService.UpdateStatusAsync(request.HnId, request.Status, request.UpdatedBy);
+            var user = await _userService.GetUserWithDetailsAsync(request.UpdatedBy);
 
             if (soa == null)
             {
@@ -372,7 +382,135 @@ namespace HNTAS.Core.Api.Controllers
                 return BadRequest("SOA not found.");
             }
 
+            var users = await _userService.GetAssessorsByHnIdAsync(request.HnId);
+            var assessor = users.FirstOrDefault();
+            if (assessor == null)
+            {
+                _logger.LogWarning("No assessor found for HN ID: {HnId}", request.HnId);
+                return NotFound();
+            }
+
+            if (request.Status == SoaStatus.Submitted)
+            {
+                //send email
+                await _emailService.TrySendAssessorEmailAsync(
+                         emailAddress: assessor.EmailId,
+                         hnName: request.HnName,
+                         hnId: request.HnId,
+                         contributorName: user?.FullName
+                     );
+            }
+
             return NoContent();
+        }
+
+
+        /// <summary>
+        /// Sends an assessment result email to all assessors linked to the specified heat network.
+        /// </summary>
+        /// <param name="hnName">Heat network name.</param>
+        /// <param name="hnId">Heat network ID.</param>
+        /// <param name="assessmentResult">The result of the assessment (e.g., Pass, Fail).</param>
+        /// <returns>204 No Content if successful; 400 for invalid input; 500 for unexpected errors.</returns>
+        [HttpPost("send-assessor-assessment-email")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> SendAssessorAssessmentEmail(
+            [FromQuery][Required] string hnName,
+            [FromQuery][Required] string hnId,
+            [FromQuery][Required] string assessmentResult)
+        {
+            if (!ModelState.IsValid)
+            {
+                _logger.LogWarning("Invalid assessor assessment email request: hnName={HnName}, hnId={HnId}, result={Result}", hnName, hnId, assessmentResult);
+                return BadRequest(ModelState);
+            }
+
+            try
+            {
+                var rpUser = await _userService.GetResponsiblePersonByHnIdAsync(hnId);
+                var contributorUsers = await _userService.GetContributorsByHnIdAsync(hnId);
+
+                var contributorEmails = contributorUsers
+                .Where(c => c.HnRoleMappings.Any(m => m.HnId == hnId && (m.Role != ContributorRole.Assessor && m.Role != ContributorRole.Certifier))).Select(c => c.EmailId)
+                .Distinct()
+                .ToList();
+
+                if (!contributorEmails.Any())
+                {
+                    _logger.LogWarning("No assessors found for HN ID: {HnId}", hnId);
+                    return NotFound();
+                }
+
+                foreach (var email in contributorEmails)
+                {
+                    await _emailService.TrySendAssessorAssessmentEmailAsync(email, hnName, hnId, assessmentResult);
+                }
+
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error sending assessment result email for HN ID: {HnId}", hnId);
+                return StatusCode(StatusCodes.Status500InternalServerError);
+            }
+        }
+
+
+
+        /// <summary>
+        /// Sends a certification complete email to the specified recipient.
+        /// </summary>
+        /// <param name="hnName">Heat network name.</param>
+        /// <param name="hnId">Heat network ID.</param>
+        /// <returns>204 No Content if successful; 400 for invalid input; 500 for unexpected errors.</returns>
+        [HttpPost("send-certification-complete-email")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> SendCertificationCompleteEmail(
+            [FromQuery][Required] string hnName,
+            [FromQuery][Required] string hnId)
+        {
+            if (!ModelState.IsValid)
+            {
+                _logger.LogWarning("Invalid certification complete email request: hnName={HnName}, hnId={HnId}", hnName, hnId);
+                return BadRequest(ModelState);
+            }
+
+            try
+            {
+                List<string> emailRecipients = new List<string>();
+                var rpUser = await _userService.GetResponsiblePersonByHnIdAsync(hnId);
+                var contributorUsers = await _userService.GetContributorsByHnIdAsync(hnId);
+
+                contributorUsers = contributorUsers
+                    .Where(c => c.HnRoleMappings.Any(m => m.HnId == hnId && (m.Role != ContributorRole.Assessor && m.Role != ContributorRole.Certifier))).ToList();
+
+                if (rpUser != null)
+                {
+                    emailRecipients.Add(rpUser.EmailId);
+                }
+                if (contributorUsers != null && contributorUsers.Count > 0)
+                {
+                    emailRecipients.AddRange(contributorUsers.Select(c => c.EmailId));
+                }
+
+                foreach (var email in emailRecipients.Distinct())
+                {
+                    await _emailService.TrySendCertificationCompleteEmailAsync(email, hnName, hnId);
+                    _logger.LogInformation("Certification complete email sent to {EmailAddress} for HN ID: {HnId}", email, hnId);
+                }
+
+
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error sending certification complete email to {hnName}", hnName);
+                return StatusCode(StatusCodes.Status500InternalServerError);
+            }
         }
 
     }

@@ -1,38 +1,19 @@
-﻿using HNTAS.Core.Api.Interfaces;
-using HNTAS.Core.Api.Services;
+﻿using HNTAS.Core.Api.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Moq;
-using Notify.Client;
 
 
 namespace HNTAS.Digital.Core.Tests.Services
 {
     public class GovUkNotifyServiceTests
     {
-        private readonly IGovUkNotifyService _notifyService;
-        private readonly NotificationClient _notificationClient;
-        private readonly string _apiKey;
-        private readonly string _templateId = "297e670f-d6c8-49f2-b0d7-abe77256318a";
+        
+        private readonly string _templateId = "297e670f-d6c8-49f2-b0d7-abe77256318a"; // A valid OrgCreatedEmailTemplateId template, personalisation obj for positive testcase has to change if this changes
 
-        public GovUkNotifyServiceTests()
+        private GovUkNotifyService CreateService()
         {
-            var httpClient = new HttpClient();
-            var config = new ConfigurationBuilder().AddEnvironmentVariables().Build();
-
-            _apiKey = Environment.GetEnvironmentVariable("GOV_NOTIFY_API_KEY") ?? throw new ArgumentNullException(
-                "GOV.UK Notify API key 'GovUkNotify:ApiKey' is not configured.");
-            _notificationClient = new NotificationClient(_apiKey);
-
-            _notifyService = CreateService(_apiKey);
-        }
-
-        private GovUkNotifyService CreateService(string? apiKey)
-        {
-            var config = new ConfigurationBuilder().Build();
-            var logger = new Mock<ILogger<GovUkNotifyService>>().Object;
-
-            return new GovUkNotifyService(config, logger);
+            return new GovUkNotifyService(new ConfigurationBuilder().Build(), new Mock<ILogger<GovUkNotifyService>>().Object);
         }
 
         [Fact]
@@ -47,12 +28,10 @@ namespace HNTAS.Digital.Core.Tests.Services
                 { "orgId", "test-org-id" },
                 { "address", "some address" }
             };
-            var service = CreateService(_apiKey);
+            var service = CreateService();
 
-            // Act
-            var result = await service.SendEmailAsync(email, _templateId, personalisation);
-
-            // Assert
+            // Act & Assert
+            var result = await service.SendEmailAsync(email, _templateId, personalisation);            
             Assert.True(result);
         }
 
@@ -63,7 +42,7 @@ namespace HNTAS.Digital.Core.Tests.Services
             Environment.SetEnvironmentVariable("GOVUK_NOTIFY_API_KEY", null);
             var httpClient = new HttpClient();
             var config = new ConfigurationBuilder().Build();
-            var service = CreateService(_apiKey);
+            var service = CreateService();
 
             // Act & Assert
             var result = await service.SendEmailAsync("template-id", "test@example.com", new Dictionary<string, dynamic>());

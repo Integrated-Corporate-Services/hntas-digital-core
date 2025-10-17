@@ -1,5 +1,6 @@
 ﻿using HNTAS.Core.Api.Configuration;
 using HNTAS.Core.Api.Data.Models;
+using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
 using Microsoft.Extensions.Options;
@@ -54,6 +55,39 @@ namespace HNTAS.Core.Api.Services
 
         public async Task<List<User>> GetRegisteredUsers(List<string> invitedEmails) =>
              await _usersCollection.Find(u => invitedEmails.Contains(u.EmailId)).ToListAsync();
+
+        public async Task<List<User>> GetAssessorsByHnIdAsync(string hnId)
+        {
+            var filter = Builders<User>.Filter.ElemMatch(
+                u => u.HnRoleMappings,
+                mapping => mapping.HnId == hnId && mapping.Role == ContributorRole.Assessor
+            );
+
+            return await _usersCollection.Find(filter).ToListAsync();
+        }
+
+
+        public async Task<User?> GetResponsiblePersonByHnIdAsync(string hnId)
+        {
+            var filter = Builders<User>.Filter.And(
+                Builders<User>.Filter.AnyEq(u => u.HnIds, hnId),
+                Builders<User>.Filter.AnyEq(u => u.Roles, UserRole.RegulatoryContact)
+            );
+
+            return await _usersCollection.Find(filter).FirstOrDefaultAsync();
+        }
+
+
+        public async Task<List<User>> GetContributorsByHnIdAsync(string hnId)
+        {
+            var filter = Builders<User>.Filter.ElemMatch(
+                u => u.HnRoleMappings,
+                mapping => mapping.HnId == hnId
+            );
+
+            return await _usersCollection.Find(filter).ToListAsync();
+        }
+
 
         public async Task<UserDetailsResponse> GetUserWithDetailsAsync(string userId)
         {

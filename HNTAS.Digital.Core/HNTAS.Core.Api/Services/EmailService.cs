@@ -84,5 +84,53 @@ namespace HNTAS.Core.Api.Services
             else
                 _logger.LogWarning("Email failed to send to {EmailId} for InviterUserId {UserId}", invitation.InvitedEmail, invitation.InviterUserId);
         }
+
+        public async Task TrySendAssessorEmailAsync(string emailAddress, string hnName, string hnId, string contributorName)
+        {
+
+            var emailSent = await _govUkNotifyService.SendEmailAsync(
+            emailAddress,
+            _notificationSettings.AssessorNotificationTemplatedId,
+                new Dictionary<string, dynamic>
+                {
+                    { "stage_number",string.Empty},
+                    { "stage_name",string.Empty },
+                    { "hn_name",hnName },
+                    { "hn_id", hnId },
+                    { "contributor_name", contributorName },
+                }
+            );
+        }
+
+        public async Task TrySendAssessorAssessmentEmailAsync(string emailAddress, string hnName, string hnId, string assessmentResult)
+        {
+
+            var emailSent = await _govUkNotifyService.SendEmailAsync(
+            emailAddress,
+            _notificationSettings.AssessmentCompleteNotificationTemplatedId,
+                new Dictionary<string, dynamic>
+                {
+                    { "stage_number",string.Empty},
+                    { "stage_name",string.Empty },
+                    { "hn_name",hnName },
+                    { "hn_id", hnId },
+                    { "assessment_result", assessmentResult },
+                }
+            );
+        }
+
+        public async Task TrySendCertificationCompleteEmailAsync(string emailAddress, string hnName, string hnId)
+        {
+
+            var emailSent = await _govUkNotifyService.SendEmailAsync(
+            emailAddress,
+            _notificationSettings.CertificationCompleteNotificationTemplatedId,
+                new Dictionary<string, dynamic>
+                {
+                    { "hn_name",hnName },
+                    { "hn_id", hnId },
+                }
+            );
+        }
     }
 }

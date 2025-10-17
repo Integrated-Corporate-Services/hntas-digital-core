@@ -58,7 +58,7 @@ namespace HNTAS.Core.Api.Controllers
             var invitation = await _invitationService.GetByIdAsync(id);
             if (invitation == null)
             {
-                _logger.LogInformation("Invitation not found for the invitationId: {InvitationId}", id);
+                _logger.LogInformation("Invitation not found for the invitationId: {InvitationId}", LogSanitizer.Sanitize(id));
                 return NotFound();
             }
 
@@ -98,7 +98,7 @@ namespace HNTAS.Core.Api.Controllers
             if (!ModelState.IsValid)
             {
                 _logger.LogWarning("Invalid invitation data for user ID: {UserId}. Errors: {Errors}",
-                    id, string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
+                    LogSanitizer.Sanitize(id), string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
                 return ValidationProblem(ModelState);
             }
 
@@ -109,7 +109,7 @@ namespace HNTAS.Core.Api.Controllers
                 var hnExists = await _hnService.GetByHnIdAsync(request.HnId);
                 if (hnExists == null)
                 {
-                    _logger.LogWarning("Heat Network with HnId {HnId} not found for invitation.", request.HnId);
+                    _logger.LogWarning("Heat Network with HnId {HnId} not found for invitation.", LogSanitizer.Sanitize(request.HnId));
                     return NotFound(new ProblemDetails
                     {
                         Status = StatusCodes.Status404NotFound,
@@ -121,7 +121,7 @@ namespace HNTAS.Core.Api.Controllers
                 var existingUser = await _userService.GetByIdAsync(id);
                 if (existingUser == null)
                 {
-                    _logger.LogWarning("User with ID {UserId} not found for invitation update.", id);
+                    _logger.LogWarning("User with ID {UserId} not found for invitation update.", LogSanitizer.Sanitize(id));
                     return NotFound();
                 }
 
@@ -143,13 +143,13 @@ namespace HNTAS.Core.Api.Controllers
 
                 await _invitationService.CreateAsync(newInvitation); // Save the invitation to its collection
 
-                _logger.LogInformation("Invitation sent by user {UserId}. New invitation ID: {InvitationId}", id, newInvitation.Id);
+                _logger.LogInformation("Invitation sent by user {UserId}. New invitation ID: {InvitationId}", LogSanitizer.Sanitize(id), LogSanitizer.Sanitize(newInvitation.Id));
 
                 return StatusCode(StatusCodes.Status201Created, newInvitation.Id);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An error occurred while creating an invitation for user with ID: {UserId}", id);
+                _logger.LogError(ex, "An error occurred while creating an invitation for user with ID: {UserId}", LogSanitizer.Sanitize(id));
                 return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while creating the invitation.");
             }
         }
@@ -171,7 +171,7 @@ namespace HNTAS.Core.Api.Controllers
 
             if (invitation == null || invitation.Status != InvitationStatus.Invited)
             {
-                _logger.LogInformation("Invitation not found for the invitationId : {InvitationId}", invitationId);
+                _logger.LogInformation("Invitation not found for the invitationId : {InvitationId}", LogSanitizer.Sanitize(invitationId));
                 return NotFound();
             }
 
@@ -179,7 +179,7 @@ namespace HNTAS.Core.Api.Controllers
 
             await _emailService.TrySendInvitationEmailAsync(invitation, request.Token, hn.Name);
 
-            _logger.LogInformation("Invitation email sent for ID: {InvitationId}", invitationId);
+            _logger.LogInformation("Invitation email sent for ID: {InvitationId}", LogSanitizer.Sanitize(invitationId));
 
             return NoContent();
         }
@@ -199,7 +199,7 @@ namespace HNTAS.Core.Api.Controllers
             var invitation = await _invitationService.GetByIdAsync(invitationId);
             if (invitation == null)
             {
-                _logger.LogWarning("Invitation not found for ID: {InvitationId}", invitationId);
+                _logger.LogWarning("Invitation not found for ID: {InvitationId}", LogSanitizer.Sanitize(invitationId));
                 return NotFound();
             }
 
@@ -213,7 +213,7 @@ namespace HNTAS.Core.Api.Controllers
 
             await _invitationService.UpdateAsync(invitationId, invitation);
 
-            _logger.LogInformation("Invitation {InvitationId} was rejected.", invitationId);
+            _logger.LogInformation("Invitation {InvitationId} was rejected.", LogSanitizer.Sanitize(invitationId));
             return NoContent();
         }
 

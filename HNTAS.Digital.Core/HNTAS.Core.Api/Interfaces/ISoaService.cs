@@ -5,7 +5,7 @@ namespace HNTAS.Core.Api.Interfaces
 {
     public interface ISoaService
     {
-        Task<Soa> GetByHeatNetworkIdAsync(string hnId);
+        Task<Soa?> GetByHeatNetworkIdAsync(string hnId);
         Task<Soa> CreateAsync(string hnId, string createdBy);
         Task<Soa?> UpdateStatusAsync(string hnId, SoaStatus newStatus, string updatedBy);
         Task DeleteByHeatNetworkIdAsync(string hnId);

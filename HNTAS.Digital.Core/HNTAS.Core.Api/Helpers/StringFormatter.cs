@@ -1,4 +1,5 @@
 ﻿using HNTAS.Core.Api.Data.Models;
+using System.Text.RegularExpressions;
 
 namespace HNTAS.Core.Api.Helpers
 {
@@ -32,6 +33,17 @@ namespace HNTAS.Core.Api.Helpers
             };
 
             return string.Join(", ", parts.Where(p => !string.IsNullOrEmpty(p)));
+        }
+    }
+    public static class LogSanitizer
+    {
+        public static string Sanitize(string input)
+        {
+            if (string.IsNullOrEmpty(input))
+                return input;
+
+            // Remove newline and carriage return characters
+            return Regex.Replace(input, @"[\r\n]", string.Empty);
         }
     }
 }

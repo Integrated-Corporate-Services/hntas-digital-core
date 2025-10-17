@@ -6,5 +6,8 @@ namespace HNTAS.Core.Api.Interfaces
     {
         Task TrySendOrgCreatedEmailAsync(User user, Organisation organisation);
         Task TrySendInvitationEmailAsync(Invitation invitation, string token, string heatNetworkName);
+        Task TrySendAssessorEmailAsync(string emailAddress, string hnName, string hnId, string contributorName);
+        Task TrySendAssessorAssessmentEmailAsync(string emailAddress, string hnName, string hnId, string assessmentResult);
+        Task TrySendCertificationCompleteEmailAsync(string emailAddress, string hnName, string hnId);
     }
 }

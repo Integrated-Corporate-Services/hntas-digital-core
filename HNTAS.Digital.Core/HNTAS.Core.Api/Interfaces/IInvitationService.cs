@@ -1,4 +1,5 @@
 ﻿using HNTAS.Core.Api.Data.Models;
+using HNTAS.Core.Api.Models;
 
 namespace HNTAS.Core.Api.Interfaces
 {
@@ -11,5 +12,7 @@ namespace HNTAS.Core.Api.Interfaces
         Task CreateAsync(Invitation newInvitation);
         Task UpdateAsync(string id, Invitation updatedInvitation);
         Task RemoveAsync(string id);
+
+        Task<List<ManagedUserResponse>> GetInvitedUsersAsRegisteredAsync(string inviterUserId);
     }
 }

@@ -1,7 +1,9 @@
 ﻿using HNTAS.Core.Api.Configuration;
 using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Interfaces;
+using HNTAS.Core.Api.Models;
 using Microsoft.Extensions.Options;
+using MongoDB.Bson;
 using MongoDB.Driver;
 
 namespace HNTAS.Core.Api.Services
@@ -61,5 +63,61 @@ namespace HNTAS.Core.Api.Services
                   invitation.Status == Enums.InvitationStatus.Invited)
               .SortByDescending(invitation => invitation.InvitedAt)
               .FirstOrDefaultAsync();
+
+
+        public async Task<List<ManagedUserResponse>> GetInvitedUsersAsRegisteredAsync(string inviterUserId)
+        {
+            var inviterObjectId = ObjectId.Parse(inviterUserId);
+
+            var pipeline = new[]
+            {
+                // Match invitations sent by the specified user
+                new BsonDocument("$match", new BsonDocument("inviterUserId", inviterObjectId)),
+
+                // Lookup heat network name using invitedHnId
+                new BsonDocument("$lookup", new BsonDocument
+                {
+                    { "from", "HeatNetworks" },
+                    { "localField", "invitedHnId" },
+                    { "foreignField", "hnId" },
+                    { "as", "heatNetworkDetails" }
+                }),
+
+                // Sort by invitedAt descending
+                new BsonDocument("$sort", new BsonDocument("invitedAt", -1)),
+
+                // Project into RegisteredUserResponse shape
+                new BsonDocument("$project", new BsonDocument
+                {
+                    { "_id", new BsonDocument("$toString", "$_id") },
+                    { "name", new BsonDocument("$concat", new BsonArray { "$firstName", " ", "$lastName" }) },
+                    { "emailId", "$invitedEmail" },
+                    { "status", new BsonDocument("$toString", "$status") },
+                    { "roles", new BsonDocument("$map", new BsonDocument
+                        {
+                            { "input", "$invitedRoles" },
+                            { "as", "role" },
+                            { "in", new BsonDocument("$toString", "$$role") }
+                        })
+                    },
+                    { "heatNetworks", new BsonDocument("$map", new BsonDocument
+                        {
+                            { "input", "$heatNetworkDetails" },
+                            { "as", "hn" },
+                            { "in", new BsonDocument
+                                {
+                                    { "hnId", "$$hn.hnId" },
+                                    { "name", "$$hn.name" }
+                                }
+                            }
+                        })
+                    }
+                })
+            };
+
+            return await _invitationsCollection
+                .Aggregate<ManagedUserResponse>(pipeline)
+                .ToListAsync();
+        }
     }
 }

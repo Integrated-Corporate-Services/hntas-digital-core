@@ -531,12 +531,12 @@ public class UsersController : ControllerBase
     }
 
     [HttpGet("managed-users")]
-    [ProducesResponseType(typeof(ManagedUserResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(List<ManagedUserResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [Produces("application/json")]
-    public async Task<ActionResult<ManagedUserResponse>> GetManagedUsersAsync(string userId)
+    public async Task<ActionResult<List<ManagedUserResponse>>> GetManagedUsersAsync(string userId)
     {
-        var user = await _userService.GetByIdAsync(userId);
+        var user = await _userService.GetUserWithDetailsAsync(userId);
         if (user == null)
         {
             _logger.LogWarning("User with ID {UserId} not found.", userId);
@@ -545,38 +545,38 @@ public class UsersController : ControllerBase
 
         _logger.LogInformation("Successfully retrieved managed users for user ID: {UserId}", userId);
 
-        var managedUser = new ManagedUserResponse
+
+
+        var managedUsers = new List<ManagedUserResponse>
         {
-            ResponsibleUser = _mapper.Map<UserResponse>(user)
+            _mapper.Map<ManagedUserResponse>(user)
         };
 
-        var invitations = await _invitationService.GetByInvitedUserIdAsync(user.Id);
-        var invitedEmails = invitations.Select(i => i.InvitedEmail).Distinct().ToList();
-        var registeredUsers = await _userService.GetRegisteredUsers(invitedEmails);
+        var invitations = await _invitationService.GetInvitedUsersAsRegisteredAsync(user.Id);
+        var invitedEmails = invitations.Select(i => i.EmailId).Distinct().ToList();
+        var registeredUsers = await _userService.GetRegisteredUsersDetailsAsync(invitedEmails);
 
         if (registeredUsers != null || registeredUsers.Any())
         {
             // Exclude the responsible user from the registered users list
             registeredUsers = registeredUsers.Where(ru => ru.EmailId != user.EmailId).ToList();
-            managedUser.RegisteredUsers = _mapper.Map<List<UserResponse>>(registeredUsers);
+            managedUsers.AddRange(registeredUsers);
         }
 
         var invitedUsers = invitations.ToList()
         .Where(i =>
             !registeredUsers.Any(u =>
-                u.EmailId == i.InvitedEmail &&
-                u.HnRoleMappings.Any(x => x.HnId == i.InvitedHnId)))
-        .OrderByDescending(i => i.InvitedAt)
-        .ToList();
+                u.EmailId == i.EmailId &&
+                u.HeatNetworks.Any(x => x.HnId == i.HeatNetworks?.FirstOrDefault().HnId))).ToList();
 
 
         if (invitedUsers != null || invitedUsers.Count != 0)
         {
-            managedUser.InvitedUsers = _mapper.Map<List<InvitedUserResponse>>(invitedUsers);
+            managedUsers.AddRange(invitedUsers);
         }
 
         _logger.LogInformation("Managed users retrieved successfully for user ID: {UserId}", userId);
-        return Ok(managedUser);
+        return Ok(managedUsers);
     }
 
     [HttpGet("registered-users")]

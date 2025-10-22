@@ -13,6 +13,8 @@ namespace HNTAS.Core.Api.Services
     public class UserService : IUserService
     {
         private readonly IMongoCollection<User> _usersCollection;
+        private readonly IMongoCollection<Organisation> _organisationsCollection;
+        private readonly IMongoCollection<HeatNetwork> _heatNetworksCollection;
         private readonly ILogger<UserService> _logger;
 
         public UserService(IOptions<AWSDocDbSettings> dbSettings, ILogger<UserService> logger)

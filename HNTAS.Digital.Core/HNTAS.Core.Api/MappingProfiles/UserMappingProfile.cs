@@ -101,6 +101,22 @@ namespace HNTAS.Core.Api.MappingProfiles
             CreateMap<UploadedDocument, UploadedAssessmentDocumentResponse>();
             CreateMap<UploadedDocument, UploadedAssessorDocumentResponse>();
             CreateMap<UploadedDocument, UploadedCertifierDocumentResponse>();
+
+
+
+            CreateMap<UserDetailsResponse, ManagedUserResponse>()
+            .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
+            .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.FullName ?? $"{src.FirstName} {src.LastName}".Trim()))
+            .ForMember(dest => dest.EmailId, opt => opt.MapFrom(src => src.EmailId))
+            .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status))
+            .ForMember(dest => dest.Roles, opt => opt.MapFrom(src => src.Roles != null ? src.Roles.Select(r => r.ToString()).ToList() : null))
+            .ForMember(dest => dest.HeatNetworks, opt => opt.MapFrom(src => src.HeatNetworks));
+
+            // Map from HeatNetworkUserResponse to HeatNetworkInfo
+            CreateMap<HeatNetworkUserResponse, HeatNetworkInfo>()
+                .ForMember(dest => dest.HnId, opt => opt.MapFrom(src => src.HnId))
+                .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name));
         }
+
     }
 }

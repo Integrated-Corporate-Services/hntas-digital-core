@@ -180,5 +180,65 @@ namespace HNTAS.Core.Api.Services
 
             return result;
         }
+
+        public async Task<List<ManagedUserResponse>> GetRegisteredUsersDetailsAsync(List<string> invitedEmails)
+        {
+            var pipeline = new[]
+            {
+                // Match users by invited email list
+                new BsonDocument("$match", new BsonDocument("emailId", new BsonDocument("$in", new BsonArray(invitedEmails)))),
+
+                // Lookup heat networks using hnIds
+                new BsonDocument("$lookup", new BsonDocument
+                {
+                    { "from", "HeatNetworks" },
+                    { "localField", "hnIds" },
+                    { "foreignField", "hnId" },
+                    { "as", "heatNetworkDetails" }
+                }),
+
+                // Project into RegisteredUserResponse shape
+                new BsonDocument("$project", new BsonDocument
+                {
+                    { "_id", new BsonDocument("$toString", "$_id") },
+                    { "name", new BsonDocument("$concat", new BsonArray { "$firstName", " ", "$lastName" }) },
+                    { "emailId", "$emailId" },
+                    { "status", "$status" },
+                    { "roles", "$roles" },
+
+                    { "heatNetworks", new BsonDocument("$map", new BsonDocument
+                        {
+                            { "input", "$hnRoleMappings" },
+                            { "as", "mapping" },
+                            { "in", new BsonDocument
+                                {
+                                    { "hnId", "$$mapping.hnId" },
+                                    { "name", new BsonDocument("$let", new BsonDocument
+                                        {
+                                            { "vars", new BsonDocument("hnMatch", new BsonDocument(
+                                                "$first", new BsonDocument("$filter", new BsonDocument
+                                                {
+                                                    { "input", "$heatNetworkDetails" },
+                                                    { "as", "hn" },
+                                                    { "cond", new BsonDocument("$eq", new BsonArray { "$$hn.hnId", "$$mapping.hnId" }) }
+                                                })
+                                            ))},
+                                            { "in", "$$hnMatch.name" }
+                                        })
+                                    }
+                                }
+                            }
+                        })
+                    }
+                })
+            };
+
+            return await _usersCollection
+                .Aggregate<ManagedUserResponse>(pipeline)
+                .ToListAsync();
+        }
+
+
+
     }
 }

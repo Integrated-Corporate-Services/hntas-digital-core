@@ -1,7 +1,6 @@
 ﻿using AutoMapper;
 using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Enums;
-using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
 using HNTAS.Core.Api.Models.Users;
@@ -82,18 +81,6 @@ namespace HNTAS.Core.Api.Controllers
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult> AddUserInvitation(string id, [FromBody] AddInvitationRequest request)
         {
-            // Validation logic for contact details remains the same
-            var (landline, extension, mobile) = ContactDetailsValidationHelper.GetValidatedContactDetails(
-                request.PreferredContactType,
-                request.LandlineNumber,
-                request.ContactNumberExtension,
-                request.MobileNumber,
-                ModelState
-            );
-
-            request.LandlineNumber = landline;
-            request.ContactNumberExtension = extension;
-            request.MobileNumber = mobile;
 
             if (!ModelState.IsValid)
             {
@@ -130,9 +117,6 @@ namespace HNTAS.Core.Api.Controllers
                 {
                     FirstName = request.FirstName,
                     LastName = request.LastName,
-                    PreferredContactType = request.PreferredContactType,
-                    LandlineNumber = request.LandlineNumber,
-                    MobileNumber = request.MobileNumber,
                     InviterUserId = existingUser.Id, // Link to the user who sent the invite
                     InvitedEmail = request.EmailAddress,
                     InvitedHnId = request.HnId,

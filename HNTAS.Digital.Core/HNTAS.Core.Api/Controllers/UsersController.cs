@@ -130,6 +130,45 @@ public class UsersController : ControllerBase
 
 
     /// <summary>
+    /// Check if a user is a Regulatory Contact by their email ID
+    /// </summary>
+    /// <remarks>
+    /// Validates whether the user associated with the given email ID has the RegulatoryContact role.
+    /// </remarks>
+    /// <param name="emailId">The email ID of the user to check.</param>
+    /// <returns>
+    /// A <see cref="StatusCodes.Status200OK"/> response with a boolean indicating role membership,
+    /// or a <see cref="StatusCodes.Status404NotFound"/> if the user is not found.
+    /// </returns>
+    [HttpGet("is-rp-user/{emailId}", Name = "IsRpUser")]
+    [ProducesResponseType(typeof(bool), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<bool>> IsRpUser(string emailId)
+    {
+        _logger.LogInformation("Checking if user with email ID {EmailId} is a Regulatory Contact.", emailId);
+        try
+        {
+            var user = await _userService.GetByEmailAsync(emailId);
+
+            if (user == null)
+            {
+                _logger.LogWarning("User with email ID {EmailId} not found.", emailId);
+                return NotFound();
+            }
+
+            bool isRegulatoryContact = user.Roles.Contains(UserRole.RegulatoryContact);
+            _logger.LogInformation("User with email ID {EmailId} is Regulatory Contact: {IsRp}", emailId, isRegulatoryContact);
+            return Ok(isRegulatoryContact);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error occurred while checking Regulatory Contact role for email ID: {EmailId}", emailId);
+            return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while checking the user's role.");
+        }
+    }
+
+    /// <summary>
     /// Get a User by their OneLogin ID
     /// </summary>
     /// <param name="oneLoginId"></param>

@@ -41,6 +41,9 @@ namespace HNTAS.Core.Api.Services
         public async Task<User?> GetByIdAsync(string id) =>
             await _usersCollection.Find(u => u.Id == id).FirstOrDefaultAsync();
 
+        public async Task<User?> GetByEmailAsync(string emailId) =>
+          await _usersCollection.Find(u => u.EmailId == emailId).FirstOrDefaultAsync();
+
         public async Task<User?> GetByUserOneLoginIdAsync(string oneLoginId) =>
             await _usersCollection.Find(u => u.OneLoginId == oneLoginId).FirstOrDefaultAsync();
 

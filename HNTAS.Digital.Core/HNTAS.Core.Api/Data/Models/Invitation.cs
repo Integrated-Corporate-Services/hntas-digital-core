@@ -24,26 +24,6 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonElement("lastName")]
         public string LastName { get; set; } = null!;
 
-        [Required(ErrorMessage = "Select a preferred contact number type.")]
-        [BsonElement("preferredContactType")]
-        [BsonRepresentation(BsonType.String)]
-        public PreferredContactType PreferredContactType { get; set; } // Keep non-nullable 
-
-        [RegularExpression(@"^\+?\d{1,3}[\s-]?\(?\d{1,4}\)?[\s-]?\d{1,4}[\s-]?\d{1,4}[\s-]?\d{1,9}$", ErrorMessage = "Landline number is not in a valid format.")]
-        [MaxLength(20, ErrorMessage = "Landline number cannot exceed 20 characters.")]
-        [BsonElement("landlineNumber")]
-        public string? LandlineNumber { get; set; }
-
-        [RegularExpression(@"^\d*$", ErrorMessage = "Extension must be numeric.")]
-        [MaxLength(10, ErrorMessage = "Extension cannot exceed 10 characters.")]
-        [BsonElement("contactNumberExtension")]
-        public string? ContactNumberExtension { get; set; }
-
-        [RegularExpression(@"^\+?\d{1,3}[\s-]?\(?\d{1,4}\)?[\s-]?\d{1,4}[\s-]?\d{1,4}[\s-]?\d{1,9}$", ErrorMessage = "Mobile number is not in a valid format.")]
-        [MaxLength(13, ErrorMessage = "Mobile number cannot exceed 13 characters.")]
-        [BsonElement("mobileNumber")]
-        public string? MobileNumber { get; set; }
-
         [BsonElement("permissions")]
         public List<string>? Permissions { get; set; }
 

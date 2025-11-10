@@ -130,6 +130,73 @@ public class UsersController : ControllerBase
 
 
     /// <summary>
+    /// Check if a user is a Regulatory Contact by their email ID
+    /// </summary>
+    /// <remarks>
+    /// Validates whether the user associated with the given email ID has the RegulatoryContact role.
+    /// </remarks>
+    /// <param name="emailId">The email ID of the user to check.</param>
+    /// <returns>
+    /// A <see cref="StatusCodes.Status200OK"/> response with a boolean indicating role membership,
+    /// or a <see cref="StatusCodes.Status404NotFound"/> if the user is not found.
+    /// </returns>
+    [HttpGet("is-rp-user/{emailId}")]
+    [ProducesResponseType(typeof(bool), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<bool>> IsRpUser(string emailId)
+    {
+        var sanitizedEmailId = emailId?.Replace("\r", "").Replace("\n", "");
+
+        _logger.LogInformation("Checking if user with email ID {EmailId} is a Regulatory Contact.", sanitizedEmailId);
+        try
+        {
+            var user = await _userService.GetByEmailAsync(emailId);
+
+            if (user == null)
+            {
+                _logger.LogWarning("User with email ID {EmailId} not found.", sanitizedEmailId);
+                return NotFound();
+            }
+
+            bool isRegulatoryContact = user.Roles.Contains(UserRole.RegulatoryContact);
+            _logger.LogInformation("User with email ID {EmailId} is Regulatory Contact: {IsRp}", sanitizedEmailId, isRegulatoryContact);
+            return Ok(isRegulatoryContact);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error occurred while checking Regulatory Contact role for email ID: {EmailId}", sanitizedEmailId);
+            return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while checking the user's role.");
+        }
+    }
+
+
+    [HttpGet("is-active-user/{emailId}")]
+    [ProducesResponseType(typeof(bool), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(bool), StatusCodes.Status404NotFound)]
+    [Produces("application/json")]
+    public async Task<ActionResult<bool>> IsActiveUser(string emailId)
+    {
+        if (string.IsNullOrWhiteSpace(emailId))
+        {
+            return BadRequest("Email ID must be provided.");
+        }
+
+        var user = await _userService.GetByEmailAsync(emailId);
+
+        if (user == null)
+        {
+            // User not found, so not active
+            return NotFound();
+        }
+
+        // Assuming user.Status is an enum or property indicating active state
+        bool isActive = user.Status == UserStatus.Active;
+
+        return Ok(isActive);
+    }
+
+    /// <summary>
     /// Get a User by their OneLogin ID
     /// </summary>
     /// <param name="oneLoginId"></param>
@@ -651,10 +718,6 @@ public class UsersController : ControllerBase
             FirstName = invitation.FirstName,
             LastName = invitation.LastName,
             JobTitle = null,
-            PreferredContactType = invitation.PreferredContactType,
-            LandlineNumber = invitation.LandlineNumber,
-            MobileNumber = invitation.MobileNumber,
-            ContactNumberExtension = invitation.ContactNumberExtension,
             Status = UserStatus.Active,
             OrgId = request.InviterOrgId,
             Roles = roles,
@@ -669,5 +732,4 @@ public class UsersController : ControllerBase
 
         return user;
     }
-
 }

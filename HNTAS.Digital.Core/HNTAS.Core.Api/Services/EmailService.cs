@@ -57,6 +57,40 @@ namespace HNTAS.Core.Api.Services
                 _logger.LogWarning("Email failed to send to {EmailId} for user {UserId}", user.EmailId, user.Id);
         }
 
+                
+        public async Task TrySendOrgUpdatedEmailAsync(User user, Organisation organisation, RegisteredAddress oldAddress, RegisteredAddress newAddress)
+        {
+            if (user == null || string.IsNullOrWhiteSpace(user.EmailId) || organisation == null)
+            {
+                _logger.LogInformation("Skipping organisation-updated email: missing User, Organisation or EmailId for user {UserId}", user?.Id);
+                return;
+            }
+
+            string firstName = StringFormatter.ToTitleCaseSingleWord(user.FirstName ?? "");
+            string lastName = StringFormatter.ToTitleCaseSingleWord(user.LastName ?? "");
+            string fullName = $"{firstName} {lastName}".Trim();
+
+            string formattedOldAddress = StringFormatter.FormatAddress(oldAddress);
+            string formattedNewAddress = StringFormatter.FormatAddress(newAddress);
+
+            var personalisation = new Dictionary<string, dynamic>
+            {
+                { "user_name", fullName },
+                { "old_address", formattedOldAddress },
+                { "new_address", formattedNewAddress }
+            };
+
+            var emailSent = await _govUkNotifyService.SendEmailAsync(
+                user.EmailId,
+                "519dff0c-f99d-4fa1-8722-7b4971d0374c",
+                personalisation
+            );
+
+            if (emailSent)
+                _logger.LogInformation("Organisation-updated email sent successfully to {EmailId} for user {UserId}", user.EmailId, user.Id);
+            else
+                _logger.LogWarning("Organisation-updated email failed to send to {EmailId} for user {UserId}", user.EmailId, user.Id);
+        }
 
         // --- Private Helper Method ---
         public async Task TrySendInvitationEmailAsync(Invitation invitation, string token, string heatNetworkName)

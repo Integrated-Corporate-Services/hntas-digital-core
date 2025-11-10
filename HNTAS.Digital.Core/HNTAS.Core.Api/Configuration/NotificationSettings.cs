@@ -4,7 +4,6 @@
     {
         public string OrgCreatedEmailTemplateId { get; set; } = null!;
         public string ContributorInvitationTemplatedId { get; set; } = null!;
-
         public string AssessorNotificationTemplatedId { get; set; } = null!;
         public string AssessmentCompleteNotificationTemplatedId { get; set; } = null!;
         public string CertificationCompleteNotificationTemplatedId { get; set; } = null!;

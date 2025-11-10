@@ -5,7 +5,7 @@ namespace HNTAS.Core.Api.Interfaces
     public interface IEmailService
     {
         Task TrySendOrgCreatedEmailAsync(User user, Organisation organisation);
-        Task TrySendOrgUpdatedEmailAsync(User user, Organisation organisation, RegisteredAddress oldAddress, RegisteredAddress newAddress);
+        Task TrySendOrgUpdatedEmailAsync(string fullName, string userEmail, RegisteredAddress oldAddress, RegisteredAddress newAddress);
         Task TrySendInvitationEmailAsync(Invitation invitation, string token, string heatNetworkName);
         Task TrySendAssessorEmailAsync(string emailAddress, string hnName, string hnId, string contributorName);
         Task TrySendAssessorAssessmentEmailAsync(string emailAddress, string hnName, string hnId, string assessmentResult);

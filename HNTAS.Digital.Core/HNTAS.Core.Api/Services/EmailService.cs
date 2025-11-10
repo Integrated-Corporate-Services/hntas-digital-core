@@ -58,18 +58,9 @@ namespace HNTAS.Core.Api.Services
         }
 
                 
-        public async Task TrySendOrgUpdatedEmailAsync(User user, Organisation organisation, RegisteredAddress oldAddress, RegisteredAddress newAddress)
+        public async Task TrySendOrgUpdatedEmailAsync(string fullName, string userEmail, RegisteredAddress oldAddress, RegisteredAddress newAddress)
         {
-            if (user == null || string.IsNullOrWhiteSpace(user.EmailId) || organisation == null)
-            {
-                _logger.LogInformation("Skipping organisation-updated email: missing User, Organisation or EmailId for user {UserId}", user?.Id);
-                return;
-            }
-
-            string firstName = StringFormatter.ToTitleCaseSingleWord(user.FirstName ?? "");
-            string lastName = StringFormatter.ToTitleCaseSingleWord(user.LastName ?? "");
-            string fullName = $"{firstName} {lastName}".Trim();
-
+            
             string formattedOldAddress = StringFormatter.FormatAddress(oldAddress);
             string formattedNewAddress = StringFormatter.FormatAddress(newAddress);
 
@@ -81,15 +72,15 @@ namespace HNTAS.Core.Api.Services
             };
 
             var emailSent = await _govUkNotifyService.SendEmailAsync(
-                user.EmailId,
+                userEmail,
                 "519dff0c-f99d-4fa1-8722-7b4971d0374c",
                 personalisation
             );
 
             if (emailSent)
-                _logger.LogInformation("Organisation-updated email sent successfully to {EmailId} for user {UserId}", user.EmailId, user.Id);
+                _logger.LogInformation("Organisation-updated email sent successfully to {EmailId}.", userEmail);
             else
-                _logger.LogWarning("Organisation-updated email failed to send to {EmailId} for user {UserId}", user.EmailId, user.Id);
+                _logger.LogWarning("Organisation-updated email failed to send to {EmailId} for user {UserId}", userEmail);
         }
 
         // --- Private Helper Method ---

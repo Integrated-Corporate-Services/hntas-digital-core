@@ -2,7 +2,9 @@
 using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Interfaces;
 using Microsoft.Extensions.Options;
+using MongoDB.Bson;
 using MongoDB.Driver;
+using System.Text.RegularExpressions;
 
 namespace HNTAS.Core.Api.Services
 {
@@ -51,5 +53,31 @@ namespace HNTAS.Core.Api.Services
         // Remove an organization by ID
         public async Task RemoveAsync(string orgId) =>
             await _organizationsCollection.DeleteOneAsync(org => org.Id == orgId);
+
+
+        public async Task<bool> ExistsByDetailsAsync(string name, string postCode, string country)
+        {
+            var filterBuilder = Builders<Organisation>.Filter;
+
+            // Case-insensitive regex for name, postcode and country
+            var nameRegex = new BsonRegularExpression($"^{Regex.Escape(name)}$", "i");
+
+            var postCodeRegex = new BsonRegularExpression($"^{Regex.Escape(postCode)}$", "i");
+            var countryRegex = new BsonRegularExpression($"^{Regex.Escape(country)}$", "i");
+
+            var combinedFilter = filterBuilder.And(
+                filterBuilder.Regex(o => o.Name, nameRegex),
+                filterBuilder.Regex("registeredAddress.postcode", postCodeRegex),
+                filterBuilder.Regex("registeredAddress.country", countryRegex)
+            );
+
+            var existingOrganisation = await _organizationsCollection
+                .Find(combinedFilter)
+                .Limit(1)
+                .FirstOrDefaultAsync();
+
+            return existingOrganisation != null;
+        }
+
     }
 }

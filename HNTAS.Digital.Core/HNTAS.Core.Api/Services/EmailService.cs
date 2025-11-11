@@ -25,6 +25,18 @@ namespace HNTAS.Core.Api.Services
             _hntasServiceSettings = hntasServiceOptions?.Value;
         }
 
+        private static string MaskEmail(string email)
+        {
+            if (string.IsNullOrWhiteSpace(email) || !email.Contains("@"))
+                return "[redacted]";
+            var parts = email.Split('@');
+            var local = parts[0];
+            var domain = parts[1];
+            if (local.Length < 2)
+                return $"* Hidden *@{domain}";
+            return $"{local[0]}*****@{domain}";
+        }
+
         public async Task TrySendOrgCreatedEmailAsync(User user, Organisation organization)
         {
             if (user == null || string.IsNullOrWhiteSpace(user.EmailId) || string.IsNullOrWhiteSpace(user.OrgId) || organization == null)
@@ -52,7 +64,7 @@ namespace HNTAS.Core.Api.Services
             );
 
             if (emailSent)
-                _logger.LogInformation("Email sent successfully to {EmailId} for user {UserId}", user.EmailId, user.Id);
+                _logger.LogInformation("Email sent successfully to {MaskedEmail} for user {UserId}", MaskEmail(user.EmailId), user.Id);
             else
                 _logger.LogWarning("Email failed to send to {EmailId} for user {UserId}", user.EmailId, user.Id);
         }
@@ -73,14 +85,14 @@ namespace HNTAS.Core.Api.Services
 
             var emailSent = await _govUkNotifyService.SendEmailAsync(
                 userEmail,
-                "519dff0c-f99d-4fa1-8722-7b4971d0374c",
+                _notificationSettings.OrgDetailsUpdatedEmailTemplateId,
                 personalisation
             );
 
             if (emailSent)
-                _logger.LogInformation("Organisation-updated email sent successfully to {EmailId}.", userEmail);
+                _logger.LogInformation("Organisation-updated email sent successfully to {EmailId}.", MaskEmail(userEmail));
             else
-                _logger.LogWarning("Organisation-updated email failed to send to {EmailId} for user {UserId}", userEmail);
+                _logger.LogWarning("Organisation-updated email failed to send to {EmailId}.", MaskEmail(userEmail));
         }
 
         // --- Private Helper Method ---
@@ -105,9 +117,9 @@ namespace HNTAS.Core.Api.Services
             );
 
             if (emailSent)
-                _logger.LogInformation("Email sent successfully to {EmailId} for InviterUserId {UserId}", invitation.InvitedEmail, invitation.InviterUserId);
+                _logger.LogInformation("Email sent successfully to {EmailId} for InviterUserId {UserId}", MaskEmail(invitation.InvitedEmail), invitation.InviterUserId);
             else
-                _logger.LogWarning("Email failed to send to {EmailId} for InviterUserId {UserId}", invitation.InvitedEmail, invitation.InviterUserId);
+                _logger.LogWarning("Email failed to send to {EmailId} for InviterUserId {UserId}", MaskEmail(invitation.InvitedEmail), invitation.InviterUserId);
         }
 
         public async Task TrySendAssessorEmailAsync(string emailAddress, string hnName, string hnId, string contributorName)

@@ -1,7 +1,9 @@
 using HNTAS.Core.Api.Configuration;
+using HNTAS.Core.Api.DataMigrations;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.MappingProfiles;
 using HNTAS.Core.Api.Services;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -27,6 +29,7 @@ builder.Services.AddSingleton<ISoaService, SoaService>();
 builder.Services.AddSingleton<IGovUkNotifyService, GovUkNotifyService>();
 builder.Services.AddSingleton<IHeatNetworkService, HeatNetworkService>();
 builder.Services.AddSingleton<IEmailService, EmailService>();
+builder.Services.AddSingleton<ICountryAndTerritoryService, CountryAndTerritoryService>();
 
 builder.Services.AddControllers().AddJsonOptions(options =>
 {
@@ -39,6 +42,17 @@ Console.WriteLine("***********************************");
 Console.WriteLine("Environment: " + builder.Environment.EnvironmentName);
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var serviceProvider = scope.ServiceProvider;
+
+    var awsDocDbSettings = serviceProvider.GetRequiredService<IOptions<AWSDocDbSettings>>();
+    var logger = serviceProvider.GetRequiredService<ILogger<SeedCountriesAndTerritories>>();
+
+    var migration = new SeedCountriesAndTerritories(awsDocDbSettings, logger);
+    await migration.RunAsync();
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

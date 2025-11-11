@@ -140,7 +140,7 @@ public class UsersController : ControllerBase
     /// A <see cref="StatusCodes.Status200OK"/> response with a boolean indicating role membership,
     /// or a <see cref="StatusCodes.Status404NotFound"/> if the user is not found.
     /// </returns>
-    [HttpGet("is-rp-user/{emailId}", Name = "IsRpUser")]
+    [HttpGet("is-rp-user/{emailId}")]
     [ProducesResponseType(typeof(bool), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
@@ -168,6 +168,32 @@ public class UsersController : ControllerBase
             _logger.LogError(ex, "Error occurred while checking Regulatory Contact role for email ID: {EmailId}", sanitizedEmailId);
             return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while checking the user's role.");
         }
+    }
+
+
+    [HttpGet("is-active-user/{emailId}")]
+    [ProducesResponseType(typeof(bool), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(bool), StatusCodes.Status404NotFound)]
+    [Produces("application/json")]
+    public async Task<ActionResult<bool>> IsActiveUser(string emailId)
+    {
+        if (string.IsNullOrWhiteSpace(emailId))
+        {
+            return BadRequest("Email ID must be provided.");
+        }
+
+        var user = await _userService.GetByEmailAsync(emailId);
+
+        if (user == null)
+        {
+            // User not found, so not active
+            return NotFound();
+        }
+
+        // Assuming user.Status is an enum or property indicating active state
+        bool isActive = user.Status == UserStatus.Active;
+
+        return Ok(isActive);
     }
 
     /// <summary>
@@ -340,8 +366,8 @@ public class UsersController : ControllerBase
             await _userService.UpdateAsync(id, existingUser);
 
             _logger.LogInformation("Organisation details and status updated for user {UserId}. Generated OrgId: {OrgId}", id, newOrg.Id);
-
-            await _emailService.TrySendOrgCreatedEmailAsync(existingUser, newOrg); // Pass the new Org document
+            
+            await _emailService.TrySendOrgCreatedEmailAsync(existingUser, newOrg);
 
             return Ok(existingUser);
         }

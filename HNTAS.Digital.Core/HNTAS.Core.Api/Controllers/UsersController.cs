@@ -366,8 +366,8 @@ public class UsersController : ControllerBase
             await _userService.UpdateAsync(id, existingUser);
 
             _logger.LogInformation("Organisation details and status updated for user {UserId}. Generated OrgId: {OrgId}", id, newOrg.Id);
-
-            await _emailService.TrySendOrgCreatedEmailAsync(existingUser, newOrg); // Pass the new Org document
+            
+            await _emailService.TrySendOrgCreatedEmailAsync(existingUser, newOrg);
 
             return Ok(existingUser);
         }

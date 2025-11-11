@@ -5,6 +5,7 @@ namespace HNTAS.Core.Api.Interfaces
     public interface IOrganisationService
     {
         Task<Organisation> GetByIdAsync(string orgId);
+        Task<Organisation> GetByOrgIdAsync(string orgId);
         Task<bool> IsOrganizationExists(string companiesHouseNumber);
         Task CreateAsync(Organisation newOrganization);
         Task UpdateAsync(string orgId, Organisation updatedOrganization);

@@ -12,7 +12,6 @@ namespace HNTAS.Core.Api.Controllers
     [ApiController]
     public class OrganisationsController : ControllerBase
     {
-        private readonly IOrganisationService _organizationService;
         private readonly IUserService _userService;
         private readonly IEmailService _emailService;
         private readonly IOrganisationService _organisationService;
@@ -20,7 +19,7 @@ namespace HNTAS.Core.Api.Controllers
         private readonly IMapper _mapper;
 
         public OrganisationsController(
-            IOrganisationService organizationService,
+            IOrganisationService organisationService,
             IUserService userService,
             IEmailService emailService,
             ILogger<OrganisationsController> logger,
@@ -28,7 +27,7 @@ namespace HNTAS.Core.Api.Controllers
         {
             _logger = logger;
             _mapper = mapper;
-            _organizationService = organizationService;
+            _organisationService = organisationService;
             _userService = userService;
             _emailService = emailService;
         }
@@ -50,7 +49,7 @@ namespace HNTAS.Core.Api.Controllers
                     _logger.LogWarning("User with ID: {userId} not found for update.", userId);
                     return NotFound($"User with ID: {userId} not found.");
                 }
-                var existingOrg = await _organizationService.GetByOrgIdAsync(orgId);
+                var existingOrg = await _organisationService.GetByOrgIdAsync(orgId);
                 if (existingOrg == null)
                 {
                     _logger.LogWarning("Organisation with ID: {orgId} not found for update.", orgId);
@@ -68,7 +67,7 @@ namespace HNTAS.Core.Api.Controllers
                     RegisteredAddress = _mapper.Map<RegisteredAddress>(request.RegisteredAddress)
                 };
 
-                await _organizationService.UpdateAsync(existingOrg.Id, updateOrg); // Save the new organization to its collection
+                await _organisationService.UpdateAsync(existingOrg.Id, updateOrg); // Save the new organization to its collection
 
                 _emailService.TrySendOrgUpdatedEmailAsync(fullName, existingUser.EmailId, oldAddress, updateOrg.RegisteredAddress);
 

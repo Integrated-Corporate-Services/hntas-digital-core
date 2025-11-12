@@ -20,5 +20,6 @@ namespace HNTAS.Core.Api.Interfaces
         Task<List<User>> GetContributorsByHnIdAsync(string hnId);
 
         Task<List<ManagedUserResponse>> GetRegisteredUsersDetailsAsync(List<string> invitedEmails);
+        Task<List<UserRoleDetailResponse>> GetHeatNetworkUsersWithRolesAsync(string hnId);
     }
 }

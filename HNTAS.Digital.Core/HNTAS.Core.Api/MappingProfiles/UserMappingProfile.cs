@@ -1,5 +1,7 @@
 ﻿using AutoMapper;
 using HNTAS.Core.Api.Data.Models;
+using HNTAS.Core.Api.Enums;
+using HNTAS.Core.Api.Extensions;
 using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Models;
 using HNTAS.Core.Api.Models.Soa;
@@ -116,6 +118,10 @@ namespace HNTAS.Core.Api.MappingProfiles
             CreateMap<HeatNetworkUserResponse, HeatNetworkInfo>()
                 .ForMember(dest => dest.HnId, opt => opt.MapFrom(src => src.HnId))
                 .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name));
+
+            CreateMap<User, UserRoleDetailResponse>()
+                .ForMember(dest => dest.FullName, opt => opt.MapFrom(src => $"{src.FirstName} {src.LastName}".Trim()))
+                .ForMember(dest => dest.RoleDescription, opt => opt.MapFrom(src => UserRole.ResponsiblePerson.GetDescription()));
         }
 
     }

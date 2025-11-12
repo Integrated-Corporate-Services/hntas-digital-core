@@ -7,10 +7,10 @@ namespace HNTAS.Core.Api.Enums
     public enum UserRole
     {
         /// <summary>
-        /// Represents a regulatory contact role.
+        /// Represents a responsible person role.
         /// </summary>
-        [Description("Regulatory Contact")]
-        RegulatoryContact = 1,
+        [Description("Responsible Person")]
+        ResponsiblePerson = 1,
 
         /// <summary>
         /// Represents a contributor user role.

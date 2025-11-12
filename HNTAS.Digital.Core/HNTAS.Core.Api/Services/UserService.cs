@@ -1,6 +1,8 @@
 ﻿using HNTAS.Core.Api.Configuration;
 using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Enums;
+using HNTAS.Core.Api.Extensions;
+using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
 using Microsoft.Extensions.Options;
@@ -13,8 +15,6 @@ namespace HNTAS.Core.Api.Services
     public class UserService : IUserService
     {
         private readonly IMongoCollection<User> _usersCollection;
-        private readonly IMongoCollection<Organisation> _organisationsCollection;
-        private readonly IMongoCollection<HeatNetwork> _heatNetworksCollection;
         private readonly ILogger<UserService> _logger;
 
         public UserService(IOptions<AWSDocDbSettings> dbSettings, ILogger<UserService> logger)
@@ -74,7 +74,7 @@ namespace HNTAS.Core.Api.Services
         {
             var filter = Builders<User>.Filter.And(
                 Builders<User>.Filter.AnyEq(u => u.HnIds, hnId),
-                Builders<User>.Filter.AnyEq(u => u.Roles, UserRole.RegulatoryContact)
+                Builders<User>.Filter.AnyEq(u => u.Roles, UserRole.ResponsiblePerson)
             );
 
             return await _usersCollection.Find(filter).FirstOrDefaultAsync();
@@ -242,6 +242,41 @@ namespace HNTAS.Core.Api.Services
         }
 
 
+        public async Task<List<UserRoleDetailResponse>> GetHeatNetworkUsersWithRolesAsync(string hnId)
+        {
+            var pipeline = new[]
+            {
+                // 1. Unwind the HnRoleMappings array
+                new BsonDocument("$unwind", new BsonDocument
+                {
+                    { "path", "$hnRoleMappings" },
+                    { "preserveNullAndEmptyArrays", false }
+                }),
 
+                // 2. Match only mappings with the specified Heat Network ID
+                new BsonDocument("$match", new BsonDocument("hnRoleMappings.hnId", hnId)),
+
+                // 3. Project only the necessary fields
+                new BsonDocument("$project", new BsonDocument
+                {
+                    { "_id", 0 },
+                    { "firstName", 1 },
+                    { "lastName", 1 },
+                    { "emailId", 1 },
+                    { "role", "$hnRoleMappings.role" }
+                })
+            };
+
+            var results = await _usersCollection
+                .Aggregate<BsonDocument>(pipeline)
+                .ToListAsync();
+
+            return results.Select(doc => new UserRoleDetailResponse
+            {
+                FullName = $"{StringFormatter.ToTitleCaseSingleWord(doc["firstName"].ToString())} {StringFormatter.ToTitleCaseSingleWord(doc["lastName"].ToString())}",
+                EmailId = doc["emailId"].ToString(),
+                RoleDescription = Enum.TryParse<ContributorRole>(doc["role"].ToString(), out var role) ? role.GetDescription() : "Unknown Role"
+            }).ToList();
+        }
     }
 }

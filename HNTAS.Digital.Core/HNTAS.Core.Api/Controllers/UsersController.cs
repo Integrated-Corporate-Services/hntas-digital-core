@@ -130,7 +130,7 @@ public class UsersController : ControllerBase
 
 
     /// <summary>
-    /// Check if a user is a Regulatory Contact by their email ID
+    /// Check if a user is a Responsible Person by their email ID
     /// </summary>
     /// <remarks>
     /// Validates whether the user associated with the given email ID has the RegulatoryContact role.
@@ -148,7 +148,7 @@ public class UsersController : ControllerBase
     {
         var sanitizedEmailId = emailId?.Replace("\r", "").Replace("\n", "");
 
-        _logger.LogInformation("Checking if user with email ID {EmailId} is a Regulatory Contact.", sanitizedEmailId);
+        _logger.LogInformation("Checking if user with email ID {EmailId} is a Responsible Person.", sanitizedEmailId);
         try
         {
             var user = await _userService.GetByEmailAsync(emailId);
@@ -159,13 +159,13 @@ public class UsersController : ControllerBase
                 return NotFound();
             }
 
-            bool isRegulatoryContact = user.Roles.Contains(UserRole.RegulatoryContact);
-            _logger.LogInformation("User with email ID {EmailId} is Regulatory Contact: {IsRp}", sanitizedEmailId, isRegulatoryContact);
+            bool isRegulatoryContact = user.Roles.Contains(UserRole.ResponsiblePerson);
+            _logger.LogInformation("User with email ID {EmailId} is Responsible Person: {IsRp}", sanitizedEmailId, isRegulatoryContact);
             return Ok(isRegulatoryContact);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error occurred while checking Regulatory Contact role for email ID: {EmailId}", sanitizedEmailId);
+            _logger.LogError(ex, "Error occurred while checking Responsible Person role for email ID: {EmailId}", sanitizedEmailId);
             return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while checking the user's role.");
         }
     }
@@ -366,7 +366,7 @@ public class UsersController : ControllerBase
             await _userService.UpdateAsync(id, existingUser);
 
             _logger.LogInformation("Organisation details and status updated for user {UserId}. Generated OrgId: {OrgId}", id, newOrg.Id);
-            
+
             await _emailService.TrySendOrgCreatedEmailAsync(existingUser, newOrg);
 
             return Ok(existingUser);
@@ -680,6 +680,37 @@ public class UsersController : ControllerBase
 
         return Ok(_mapper.Map<List<UserResponse>>(filteredUsers));
     }
+
+
+    [HttpGet("heat-network/{hnId}/roles")]
+    [ProducesResponseType(typeof(List<UserRoleDetailResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [Produces("application/json")]
+    public async Task<ActionResult<List<UserRoleDetailResponse>>> GetHeatNetworkUsersWithRoles(string hnId)
+    {
+        if (string.IsNullOrWhiteSpace(hnId))
+        {
+            return BadRequest("Heat Network ID must be provided.");
+        }
+
+        // Get Responsible Person
+        var rpUser = await _userService.GetResponsiblePersonByHnIdAsync(hnId);
+        if (rpUser == null)
+        {
+            return NotFound($"No Responsible Person found for Heat Network ID: {hnId}");
+        }
+
+        // Get other users with roles
+        var result = await _userService.GetHeatNetworkUsersWithRolesAsync(hnId)
+                     ?? new List<UserRoleDetailResponse>();
+
+        // Insert RP user at the top
+        result.Insert(0, _mapper.Map<UserRoleDetailResponse>(rpUser));
+
+        return Ok(result);
+    }
+
 
     private User BuildUserFromInvitation(InvitedUserRequest request, Invitation invitation)
     {

@@ -45,6 +45,9 @@ namespace HNTAS.Core.Api.Models
         [BsonElement("landlineNumber")]
         public string? LandlineNumber { get; set; }
 
+        [BsonElement("contactNumberExtension")]
+        public string? ContactNumberExtension { get; set; }
+
         [BsonElement("mobileNumber")]
         public string? MobileNumber { get; set; }
 

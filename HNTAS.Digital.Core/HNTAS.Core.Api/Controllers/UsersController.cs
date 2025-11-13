@@ -383,6 +383,50 @@ public class UsersController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Update Personal Details foe a User
+    /// </summary>
+    /// <param name="request"></param>
+    /// <returns></returns>
+    [HttpPatch("{id}/update-personal-details")]
+    [Consumes(MediaTypeNames.Application.Json)]
+    [ProducesResponseType(typeof(User), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<User>> UpdatePersonalDetails(string id, [FromBody] User request)
+    {
+        if (!ModelState.IsValid)
+        {
+            _logger.LogWarning("Invalid personal details update data for user ID: {UserId}. Errors: {Errors}",
+                id, string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
+            return ValidationProblem(ModelState);
+        }
+        try
+        {
+            var existingUser = await _userService.GetByIdAsync(id);
+            if (existingUser == null)
+            {
+                _logger.LogWarning("User with ID {UserId} not found for personal details update.", id);
+                return NotFound();
+            }
+            
+            await _userService.UpdateAsync(id, existingUser);
+            _logger.LogInformation("Personal details updated for user {UserId}.", id);
+            return Ok(existingUser);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating personal details for user {UserId}", id);
+            return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
+            {
+                Status = StatusCodes.Status500InternalServerError,
+                Title = "Internal Server Error",
+                Detail = "An unexpected error occurred while updating personal details."
+            });
+        }
+    }
+
     [HttpPatch("accept-invitation")]
     [Consumes(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]

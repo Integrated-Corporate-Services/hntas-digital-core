@@ -136,6 +136,7 @@ namespace HNTAS.Core.Api.Services
                 { "jobTitle", 1 },
                 { "preferredContactType", 1 },
                 { "landlineNumber", 1 },
+                { "contactNumberExtension", 1 },
                 { "mobileNumber", new BsonDocument("$ifNull", new BsonArray { "$mobileNumber", BsonNull.Value }) },
                 { "roles", 1 },
                 { "status", 1 },

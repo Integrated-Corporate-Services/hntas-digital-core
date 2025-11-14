@@ -1,5 +1,6 @@
 ﻿using AutoMapper;
 using HNTAS.Core.Api.Data.Models;
+using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models.Users;
 using Microsoft.AspNetCore.Mvc;
@@ -67,9 +68,12 @@ namespace HNTAS.Core.Api.Controllers
                     RegisteredAddress = _mapper.Map<RegisteredAddress>(request.RegisteredAddress)
                 };
 
+                var oldNameAndAddress = $"{existingOrg.Name},{StringFormatter.FormatAddress(existingOrg.RegisteredAddress)}";
+                var newNameAndAddress = $"{updateOrg.Name},{StringFormatter.FormatAddress(updateOrg.RegisteredAddress)}";
+
                 await _organisationService.UpdateAsync(existingOrg.Id, updateOrg); // Save the new organization to its collection
 
-                _emailService.TrySendOrgUpdatedEmailAsync(fullName, existingUser.EmailId, oldAddress, updateOrg.RegisteredAddress);
+                _emailService.TrySendOrgUpdatedEmailAsync(fullName, existingUser.EmailId, oldNameAndAddress, newNameAndAddress);
 
                 return NoContent();
 

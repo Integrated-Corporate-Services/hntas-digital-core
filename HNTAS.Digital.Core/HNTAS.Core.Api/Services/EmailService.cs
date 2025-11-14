@@ -70,17 +70,14 @@ namespace HNTAS.Core.Api.Services
         }
 
                 
-        public async Task TrySendOrgUpdatedEmailAsync(string fullName, string userEmail, RegisteredAddress oldAddress, RegisteredAddress newAddress)
-        {
-            
-            string formattedOldAddress = StringFormatter.FormatAddress(oldAddress);
-            string formattedNewAddress = StringFormatter.FormatAddress(newAddress);
+        public async Task TrySendOrgUpdatedEmailAsync(string fullName, string userEmail, string oldNameAndAddress, string newNameAndAddress)
+        {     
 
             var personalisation = new Dictionary<string, dynamic>
             {
                 { "user_name", fullName },
-                { "old_address", formattedOldAddress },
-                { "new_address", formattedNewAddress }
+                { "old_address", oldNameAndAddress },
+                { "new_address", newNameAndAddress }
             };
 
             var emailSent = await _govUkNotifyService.SendEmailAsync(

@@ -1,4 +1,5 @@
 ﻿using HNTAS.Core.Api.Data.Models;
+using HNTAS.Core.Api.Enums;
 
 namespace HNTAS.Core.Api.Interfaces
 {
@@ -10,5 +11,6 @@ namespace HNTAS.Core.Api.Interfaces
         Task TrySendAssessorEmailAsync(string emailAddress, string hnName, string hnId, string contributorName);
         Task TrySendAssessorAssessmentEmailAsync(string emailAddress, string hnName, string hnId, string assessmentResult);
         Task TrySendCertificationCompleteEmailAsync(string emailAddress, string hnName, string hnId);
+        Task TrySendHNDiscontinedEmailAsync(User userToUpdate, string name, ContributorRole contributorRole);
     }
 }

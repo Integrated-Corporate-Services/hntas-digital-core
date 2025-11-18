@@ -1,5 +1,7 @@
 ﻿using HNTAS.Core.Api.Configuration;
 using HNTAS.Core.Api.Data.Models;
+using HNTAS.Core.Api.Enums;
+using HNTAS.Core.Api.Extensions;
 using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
 using Microsoft.Extensions.Options;
@@ -165,6 +167,20 @@ namespace HNTAS.Core.Api.Services
                     { "hn_id", hnId },
                 }
             );
+        }
+
+        public async Task TrySendHNDiscontinedEmailAsync(User userToUpdate, string hnName, ContributorRole contributorRole)
+        {
+            var emailSent = await _govUkNotifyService.SendEmailAsync(
+           userToUpdate.EmailId,
+           _notificationSettings.ContributorHeatNetworkDiscontinuedTemplatedId,
+               new Dictionary<string, dynamic>
+               {
+                    { "hn_user_name", $"{StringFormatter.ToTitleCaseSingleWord(userToUpdate.FirstName)} {StringFormatter.ToTitleCaseSingleWord(userToUpdate.LastName)}" },
+                    { "hn_name",hnName },
+                    { "hn_role", contributorRole.GetDescription() },
+               }
+           );
         }
     }
 }

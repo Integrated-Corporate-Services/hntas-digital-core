@@ -21,6 +21,8 @@ namespace HNTAS.Core.Api.Models.Users
         [MinLength(1, ErrorMessage = "Select at least one role.")]
         public List<ContributorRole> ContributorRoles { get; set; } = new();
 
+        public string? CurrentRoleUserId { get; set; }
+
         [Required(ErrorMessage = "Status is required.")]
         public InvitationStatus Status { get; set; }
     }

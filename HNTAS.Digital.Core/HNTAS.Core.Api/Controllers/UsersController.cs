@@ -632,9 +632,9 @@ public class UsersController : ControllerBase
 
         var invitedUsers = invitations.ToList()
         .Where(i =>
-            !registeredUsers.Any(u =>
-                u.EmailId == i.EmailId &&
-                u.HeatNetworks.Any(x => x.HnId == i.HeatNetworks?.FirstOrDefault().HnId))).ToList();
+            (!registeredUsers.Any(u =>
+                u.EmailId == i.EmailId ||
+                u.HeatNetworks.Any(x => x.HnId == i.HeatNetworks?.FirstOrDefault().HnId))) || i.Status == InvitationStatus.Invited.ToString()).ToList();
 
 
         if (invitedUsers != null || invitedUsers.Count != 0)

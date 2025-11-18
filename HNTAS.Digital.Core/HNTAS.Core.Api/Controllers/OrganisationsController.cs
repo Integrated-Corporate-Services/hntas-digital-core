@@ -57,7 +57,8 @@ namespace HNTAS.Core.Api.Controllers
                     return NotFound($"Organisation with ID: {orgId} not found.");
                 }
                 RegisteredAddress oldAddress = existingOrg.RegisteredAddress;
-                string fullName = existingUser.FirstName + " " + existingUser.LastName;
+
+                string fullName = StringFormatter.ToTitleCaseSingleWord(existingUser.FirstName) + " " + StringFormatter.ToTitleCaseSingleWord(existingUser.LastName);
 
                 // Create a new Organization document using the data from the request
                 var updateOrg = new Organisation

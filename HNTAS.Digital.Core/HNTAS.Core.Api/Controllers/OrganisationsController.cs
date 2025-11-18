@@ -69,9 +69,12 @@ namespace HNTAS.Core.Api.Controllers
                     RegisteredAddress = _mapper.Map<RegisteredAddress>(request.RegisteredAddress)
                 };
 
+                var oldNameAndAddress = $"{existingOrg.Name},{StringFormatter.FormatAddress(existingOrg.RegisteredAddress)}";
+                var newNameAndAddress = $"{updateOrg.Name},{StringFormatter.FormatAddress(updateOrg.RegisteredAddress)}";
+
                 await _organisationService.UpdateAsync(existingOrg.Id, updateOrg); // Save the new organization to its collection
 
-                _emailService.TrySendOrgUpdatedEmailAsync(fullName, existingUser.EmailId, oldAddress, updateOrg.RegisteredAddress);
+                _emailService.TrySendOrgUpdatedEmailAsync(fullName, existingUser.EmailId, oldNameAndAddress, newNameAndAddress);
 
                 return NoContent();
 

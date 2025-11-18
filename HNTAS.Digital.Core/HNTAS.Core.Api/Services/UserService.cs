@@ -259,7 +259,7 @@ namespace HNTAS.Core.Api.Services
                 // 3. Project only the necessary fields
                 new BsonDocument("$project", new BsonDocument
                 {
-                    { "_id", 0 },
+                    { "userId", "$_id" },
                     { "firstName", 1 },
                     { "lastName", 1 },
                     { "emailId", 1 },
@@ -274,6 +274,7 @@ namespace HNTAS.Core.Api.Services
             return results.Select(doc => new UserRoleDetailResponse
             {
                 FullName = $"{StringFormatter.ToTitleCaseSingleWord(doc["firstName"].ToString())} {StringFormatter.ToTitleCaseSingleWord(doc["lastName"].ToString())}",
+                UserId = doc["userId"].ToString(),
                 EmailId = doc["emailId"].ToString(),
                 RoleDescription = Enum.TryParse<ContributorRole>(doc["role"].ToString(), out var role) ? role.GetDescription() : "Unknown Role"
             }).ToList();

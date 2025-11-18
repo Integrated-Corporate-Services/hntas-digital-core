@@ -129,6 +129,39 @@ namespace HNTAS.Core.Api.Controllers
 
                 _logger.LogInformation("Invitation sent by user {UserId}. New invitation ID: {InvitationId}", id, newInvitation.Id);
 
+                if (request.CurrentRoleUserId != null)
+                {
+                    var userToUpdate = await _userService.GetByIdAsync(request.CurrentRoleUserId);
+                    if (userToUpdate != null)
+                    {
+                        var rolesToRemove = request.ContributorRoles.ToHashSet();
+                        userToUpdate.HnRoleMappings = userToUpdate.HnRoleMappings
+                                                        .Where(mapping =>
+                                                            mapping.HnId != request.HnId ||
+                                                            !rolesToRemove.Contains(mapping.Role))
+                                                        .ToList();
+
+                        if (userToUpdate.HnIds != null && userToUpdate.HnIds.Contains(request.HnId))
+                        {
+                            // Check if ANY HnRoleMapping for this HnId still exists
+                            bool hnIdStillHasRoles = userToUpdate.HnRoleMappings.Any(mapping => mapping.HnId == request.HnId);
+
+                            if (!hnIdStillHasRoles)
+                            {
+                                // If no roles remain, remove the HnId from the list of associated IDs
+                                userToUpdate.HnIds = userToUpdate.HnIds
+                                                                 .Where(hnId => hnId != request.HnId)
+                                                                 .ToList();
+                            }
+                        }
+
+                        await _userService.UpdateAsync(userToUpdate.Id, userToUpdate);
+
+                        //send an email to existing user that his heat network is discontinued
+                        await _emailService.TrySendHNDiscontinedEmailAsync(userToUpdate, hnExists.Name, request.ContributorRoles.FirstOrDefault());
+                    }
+                }
+
                 return StatusCode(StatusCodes.Status201Created, newInvitation.Id);
             }
             catch (Exception ex)

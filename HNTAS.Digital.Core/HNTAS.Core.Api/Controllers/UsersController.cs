@@ -383,6 +383,88 @@ public class UsersController : ControllerBase
         }
     }
 
+
+    /// <summary>
+    /// Update User Details
+    /// </summary>
+    [HttpPatch("{id:length(24)}/user-details")]
+    [Consumes(MediaTypeNames.Application.Json)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<User>> UpdateUserDetails(string id, [FromBody] UpdateUserDetailsRequest request)
+    {
+        // 1. Contact details validation logic remains the same
+        var (landline, extension, mobile) = ContactDetailsValidationHelper.GetValidatedContactDetails(
+            request.PreferredContactType,
+            request.LandlineNumber,
+            request.ContactNumberExtension,
+            request.MobileNumber,
+            ModelState
+        );
+
+        request.LandlineNumber = landline;
+        request.ContactNumberExtension = extension;
+        request.MobileNumber = mobile;
+
+        if (!ModelState.IsValid)
+        {
+            _logger.LogWarning("Invalid user details update data for user ID: {UserId}. Errors: {Errors}",
+                id, string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
+            return ValidationProblem(ModelState);
+        }
+
+        try
+        {
+            // 2. Find the existing user
+            var existingUser = await _userService.GetByIdAsync(id);
+            if (existingUser == null)
+            {
+                _logger.LogWarning("User with ID {UserId} not found for user details update.", id);
+                return NotFound();
+            }
+
+            // 3. Update only the user-specific fields
+            existingUser.FirstName = request.FirstName;
+            existingUser.LastName = request.LastName;
+            existingUser.JobTitle = request.JobTitle;
+            existingUser.PreferredContactType = request.PreferredContactType;
+            existingUser.LandlineNumber = request.LandlineNumber;
+            existingUser.MobileNumber = request.MobileNumber;
+            existingUser.ContactNumberExtension = request.ContactNumberExtension;
+
+
+            if (request.Role != null)
+            {
+                if (existingUser.Roles == null)
+                {
+                    existingUser.Roles = new List<UserRole>() { request.Role.Value };
+                }
+                else if (!existingUser.Roles.Contains(request.Role.Value))
+                {
+                    existingUser.Roles.Add(request.Role.Value);
+                }
+            }
+
+            await _userService.UpdateAsync(id, existingUser);
+
+            _logger.LogInformation("User details updated for user {UserId}.", id);
+
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating user details for user {UserId}", id);
+            return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
+            {
+                Status = StatusCodes.Status500InternalServerError,
+                Title = "Internal Server Error",
+                Detail = "An unexpected error occurred while updating User details."
+            });
+        }
+    }
+
     [HttpPatch("accept-invitation")]
     [Consumes(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]

@@ -9,6 +9,8 @@ namespace HNTAS.Core.Api.Enums
         [Description("Landline")]
         Landline = 1,
         [Description("Mobile")]
-        Mobile = 2
+        Mobile = 2,
+        [Description("Prefer not to say")]
+        PreferNotToSay = 3
     }
 }

@@ -11,5 +11,6 @@ namespace HNTAS.Core.Api.Interfaces
         Task UpdateAsync(string orgId, Organisation updatedOrganization);
         Task RemoveAsync(string orgId);
         Task<bool> ExistsByDetailsAsync(string name, string postCode, string country);
+        Task<Organisation?> GetByOrgIdOrNameAsync(string searchTerm);
     }
 }

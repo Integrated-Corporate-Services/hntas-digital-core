@@ -112,5 +112,55 @@ namespace HNTAS.Core.Api.Controllers
 
             return Ok(exists);
         }
+
+
+        /// <summary>
+        /// Searches for an organisation by its unique OrgId or by its Name.
+        /// </summary>
+        /// <param name="term">The OrgId or Name to search for.</param>
+        [HttpGet("search")] // The full route will be 'GET /api/organisations/search?term=VALUE'
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(Organisation))]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<Organisation>> GetByOrgIdOrName([FromQuery] string term)
+        {
+            if (string.IsNullOrWhiteSpace(term))
+            {
+                return BadRequest("Search term cannot be empty.");
+            }
+
+            var organisation = await _organisationService.GetByOrgIdOrNameAsync(term);
+
+            if (organisation == null)
+            {
+                return NotFound($"No organisation found for search term: '{term}'");
+            }
+
+            return Ok(organisation);
+        }
+
+        /// <summary>
+        /// Retrieves a single organisation by its unique OrgId.
+        /// </summary>
+        /// <param name="orgId">The unique OrgId to search for.</param>
+        [HttpGet("{orgId}")] // The full route will be 'GET /api/organisations/{orgId}'
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(Organisation))]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<Organisation>> GetByOrgId([FromRoute] string orgId)
+        {
+            if (string.IsNullOrWhiteSpace(orgId))
+            {
+                return BadRequest("Organisation ID cannot be empty.");
+            }
+
+            // Call the dedicated service method
+            var organisation = await _organisationService.GetByOrgIdAsync(orgId);
+
+            if (organisation == null)
+            {
+                return NotFound($"Organisation with ID '{orgId}' not found.");
+            }
+
+            return Ok(organisation);
+        }
     }
 }

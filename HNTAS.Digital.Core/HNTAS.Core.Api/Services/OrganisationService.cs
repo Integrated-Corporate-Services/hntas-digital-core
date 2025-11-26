@@ -83,5 +83,28 @@ namespace HNTAS.Core.Api.Services
             return existingOrganisation != null;
         }
 
+        public async Task<Organisation?> GetByOrgIdOrNameAsync(string searchTerm)
+        {
+            if (string.IsNullOrWhiteSpace(searchTerm))
+            {
+                return null;
+            }
+
+            string pattern = $"^{searchTerm}$";
+            var regex = new BsonRegularExpression(pattern, "i");
+
+            var builder = Builders<Organisation>.Filter;
+
+            var orgIdFilter = builder.Regex(x => x.OrgId, regex);
+
+            var nameFilter = builder.Regex(x => x.Name, regex);
+
+            var combinedFilter = builder.Or(orgIdFilter, nameFilter);
+
+            return await _organizationsCollection
+                .Find(combinedFilter)
+                .FirstOrDefaultAsync();
+        }
+
     }
 }

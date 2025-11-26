@@ -6,6 +6,7 @@ using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
 using HNTAS.Core.Api.Models.Users;
 using Microsoft.AspNetCore.Mvc;
+using MongoDB.Bson;
 using System.Net.Mime;
 
 namespace HNTAS.Core.Api.Controllers;
@@ -15,7 +16,7 @@ namespace HNTAS.Core.Api.Controllers;
 public class UsersController : ControllerBase
 {
     private readonly IUserService _userService;
-    private readonly IOrganisationService _organizationService;
+    private readonly IOrganisationService _organisationService;
     private readonly IInvitationService _invitationService;
     private readonly ILogger<UsersController> _logger;
     private readonly ICounterService _orgCounterService;
@@ -32,7 +33,7 @@ public class UsersController : ControllerBase
                            IEmailService emailService)
     {
         _userService = userService;
-        _organizationService = organizationService;
+        _organisationService = organizationService;
         _invitationService = invitationService;
         _logger = logger;
         _emailService = emailService;
@@ -300,7 +301,7 @@ public class UsersController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    public async Task<ActionResult<User>> UpdateOrgDetails(string id, [FromBody] UpdateUserOrganisationRequest request)
+    public async Task<ActionResult<User>> UpdateUserAndOrgDetails(string id, [FromBody] UpdateUserOrganisationRequest request)
     {
         // Contact details validation logic remains the same
         var (landline, extension, mobile) = ContactDetailsValidationHelper.GetValidatedContactDetails(
@@ -341,7 +342,7 @@ public class UsersController : ControllerBase
                 RegisteredAddress = _mapper.Map<RegisteredAddress>(request.Organisation.RegisteredAddress)
             };
 
-            await _organizationService.CreateAsync(newOrg); // Save the new organization to its collection
+            await _organisationService.CreateAsync(newOrg); // Save the new organization to its collection
 
             // Update the existing User document to link to the new Organization
             existingUser.OrgId = newOrg.OrgId;
@@ -383,6 +384,81 @@ public class UsersController : ControllerBase
         }
     }
 
+
+    /// <summary>
+    /// Registers a new Organisation and links its generated OrgId to the specified User.
+    /// </summary>
+    /// <param name="userId">The ID of the user whose OrgId field will be updated.</param>
+    /// <param name="request">The data to create the new Organisation record.</param>
+    /// <returns>The newly created Organisation object.</returns>
+    [HttpPost("register-org-and-link/{userId}")]
+    [ProducesResponseType(typeof(Organisation), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<Organisation>> RegisterOrganisationAndLinkUserAsync(
+        string userId,
+        OrganisationRequest request)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        if (string.IsNullOrWhiteSpace(userId) || !ObjectId.TryParse(userId, out _))
+        {
+            return BadRequest("Invalid or missing UserId.");
+        }
+
+        try
+        {
+            // Check the user exists
+            var existingUser = await _userService.GetByIdAsync(userId);
+            if (existingUser == null)
+            {
+                _logger.LogWarning("User with ID '{UserId}' not found for organisation registration.", userId);
+                return NotFound($"User with ID '{userId}' was not found. Organisation was not created.");
+            }
+
+            var newOrganisation = new Organisation
+            {
+                OrgId = $"ORG{await _orgCounterService.GetNextSequenceValue("orgId_sequence"):D7}",
+                Name = request.Name,
+                CompaniesHouseNumber = request.CompaniesHouseNumber,
+                Type = request.Type,
+                RegisteredAddress = _mapper.Map<RegisteredAddress>(request.RegisteredAddress)
+            };
+
+            await _organisationService.CreateAsync(newOrganisation);
+
+            _logger.LogInformation("Organisation created successfully. New OrgId: {OrgId}", newOrganisation.OrgId);
+
+            var updateResult = await _userService.UpdateOrgIdAsync(userId, newOrganisation.OrgId);
+
+            if (updateResult.ModifiedCount == 0)
+            {
+                _logger.LogError("Failed to modify user {UserId} OrgId. Matched: {Matched}, Modified: {Modified}. Starting rollback.", userId, updateResult.MatchedCount, updateResult.ModifiedCount);
+
+                // Initiate Rollback: Delete the newly created Organisation
+                await _organisationService.RemoveAsync(newOrganisation.Id);
+
+                // Return a Server Error indicating the linking failed
+                return StatusCode(StatusCodes.Status500InternalServerError, $"Organisation created but failed to link to user {userId}. Rollback executed.");
+            }
+
+            _logger.LogInformation("User {UserId} successfully updated with OrgId: {OrgId}. Modified count: {Count}",
+                userId, newOrganisation.OrgId, updateResult.ModifiedCount);
+
+            // Return the created organisation object with 201 status
+            return StatusCode(StatusCodes.Status201Created, newOrganisation);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to create new organisation record.");
+            return StatusCode(StatusCodes.Status500InternalServerError,
+                "An unexpected error occurred during registration and linking: " + ex.Message);
+        }
+    }
 
     /// <summary>
     /// Update User Details
@@ -668,7 +744,7 @@ public class UsersController : ControllerBase
 
         try
         {
-            bool exists = await _organizationService.IsOrganizationExists(companiesHouseNumber);
+            bool exists = await _organisationService.IsOrganizationExists(companiesHouseNumber);
             _logger.LogInformation("Organisation exists: {Exists}", exists);
             return Ok(exists);
         }
@@ -794,6 +870,38 @@ public class UsersController : ControllerBase
     }
 
 
+    /// <summary>
+    /// Updates the OrgId associated with a specific user.
+    /// </summary>
+    /// <param name="request">The UserId and the NewOrgId.</param>
+    [HttpPatch("update-orgid")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateOrgId([FromBody] UpdateUserOrgIdRequest request)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var result = await _userService.UpdateOrgIdAsync(request.UserId, request.OrgId);
+
+        if (result.IsAcknowledged == false)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, "Database update operation was not acknowledged.");
+        }
+
+        if (result.MatchedCount == 0)
+        {
+            return NotFound($"User with ID '{request.UserId}' not found.");
+        }
+
+        // 204 No Content is standard for a successful update where no data is returned
+        return NoContent();
+    }
+
+
     private User BuildUserFromInvitation(InvitedUserRequest request, Invitation invitation)
     {
         var roles = new List<UserRole> { };
@@ -832,7 +940,7 @@ public class UsersController : ControllerBase
             LastName = invitation.LastName,
             JobTitle = null,
             Status = UserStatus.Active,
-            OrgId = request.InviterOrgId,
+            OrgId = null,
             Roles = roles,
             HnIds = [invitation.InvitedHnId],
             HnRoleMappings = [new HnRoleMapping

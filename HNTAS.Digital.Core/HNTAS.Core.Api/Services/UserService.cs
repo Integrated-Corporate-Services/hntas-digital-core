@@ -280,5 +280,14 @@ namespace HNTAS.Core.Api.Services
                 RoleDescription = Enum.TryParse<ContributorRole>(doc["role"].ToString(), out var role) ? role.GetDescription() : "Unknown Role"
             }).ToList();
         }
+
+        public async Task<UpdateResult> UpdateOrgIdAsync(string userId, string orgId)
+        {
+            var filter = Builders<User>.Filter.Eq(u => u.Id, userId);
+
+            var update = Builders<User>.Update.Set(u => u.OrgId, orgId);
+
+            return await _usersCollection.UpdateOneAsync(filter, update);
+        }
     }
 }

@@ -92,17 +92,21 @@ namespace HNTAS.Core.Api.Controllers
             try
             {
 
+                var hnDetails = null as HeatNetwork;
                 //check if HnId exists in the system
-                var hnExists = await _hnService.GetByHnIdAsync(request.HnId);
-                if (hnExists == null)
+                if (request.HnId != null)
                 {
-                    _logger.LogWarning("Heat Network with HnId {HnId} not found for invitation.", request.HnId);
-                    return NotFound(new ProblemDetails
+                    hnDetails = await _hnService.GetByHnIdAsync(request.HnId);
+                    if (hnDetails == null)
                     {
-                        Status = StatusCodes.Status404NotFound,
-                        Title = "Heat Network Not Found",
-                        Detail = $"No heat network found with the provided HnId ({request.HnId})."
-                    });
+                        _logger.LogWarning("Heat Network with HnId {HnId} not found for invitation.", request.HnId);
+                        return NotFound(new ProblemDetails
+                        {
+                            Status = StatusCodes.Status404NotFound,
+                            Title = "Heat Network Not Found",
+                            Detail = $"No heat network found with the provided HnId ({request.HnId})."
+                        });
+                    }
                 }
 
                 var existingUser = await _userService.GetByIdAsync(id);
@@ -120,6 +124,7 @@ namespace HNTAS.Core.Api.Controllers
                     InviterUserId = existingUser.Id, // Link to the user who sent the invite
                     InvitedEmail = request.EmailAddress,
                     InvitedHnId = request.HnId,
+                    InvitedOrgId = request.OrgId,
                     InvitedRoles = request.ContributorRoles,
                     Status = InvitationStatus.Invited, // Status should be 'Invited' for a new invitation
                     InvitedAt = DateTime.UtcNow
@@ -129,7 +134,30 @@ namespace HNTAS.Core.Api.Controllers
 
                 _logger.LogInformation("Invitation sent by user {UserId}. New invitation ID: {InvitationId}", id, newInvitation.Id);
 
-                if (request.CurrentRoleUserId != null)
+                if (request.CurrentRoleUserId != null &&
+                    (request.ContributorRoles.Contains(ContributorRole.ResponsiblePerson) ||
+                     request.ContributorRoles.Contains(ContributorRole.Coordinator)))
+                {
+                    var userToUpdate = await _userService.GetByIdAsync(request.CurrentRoleUserId);
+
+                    if (userToUpdate != null)
+                    {
+                        var rolesToRemove = new List<UserRole>();
+                        if (request.ContributorRoles.Contains(ContributorRole.ResponsiblePerson))
+                        {
+                            rolesToRemove.Add(UserRole.ResponsiblePerson);
+                        }
+                        if (request.ContributorRoles.Contains(ContributorRole.Coordinator))
+                        {
+                            rolesToRemove.Add(UserRole.Coordinator);
+                        }
+
+                        userToUpdate.Roles.RemoveAll(userRole => rolesToRemove.Contains(userRole));
+
+                        await _userService.UpdateAsync(userToUpdate.Id, userToUpdate);
+                    }
+                }
+                else if (request.CurrentRoleUserId != null)
                 {
                     var userToUpdate = await _userService.GetByIdAsync(request.CurrentRoleUserId);
                     if (userToUpdate != null)
@@ -158,7 +186,7 @@ namespace HNTAS.Core.Api.Controllers
                         await _userService.UpdateAsync(userToUpdate.Id, userToUpdate);
 
                         //send an email to existing user that his heat network is discontinued
-                        await _emailService.TrySendHNDiscontinedEmailAsync(userToUpdate, hnExists.Name, request.ContributorRoles.FirstOrDefault());
+                        await _emailService.TrySendHNDiscontinedEmailAsync(userToUpdate, hnDetails?.Name, request.ContributorRoles.FirstOrDefault());
                     }
                 }
 

@@ -289,5 +289,15 @@ namespace HNTAS.Core.Api.Services
 
             return await _usersCollection.UpdateOneAsync(filter, update);
         }
+
+
+        public async Task<List<User>> GetUsersByOrgIdAsync(string organisationId)
+        {
+            var filter = Builders<User>.Filter.Eq(u => u.OrgId, organisationId);
+
+            return await _usersCollection
+                .Find(filter)
+                .ToListAsync();
+        }
     }
 }

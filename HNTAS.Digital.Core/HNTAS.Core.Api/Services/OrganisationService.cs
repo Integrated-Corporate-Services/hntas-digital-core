@@ -52,7 +52,9 @@ namespace HNTAS.Core.Api.Services
                 .Set(o => o.Type, updatedOrganization.Type)
                 .Set(o => o.CompaniesHouseNumber, updatedOrganization.CompaniesHouseNumber)
                 .Set(o => o.Name, updatedOrganization.Name)
-                .Set(o => o.RegisteredAddress, updatedOrganization.RegisteredAddress));
+                .Set(o => o.RegisteredAddress, updatedOrganization.RegisteredAddress)
+                .Set(o => o.LastModifiedBy, updatedOrganization.LastModifiedBy)
+                .Set(o => o.LastModifiedDate, updatedOrganization.LastModifiedDate));
 
         // Remove an organization by ID
         public async Task RemoveAsync(string orgId) =>

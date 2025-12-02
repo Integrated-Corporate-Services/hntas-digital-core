@@ -32,9 +32,11 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonElement("invitedEmail")]
         public string InvitedEmail { get; set; } = null!;
 
-        [Required(ErrorMessage = "Invited HN ID is required.")]
         [BsonElement("invitedHnId")]
-        public string InvitedHnId { get; set; } = null!;
+        public string? InvitedHnId { get; set; }
+
+        [BsonElement("invitedOrgId")]
+        public string? InvitedOrgId { get; set; }
 
         [Required(ErrorMessage = "Invited roles are required.")]
         [BsonElement("invitedRoles")]

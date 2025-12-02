@@ -66,11 +66,13 @@ namespace HNTAS.Core.Api.Controllers
                     Type = request.Type,
                     CompaniesHouseNumber = request.CompaniesHouseNumber,
                     Name = request.Name,
-                    RegisteredAddress = _mapper.Map<RegisteredAddress>(request.RegisteredAddress)
+                    RegisteredAddress = _mapper.Map<RegisteredAddress>(request.RegisteredAddress),
+                    LastModifiedBy = userId,
+                    LastModifiedDate = DateTime.UtcNow
                 };
 
-                var oldNameAndAddress = $"{existingOrg.Name},{StringFormatter.FormatAddress(existingOrg.RegisteredAddress)}";
-                var newNameAndAddress = $"{updateOrg.Name},{StringFormatter.FormatAddress(updateOrg.RegisteredAddress)}";
+                var oldNameAndAddress = $"{existingOrg.Name}, {StringFormatter.FormatAddress(existingOrg.RegisteredAddress)}";
+                var newNameAndAddress = $"{updateOrg.Name}, {StringFormatter.FormatAddress(updateOrg.RegisteredAddress)}";
 
                 await _organisationService.UpdateAsync(existingOrg.Id, updateOrg); // Save the new organization to its collection
 

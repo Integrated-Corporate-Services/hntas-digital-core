@@ -10,6 +10,7 @@ namespace HNTAS.Core.Api.Interfaces
         Task<User> GetByIdAsync(string id);
         Task<User> GetByUserOneLoginIdAsync(string userId);
         Task<User?> GetByEmailAsync(string emailId);
+        Task<List<User>> GetUsersByOrgIdAsync(string organisationId);
         Task CreateAsync(User newUser);
         Task UpdateAsync(string id, User updatedUser);
         Task<UpdateResult> UpdateOrgIdAsync(string userId, string orgId);

@@ -14,12 +14,11 @@ namespace HNTAS.Core.Api.Models.Users
         [Required(ErrorMessage = "Last Name is required.")]
         public string LastName { get; set; } = null!;
 
-        [Required(ErrorMessage = "HnId is required.")]
-        public string HnId { get; set; } = null!;
+        public string? HnId { get; set; }
 
-        [Required(ErrorMessage = "Select at least one role.")]
-        [MinLength(1, ErrorMessage = "Select at least one role.")]
-        public List<ContributorRole> ContributorRoles { get; set; } = new();
+        public string? OrgId { get; set; }
+
+        public List<ContributorRole>? ContributorRoles { get; set; } = new();
 
         public string? CurrentRoleUserId { get; set; }
 

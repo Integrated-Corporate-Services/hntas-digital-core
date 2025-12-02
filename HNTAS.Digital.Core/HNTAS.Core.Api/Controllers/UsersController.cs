@@ -339,7 +339,10 @@ public class UsersController : ControllerBase
                 Type = request.Organisation.Type,
                 CompaniesHouseNumber = request.Organisation.CompaniesHouseNumber,
                 Name = request.Organisation.Name,
-                RegisteredAddress = _mapper.Map<RegisteredAddress>(request.Organisation.RegisteredAddress)
+                RegisteredAddress = _mapper.Map<RegisteredAddress>(request.Organisation.RegisteredAddress),
+                CreatedBy = existingUser.Id,
+                CreatedDate = DateTime.UtcNow,
+                RpUserId = existingUser.Id
             };
 
             await _organisationService.CreateAsync(newOrg); // Save the new organization to its collection
@@ -426,7 +429,9 @@ public class UsersController : ControllerBase
                 Name = request.Name,
                 CompaniesHouseNumber = request.CompaniesHouseNumber,
                 Type = request.Type,
-                RegisteredAddress = _mapper.Map<RegisteredAddress>(request.RegisteredAddress)
+                RegisteredAddress = _mapper.Map<RegisteredAddress>(request.RegisteredAddress),
+                CreatedBy = userId,
+                CreatedDate = DateTime.UtcNow,
             };
 
             await _organisationService.CreateAsync(newOrganisation);
@@ -792,7 +797,7 @@ public class UsersController : ControllerBase
         .Where(i =>
             (!registeredUsers.Any(u =>
                 u.EmailId == i.EmailId ||
-                u.HeatNetworks.Any(x => x.HnId == i.HeatNetworks?.FirstOrDefault().HnId))) || i.Status == InvitationStatus.Invited.ToString()).ToList();
+                u.HeatNetworks.Any(x => x.HnId == i.HeatNetworks?.FirstOrDefault()?.HnId))) || i.Status == InvitationStatus.Invited.ToString()).ToList();
 
 
         if (invitedUsers != null || invitedUsers.Count != 0)
@@ -901,37 +906,71 @@ public class UsersController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>
+    /// Gets all users belonging to a specific organisation ID.
+    /// </summary>
+    /// <param name="organisationId">The unique identifier of the organisation.</param>
+    /// <returns>A list of User objects.</returns>
+    [HttpGet("organisation/{organisationId}")] // Defines the HTTP GET route and parameter
+    [ProducesResponseType(typeof(List<UserResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<List<User>>> GetUsersByOrganisation(string organisationId)
+    {
+        if (string.IsNullOrEmpty(organisationId))
+        {
+            return BadRequest("Organisation ID cannot be empty.");
+        }
+
+        // Call the service method to fetch data from MongoDB
+        var users = await _userService.GetUsersByOrgIdAsync(organisationId);
+
+        if (users == null || !users.Any())
+        {
+            // Optional: return 404 if no users are found for that ID
+            return NotFound($"No users found for organisation ID: {organisationId}");
+        }
+
+        var usersResponse = _mapper.Map<List<UserResponse>>(users);
+
+        return Ok(usersResponse);
+    }
+
+
+    private static readonly Dictionary<ContributorRole, UserRole> RoleMapping =
+        new Dictionary<ContributorRole, UserRole>
+    {
+            { ContributorRole.DesignatedDesigner, UserRole.Designer },
+            { ContributorRole.ContributingDesigner, UserRole.Designer },
+            { ContributorRole.DesignatedContractor, UserRole.Contractor },
+            { ContributorRole.ContributingContractor, UserRole.Contractor },
+            { ContributorRole.DesignatedOperator, UserRole.Operator },
+            { ContributorRole.ContributingOperator, UserRole.Operator },
+            { ContributorRole.Assessor, UserRole.Assessor },
+            { ContributorRole.Certifier, UserRole.Certifier },
+            { ContributorRole.Coordinator, UserRole.Coordinator },
+            { ContributorRole.ResponsiblePerson, UserRole.ResponsiblePerson }
+    };
 
     private User BuildUserFromInvitation(InvitedUserRequest request, Invitation invitation)
     {
         var roles = new List<UserRole> { };
-        foreach (var role in invitation.InvitedRoles)
+
+        if (invitation.InvitedRoles != null)
         {
-            if (role == ContributorRole.DesignatedDesigner || role == ContributorRole.ContributingDesigner)
+            foreach (var contributorRole in invitation.InvitedRoles)
             {
-                roles.Add(UserRole.Designer);
-            }
-            else if (role == ContributorRole.DesignatedContractor || role == ContributorRole.ContributingContractor)
-            {
-                roles.Add(UserRole.Contractor);
-            }
-            else if (role == ContributorRole.DesignatedOperator || role == ContributorRole.ContributingOperator)
-            {
-                roles.Add(UserRole.Operator);
-            }
-            else if (role == ContributorRole.Assessor)
-            {
-                roles.Add(UserRole.Assessor);
-            }
-            else if (role == ContributorRole.Certifier)
-            {
-                roles.Add(UserRole.Certifier);
-            }
-            else
-            {
-                roles.Add(UserRole.Contributor);
+                if (RoleMapping.TryGetValue(contributorRole, out var userRole))
+                {
+                    roles.Add(userRole);
+                }
+                else
+                {
+                    roles.Add(UserRole.Contributor);
+                }
             }
         }
+
         var user = new User
         {
             OneLoginId = request.OneLoginId,

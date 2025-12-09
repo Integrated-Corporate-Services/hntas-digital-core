@@ -4,6 +4,8 @@ using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.MappingProfiles;
 using HNTAS.Core.Api.Services;
 using Microsoft.Extensions.Options;
+using MongoDB.Driver;
+using System.Security.Authentication;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -30,6 +32,31 @@ builder.Services.AddSingleton<IGovUkNotifyService, GovUkNotifyService>();
 builder.Services.AddSingleton<IHeatNetworkService, HeatNetworkService>();
 builder.Services.AddSingleton<IEmailService, EmailService>();
 builder.Services.AddSingleton<ICountryAndTerritoryService, CountryAndTerritoryService>();
+
+
+
+//builder.Services.AddSingleton<IMongoClient>(sp =>
+//{
+//    var cfg = sp.GetRequiredService<IOptions<AWSDocDbSettings>>().Value;
+
+//    // ConnectionString already includes db name + TLS params (as per your settings)
+//    var settings = MongoClientSettings.FromConnectionString(cfg.ConnectionString);
+
+//    // Force TLS 1.2 for Amazon DocumentDB
+//    settings.SslSettings = new SslSettings { EnabledSslProtocols = SslProtocols.Tls12 };
+
+//    return new MongoClient(settings);
+//});
+
+//builder.Services.AddSingleton<IMongoDatabase>(sp =>
+//{
+//    var cfg = sp.GetRequiredService<IOptions<AWSDocDbSettings>>().Value;
+//    var client = sp.GetRequiredService<IMongoClient>();
+//    return client.GetDatabase(cfg.DatabaseName);
+//});
+
+builder.Services.AddScoped<IDocdbExportService, DocdbExportService>();
+
 
 builder.Services.AddControllers().AddJsonOptions(options =>
 {

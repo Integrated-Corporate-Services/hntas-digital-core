@@ -12,23 +12,21 @@ namespace HNTAS.Core.Api.Services
     {
         private readonly IMongoCollection<Invitation> _invitationsCollection;
         private readonly ILogger<InvitationService> _logger;
+        private readonly IMongoClient _mongoClient;
+        private readonly IUserService _userService;
 
-
-        public InvitationService(IOptions<AWSDocDbSettings> dbSettings, ILogger<InvitationService> logger)
+        public InvitationService(
+        IMongoDatabase mongoDatabase,
+        IOptions<AWSDocDbSettings> dbSettings,
+        ILogger<InvitationService> logger,
+        IMongoClient mongoClient,
+        IUserService userService)
         {
             _logger = logger;
-            string? connectionString = Environment.GetEnvironmentVariable("DOCUMENT_DB_CONNECTION_STRING");
-            _logger.LogInformation("Initializing InvitationService with connection string: {connectionString}", connectionString);
-
-            if (string.IsNullOrEmpty(connectionString))
-            {
-                throw new InvalidOperationException("MongoDB connection string is not configured. Set 'DOCUMENT_DB_CONNECTION_STRING' environment variable");
-            }
-
-            var mongoClient = new MongoClient(connectionString);
-            var mongoDatabase = mongoClient.GetDatabase(dbSettings.Value.DatabaseName);
-
             _invitationsCollection = mongoDatabase.GetCollection<Invitation>(dbSettings.Value.InvitationsCollectionName);
+            _logger.LogInformation("UserService initialized via Dependency Injection.");
+            _mongoClient = mongoClient;
+            _userService = userService;
         }
 
         // Get all invitations
@@ -92,6 +90,7 @@ namespace HNTAS.Core.Api.Services
                     { "_id", new BsonDocument("$toString", "$_id") },
                     { "name", new BsonDocument("$concat", new BsonArray { "$firstName", " ", "$lastName" }) },
                     { "emailId", "$invitedEmail" },
+                    { "invitedAt", "$invitedAt" },
                     { "status", new BsonDocument("$toString", "$status") },
                     { "roles", new BsonDocument("$map", new BsonDocument
                         {
@@ -118,6 +117,30 @@ namespace HNTAS.Core.Api.Services
             return await _invitationsCollection
                 .Aggregate<ManagedUserResponse>(pipeline)
                 .ToListAsync();
+        }
+
+        public async Task ExecuteRoleSwapAsync(User invitedUser, User? replacedUser, Invitation invitation)
+        {
+            try
+            {
+                if (invitedUser?.Id == null)
+                    await _userService.CreateAsync(invitedUser);
+                else
+                    await _userService.UpdateAsync(invitedUser?.Id, invitedUser);
+
+                if (replacedUser != null)
+                    await _userService.UpdateAsync(replacedUser?.Id, replacedUser);
+
+                if (invitation != null)
+                    await UpdateAsync(invitation.Id, invitation);
+
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to complete role swap transaction.");
+                throw;
+            }
+
         }
     }
 }

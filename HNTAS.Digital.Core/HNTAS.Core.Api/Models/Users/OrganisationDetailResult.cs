@@ -4,7 +4,7 @@ using MongoDB.Bson.Serialization.Attributes;
 
 namespace HNTAS.Core.Api.Models.Users
 {
-    public class OrganisationResponse
+    public class OrganisationDetailResult
     {
         [BsonElement("orgId")]
         public string OrgId { get; set; } = null!;
@@ -18,5 +18,8 @@ namespace HNTAS.Core.Api.Models.Users
 
         [BsonElement("registeredAddress")]
         public RegisteredAddress RegisteredAddress { get; set; }
+
+        [BsonElement("heatNetworks")]
+        public List<HeatNetworkUserResponse>? HeatNetworks { get; set; }
     }
 }

@@ -6,6 +6,7 @@
         public string OrgDetailsUpdatedEmailTemplateId { get; set; } = null!;
         public string ContributorInvitationTemplatedId { get; set; } = null!;
         public string ContributorHeatNetworkDiscontinuedTemplatedId { get; set; } = null!;
+        public string OrganisationUserInvitationTemplatedId { get; set; } = null!;
         public string AssessorNotificationTemplatedId { get; set; } = null!;
         public string AssessmentCompleteNotificationTemplatedId { get; set; } = null!;
         public string CertificationCompleteNotificationTemplatedId { get; set; } = null!;

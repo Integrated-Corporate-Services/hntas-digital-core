@@ -9,9 +9,9 @@ namespace HNTAS.Core.Api.Services
     public class CounterService : ICounterService
     {
         private readonly IMongoCollection<Counter> _countersCollection;
-        private readonly ILogger _logger;
+        private readonly ILogger<CounterService> _logger;
 
-        public CounterService(IOptions<AWSDocDbSettings> awsDocDbSettings, IMongoDatabase mongoDatabase, ILogger logger)
+        public CounterService(IOptions<AWSDocDbSettings> awsDocDbSettings, IMongoDatabase mongoDatabase, ILogger<CounterService> logger)
         {
             _countersCollection = mongoDatabase.GetCollection<Counter>(awsDocDbSettings.Value.CountersCollectionName);
             _logger = logger;

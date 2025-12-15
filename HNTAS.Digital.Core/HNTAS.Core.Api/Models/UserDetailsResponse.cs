@@ -1,67 +1,34 @@
-﻿using HNTAS.Core.Api.Enums;
-using HNTAS.Core.Api.Helpers;
-using HNTAS.Core.Api.Models.Users;
-using MongoDB.Bson;
-using MongoDB.Bson.Serialization.Attributes;
+﻿using HNTAS.Core.Api.Data.Models;
+using HNTAS.Core.Api.Enums;
 
 namespace HNTAS.Core.Api.Models
 {
     public class UserDetailsResponse
     {
-        public string Id { get; set; }
-
-        [BsonElement("oneloginId")]
-        public string OneLoginId { get; set; }
-
-        [BsonElement("firstName")]
+        public string Id { get; set; } = null!;
+        public string OneLoginId { get; set; } = null!;
+        public string EmailId { get; set; } = null!;
         public string? FirstName { get; set; }
-
-        [BsonElement("lastName")]
         public string? LastName { get; set; }
-
-        public string? FullName
-        {
-            get
-            {
-                if (string.IsNullOrWhiteSpace(FirstName) && string.IsNullOrWhiteSpace(LastName))
-                    return null;
-
-                var formattedFirst = StringFormatter.ToTitleCaseSingleWord(FirstName ?? "");
-                var formattedLast = StringFormatter.ToTitleCaseSingleWord(LastName ?? "");
-
-                return $"{formattedFirst} {formattedLast}".Trim();
-            }
-        }
-
-        [BsonElement("emailId")]
-        public string EmailId { get; set; }
-
-        [BsonElement("jobTitle")]
+        public string? FullName { get; set; }
         public string? JobTitle { get; set; }
-
-        [BsonElement("preferredContactType")]
         public PreferredContactType? PreferredContactType { get; set; }
-
-        [BsonElement("landlineNumber")]
         public string? LandlineNumber { get; set; }
-
-        [BsonElement("contactNumberExtension")]
         public string? ContactNumberExtension { get; set; }
-
-        [BsonElement("mobileNumber")]
         public string? MobileNumber { get; set; }
-
-        [BsonElement("status")]
-        public string Status { get; set; }
-
-        [BsonElement("roles")]
+        public UserStatus Status { get; set; }
         public List<UserRole>? Roles { get; set; }
-
-        [BsonElement("organisation")]
         public OrganisationResponse? Organisation { get; set; }
-
-        [BsonElement("neatNetworks")]
         public List<HeatNetworkUserResponse>? HeatNetworks { get; set; }
 
+    }
+
+    public class OrganisationResponse
+    {
+        public string OrgId { get; set; } = null!;
+        public string Name { get; set; } = null!;
+        public string? CompaniesHouseNumber { get; set; }
+        public OrganisationType Type { get; set; }
+        public RegisteredAddress RegisteredAddress { get; set; }
     }
 }

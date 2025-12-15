@@ -26,19 +26,22 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonElement("registeredAddress")]
         public RegisteredAddress RegisteredAddress { get; set; }
 
+        [BsonElement("hnIds")]
+        public List<string> HnIds { get; set; } = [];
+
         [BsonElement("createdBy")]
         public string CreatedBy { get; set; }
 
-        [BsonElement("createdDate")]
+        [BsonElement("createdAt")]
         [BsonRepresentation(BsonType.DateTime)]
-        public DateTime CreatedDate { get; set; }
+        public DateTime CreatedAt { get; set; }
 
         [BsonElement("lastModifiedBy")]
         public string? LastModifiedBy { get; set; }
 
-        [BsonElement("lastModifiedDate")]
+        [BsonElement("lastModifiedAt")]
         [BsonRepresentation(BsonType.DateTime)]
-        public DateTime? LastModifiedDate { get; set; }
+        public DateTime? LastModifiedAt { get; set; }
 
         [BsonElement("rpUserId")]
         public string? RpUserId { get; set; }

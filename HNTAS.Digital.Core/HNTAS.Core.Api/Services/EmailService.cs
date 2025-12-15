@@ -71,9 +71,9 @@ namespace HNTAS.Core.Api.Services
                 _logger.LogWarning("Email failed to send to {EmailId} for user {UserId}", user.EmailId, user.Id);
         }
 
-                
+
         public async Task TrySendOrgUpdatedEmailAsync(string fullName, string userEmail, string oldNameAndAddress, string newNameAndAddress)
-        {     
+        {
 
             var personalisation = new Dictionary<string, dynamic>
             {
@@ -95,7 +95,7 @@ namespace HNTAS.Core.Api.Services
         }
 
         // --- Private Helper Method ---
-        public async Task TrySendInvitationEmailAsync(Invitation invitation, string token, string heatNetworkName)
+        public async Task TrySendHeatNetworkInvitationEmailAsync(Invitation invitation, string token, string heatNetworkName)
         {
             if (invitation == null || string.IsNullOrWhiteSpace(invitation.InvitedEmail))
             {
@@ -110,8 +110,35 @@ namespace HNTAS.Core.Api.Services
                 _notificationSettings.ContributorInvitationTemplatedId,
                 new Dictionary<string, dynamic>
                 {
-                { "subject_name", heatNetworkName },
+                { "subject_name", heatNetworkName ?? string.Empty },
                 { "hntas-digital-service-link", fullUrl },
+                }
+            );
+
+            if (emailSent)
+                _logger.LogInformation("Email sent successfully to {EmailId} for InviterUserId {UserId}", MaskEmail(invitation.InvitedEmail), invitation.InviterUserId);
+            else
+                _logger.LogWarning("Email failed to send to {EmailId} for InviterUserId {UserId}", MaskEmail(invitation.InvitedEmail), invitation.InviterUserId);
+        }
+
+        public async Task TrySendOrganisationInvitationEmailAsync(Invitation invitation, string token, string organisationName, string inviterName)
+        {
+            if (invitation == null || string.IsNullOrWhiteSpace(invitation.InvitedEmail))
+            {
+                _logger.LogInformation("Skipping email: missing Invitation or InvitedEmail for invitation {InvitationId}", invitation?.Id);
+                return;
+            }
+
+            var fullUrl = $"{_hntasServiceSettings.BaseUrl.TrimEnd('/')}{_hntasServiceSettings.InvitationPath}?token={token}";
+
+            var emailSent = await _govUkNotifyService.SendEmailAsync(
+                invitation.InvitedEmail,
+                _notificationSettings.OrganisationUserInvitationTemplatedId,
+                new Dictionary<string, dynamic>
+                {
+                    { "org_name", organisationName ?? string.Empty },
+                    { "rp_name" , inviterName },
+                    { "link-to-register", fullUrl },
                 }
             );
 

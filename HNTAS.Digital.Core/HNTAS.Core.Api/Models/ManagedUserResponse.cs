@@ -21,6 +21,9 @@ namespace HNTAS.Core.Api.Models
 
         [BsonElement("roles")]
         public List<string>? Roles { get; set; }
+
+        [BsonElement("invitedAt")]
+        public DateTime? InvitedAt { get; set; }
     }
 
     public class HeatNetworkInfo

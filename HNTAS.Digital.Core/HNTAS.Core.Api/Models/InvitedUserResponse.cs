@@ -24,7 +24,8 @@ namespace HNTAS.Core.Api.Models
                 return $"{formattedFirst} {formattedLast}".Trim();
             }
         }
-        public string InvitedHnId { get; set; }
+        public string? InvitedHnId { get; set; }
+        public string? InvitedOrgId { get; set; }
         public List<ContributorRole> Roles { get; set; }
         public InvitationStatus Status { get; set; }
         public DateTime InvitedAt { get; set; }

@@ -23,5 +23,12 @@ namespace HNTAS.Core.Api.Data.Models
 
         [BsonElement("soa")]
         public Soa? Soa { get; set; }
+
+        [BsonElement("createdBy")]
+        public string CreatedBy { get; set; }
+
+        [BsonElement("createdAt")]
+        [BsonRepresentation(BsonType.DateTime)]
+        public DateTime CreatedAt { get; set; }
     }
 }

@@ -31,6 +31,9 @@ builder.Services.AddSingleton<IHeatNetworkService, HeatNetworkService>();
 builder.Services.AddSingleton<IEmailService, EmailService>();
 builder.Services.AddSingleton<ICountryAndTerritoryService, CountryAndTerritoryService>();
 
+builder.Services.AddHttpClient();
+builder.Services.AddScoped<ICarbonCalculatorService, CarbonCalculatorService>();
+
 builder.Services.AddControllers().AddJsonOptions(options =>
 {
     options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;

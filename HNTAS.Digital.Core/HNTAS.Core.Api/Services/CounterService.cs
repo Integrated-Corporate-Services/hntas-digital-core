@@ -9,50 +9,13 @@ namespace HNTAS.Core.Api.Services
     public class CounterService : ICounterService
     {
         private readonly IMongoCollection<Counter> _countersCollection;
-        private readonly ILogger<CounterService> _logger;
+        private readonly ILogger _logger;
 
-        /// <summary>
-        /// Initializes a new instance of the CounterService.
-        /// </summary>
-        /// <param name="awsDocDbSettings">Configuration options for MongoDB settings.</param>
-        /// <param name="logger">Logger for logging service operations and errors.</param>
-        public CounterService(IOptions<AWSDocDbSettings> awsDocDbSettings, ILogger<CounterService> logger)
+        public CounterService(IOptions<AWSDocDbSettings> awsDocDbSettings, IMongoDatabase mongoDatabase, ILogger logger)
         {
+            _countersCollection = mongoDatabase.GetCollection<Counter>(awsDocDbSettings.Value.CountersCollectionName);
             _logger = logger;
-
-            string? connectionString = Environment.GetEnvironmentVariable("DOCUMENT_DB_CONNECTION_STRING");
-            if (string.IsNullOrEmpty(connectionString))
-            {
-                throw new InvalidOperationException("MongoDB connection string is not configured. " +
-                    "Set 'DOCUMENT_DB_CONNECTION_STRING' environment variable");
-            }
-
-            if (string.IsNullOrEmpty(awsDocDbSettings.Value.DatabaseName))
-            {
-                _logger.LogCritical("MongoDB DatabaseName is missing in settings. CounterService cannot initialize.");
-                throw new InvalidOperationException("MongoDB DatabaseName is not configured. Please check appsettings.json or environment variables.");
-            }
-            if (string.IsNullOrEmpty(awsDocDbSettings.Value.CountersCollectionName))
-            {
-                _logger.LogCritical("MongoDB OrgCountersCollectionName is missing in settings. CounterService cannot initialize.");
-                throw new InvalidOperationException("MongoDB OrgCountersCollectionName is not configured. Please check appsettings.json or environment variables.");
-            }
-
-
-            try
-            {
-                var mongoClient = new MongoClient(connectionString);
-                var mongoDatabase = mongoClient.GetDatabase(awsDocDbSettings.Value.DatabaseName);
-                _countersCollection = mongoDatabase.GetCollection<Counter>(awsDocDbSettings.Value.CountersCollectionName);
-
-                _logger.LogInformation("CounterService initialized successfully. Connected to database '{DatabaseName}', using collection '{CollectionName}'.",
-                    awsDocDbSettings.Value.DatabaseName, _countersCollection.CollectionNamespace.CollectionName);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogCritical(ex, "Failed to connect to Db for CounterService. Check connection string and MongoDB server status.");
-                throw new InvalidOperationException("CounterService failed to connect to MongoDB.", ex);
-            }
+            _logger.LogInformation("CounterService initialized via Dependency Injection.");
         }
 
         /// <summary>

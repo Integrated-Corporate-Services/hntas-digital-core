@@ -20,9 +20,11 @@ namespace HNTAS.Core.Api.Models.Users
 
         public List<ContributorRole>? ContributorRoles { get; set; } = new();
 
-        public string? CurrentRoleUserId { get; set; }
-
         [Required(ErrorMessage = "Status is required.")]
         public InvitationStatus Status { get; set; }
+
+        public string? ReplacedUserId { get; set; }
+
+        public List<ContributorRole>? RolesToReplace { get; set; } = new();
     }
 }

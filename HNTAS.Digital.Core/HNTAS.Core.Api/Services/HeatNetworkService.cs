@@ -11,22 +11,11 @@ namespace HNTAS.Core.Api.Services
         private readonly IMongoCollection<HeatNetwork> _hnCollection;
         private readonly ILogger<HeatNetworkService> _logger;
 
-        public HeatNetworkService(IOptions<AWSDocDbSettings> dbSettings, ILogger<HeatNetworkService> logger)
+        public HeatNetworkService(IOptions<AWSDocDbSettings> dbSettings, IMongoDatabase mongoDatabase, ILogger<HeatNetworkService> logger)
         {
-            _logger = logger;
-            string? connectionString = Environment.GetEnvironmentVariable("DOCUMENT_DB_CONNECTION_STRING");
-
-            _logger.LogInformation("Initializing UserService with connection string : " + connectionString);
-
-            if (string.IsNullOrEmpty(connectionString))
-            {
-                throw new InvalidOperationException("MongoDB connection string is not configured. " +
-                    "Set 'DOCUMENT_DB_CONNECTION_STRING' environment variable");
-            }
-            var mongoClient = new MongoClient(connectionString);
-            var mongoDatabase = mongoClient.GetDatabase(dbSettings.Value.DatabaseName);
             _hnCollection = mongoDatabase.GetCollection<HeatNetwork>(dbSettings.Value.HeatNetworksCollectionName);
-
+            _logger = logger;
+            _logger.LogInformation("HeatNetworkService initialized via Dependency Injection.");
         }
 
         public async Task CreateAsync(HeatNetwork newHeatNetwork) =>

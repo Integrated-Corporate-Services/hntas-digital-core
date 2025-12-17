@@ -12,8 +12,5 @@ namespace HNTAS.Core.Api.Models.Users
 
         [Required(ErrorMessage = "OneLoginId is required.")]
         public string OneLoginId { get; set; } = null!;
-
-        [Required(ErrorMessage = "OrgId is required.")]
-        public string InviterOrgId { get; set; } = null!;
     }
 }

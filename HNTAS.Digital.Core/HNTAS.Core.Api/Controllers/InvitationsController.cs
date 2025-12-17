@@ -19,6 +19,7 @@ namespace HNTAS.Core.Api.Controllers
         private readonly IConfiguration _configuration;
         private readonly IEmailService _emailService;
         private readonly IHeatNetworkService _hnService;
+        private readonly IOrganisationService _organisationService;
         private readonly IMapper _mapper;
 
 
@@ -29,7 +30,8 @@ namespace HNTAS.Core.Api.Controllers
             IConfiguration configuration,
             IEmailService emailService,
             IHeatNetworkService hnService,
-            IMapper mapper)
+            IMapper mapper,
+            IOrganisationService organisationService)
         {
             _userService = userService;
             _invitationService = invitationService;
@@ -38,6 +40,7 @@ namespace HNTAS.Core.Api.Controllers
             _emailService = emailService;
             _hnService = hnService;
             _mapper = mapper;
+            _organisationService = organisationService;
         }
 
         /// <summary>
@@ -127,61 +130,28 @@ namespace HNTAS.Core.Api.Controllers
                     InvitedOrgId = request.OrgId,
                     InvitedRoles = request.ContributorRoles,
                     Status = InvitationStatus.Invited, // Status should be 'Invited' for a new invitation
-                    InvitedAt = DateTime.UtcNow
+                    InvitedAt = DateTime.UtcNow,
+                    RolesToReplace = request.RolesToReplace,
+                    ReplacedUserId = request.ReplacedUserId
                 };
 
                 await _invitationService.CreateAsync(newInvitation); // Save the invitation to its collection
 
                 _logger.LogInformation("Invitation sent by user {UserId}. New invitation ID: {InvitationId}", id, newInvitation.Id);
 
-                if (request.CurrentRoleUserId != null &&
-                    (request.ContributorRoles.Contains(ContributorRole.ResponsiblePerson) ||
-                     request.ContributorRoles.Contains(ContributorRole.Coordinator)))
-                {
-                    var userToUpdate = await _userService.GetByIdAsync(request.CurrentRoleUserId);
 
+                if (request.ReplacedUserId != null && !(request.RolesToReplace.Contains(ContributorRole.ResponsiblePerson)
+                    || request.RolesToReplace.Contains(ContributorRole.Coordinator)))
+                {
+                    var userToUpdate = await _userService.GetByIdAsync(request.ReplacedUserId);
                     if (userToUpdate != null)
                     {
-                        var rolesToRemove = new List<UserRole>();
-                        if (request.ContributorRoles.Contains(ContributorRole.ResponsiblePerson))
-                        {
-                            rolesToRemove.Add(UserRole.ResponsiblePerson);
-                        }
-                        if (request.ContributorRoles.Contains(ContributorRole.Coordinator))
-                        {
-                            rolesToRemove.Add(UserRole.Coordinator);
-                        }
-
-                        userToUpdate.Roles.RemoveAll(userRole => rolesToRemove.Contains(userRole));
-
-                        await _userService.UpdateAsync(userToUpdate.Id, userToUpdate);
-                    }
-                }
-                else if (request.CurrentRoleUserId != null)
-                {
-                    var userToUpdate = await _userService.GetByIdAsync(request.CurrentRoleUserId);
-                    if (userToUpdate != null)
-                    {
-                        var rolesToRemove = request.ContributorRoles.ToHashSet();
+                        var rolesToRemove = request.RolesToReplace.ToHashSet();
                         userToUpdate.HnRoleMappings = userToUpdate.HnRoleMappings
                                                         .Where(mapping =>
                                                             mapping.HnId != request.HnId ||
                                                             !rolesToRemove.Contains(mapping.Role))
                                                         .ToList();
-
-                        if (userToUpdate.HnIds != null && userToUpdate.HnIds.Contains(request.HnId))
-                        {
-                            // Check if ANY HnRoleMapping for this HnId still exists
-                            bool hnIdStillHasRoles = userToUpdate.HnRoleMappings.Any(mapping => mapping.HnId == request.HnId);
-
-                            if (!hnIdStillHasRoles)
-                            {
-                                // If no roles remain, remove the HnId from the list of associated IDs
-                                userToUpdate.HnIds = userToUpdate.HnIds
-                                                                 .Where(hnId => hnId != request.HnId)
-                                                                 .ToList();
-                            }
-                        }
 
                         await _userService.UpdateAsync(userToUpdate.Id, userToUpdate);
 
@@ -220,9 +190,18 @@ namespace HNTAS.Core.Api.Controllers
                 return NotFound();
             }
 
-            var hn = await _hnService.GetByHnIdAsync(invitation.InvitedHnId);
-
-            await _emailService.TrySendInvitationEmailAsync(invitation, request.Token, hn.Name);
+            if (invitation?.InvitedHnId != null)
+            {
+                var hn = await _hnService.GetByHnIdAsync(invitation.InvitedHnId);
+                await _emailService.TrySendHeatNetworkInvitationEmailAsync(invitation, request.Token, hn?.Name);
+            }
+            else if (invitation?.InvitedOrgId != null)
+            {
+                var inviterUser = await _userService.GetByIdAsync(invitation.InviterUserId);
+                var userResponse = _mapper.Map<UserResponse>(inviterUser);
+                var organisation = await _organisationService.GetByOrgIdAsync(invitation?.InvitedOrgId);
+                await _emailService.TrySendOrganisationInvitationEmailAsync(invitation, request.Token, organisation.Name, userResponse?.FullName);
+            }
 
             _logger.LogInformation("Invitation email sent for ID: {InvitationId}", invitationId);
 

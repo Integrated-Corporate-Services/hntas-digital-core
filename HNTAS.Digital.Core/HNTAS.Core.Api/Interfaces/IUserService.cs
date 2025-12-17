@@ -16,13 +16,13 @@ namespace HNTAS.Core.Api.Interfaces
         Task<UpdateResult> UpdateOrgIdAsync(string userId, string orgId);
         Task RemoveAsync(string id);
         Task<List<User>> GetRegisteredUsers(List<string> invitedEmails);
-        Task<UserDetailsResponse> GetUserWithDetailsAsync(string userId);
+        Task<UserDetailsResult> GetUserWithDetailsAsync(string userId);
 
         Task<List<User>> GetAssessorsByHnIdAsync(string hnId);
         Task<User?> GetResponsiblePersonByHnIdAsync(string hnId);
         Task<List<User>> GetContributorsByHnIdAsync(string hnId);
 
-        Task<List<ManagedUserResponse>> GetRegisteredUsersDetailsAsync(List<string> invitedEmails);
+        Task<List<UserDetailsResult>> GetUsersByInvitedEmailsWithDetailsAsync(List<string> invitedEmails);
         Task<List<UserRoleDetailResponse>> GetHeatNetworkUsersWithRolesAsync(string hnId);
 
 

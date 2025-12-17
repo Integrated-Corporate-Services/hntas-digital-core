@@ -12,22 +12,11 @@ namespace HNTAS.Core.Api.Services
         private readonly IMongoCollection<HeatNetwork> _heatNetworkCollection;
         private readonly ILogger<SoaService> _logger;
 
-        public SoaService(IOptions<AWSDocDbSettings> dbSettings, ILogger<SoaService> logger)
+        public SoaService(IOptions<AWSDocDbSettings> dbSettings, ILogger<SoaService> logger, IMongoDatabase mongoDatabase)
         {
             _logger = logger;
-
-            var connectionString = Environment.GetEnvironmentVariable("DOCUMENT_DB_CONNECTION_STRING");
-            if (string.IsNullOrWhiteSpace(connectionString))
-            {
-                throw new InvalidOperationException("MongoDB connection string is not configured. Set 'DOCUMENT_DB_CONNECTION_STRING' environment variable.");
-            }
-
-            _logger.LogInformation("Initializing SoaService with connection string: {ConnectionString}", connectionString);
-
-            var mongoClient = new MongoClient(connectionString);
-            var mongoDatabase = mongoClient.GetDatabase(dbSettings.Value.DatabaseName);
-
             _heatNetworkCollection = mongoDatabase.GetCollection<HeatNetwork>(dbSettings.Value.HeatNetworksCollectionName);
+            _logger.LogInformation("SoaService initialized via Dependency Injection.");
         }
 
         public async Task<Soa> CreateAsync(string hnId, string createdBy)

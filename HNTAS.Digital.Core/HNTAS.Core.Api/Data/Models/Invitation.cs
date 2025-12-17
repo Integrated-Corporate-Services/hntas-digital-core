@@ -58,5 +58,14 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonElement("status")]
         [BsonRepresentation(BsonType.String)] // Store enum name as string in DB
         public InvitationStatus Status { get; set; }
+
+        [BsonElement("replacedUserId")]
+        [BsonRepresentation(BsonType.ObjectId)]
+        public string? ReplacedUserId { get; set; }
+
+        [BsonElement("rolesToReplace")]
+
+        [BsonRepresentation(BsonType.String)]
+        public List<ContributorRole>? RolesToReplace { get; set; }
     }
 }

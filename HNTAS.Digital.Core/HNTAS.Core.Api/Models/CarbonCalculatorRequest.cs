@@ -138,14 +138,3 @@ namespace HNTAS.Core.Api.Models
         [JsonPropertyName("blrMaxHeatOutput")] public int? BlrMaxHeatOutput { get; set; }
     }
 }
-
-
-
-
-
-
-
-
-
-
-

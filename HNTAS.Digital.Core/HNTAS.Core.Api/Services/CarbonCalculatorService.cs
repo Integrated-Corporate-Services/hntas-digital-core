@@ -149,31 +149,20 @@ namespace HNTAS.Core.Api.Services
             _hnCarbonCalculationsCollection = mongoDatabase.GetCollection<HnCarbonCalculation>(dbSettings.Value.HnCarbonCalculationsCollectionName);
         }
 
-        private async Task<string> GetUuid(string hnId, HttpClient client)
+        private async Task<string> GetUuid(string hnId, HttpClient client, CancellationToken ct)
         {
-            // Prepare request body
-            var getUuidRequestBody = new
-            {
-                token = API_TOKEN,
-                network_id = hnId
-            };
+            var getUuidRequestBody = new { token = API_TOKEN, network_id = hnId };
+            using var content = new StringContent(System.Text.Json.JsonSerializer.Serialize(getUuidRequestBody),
+                                                 Encoding.UTF8, "application/json");
 
-            // Send POST request
-            var response = await client.PostAsync(UUID_ENDPOINT,
-                new StringContent(System.Text.Json.JsonSerializer.Serialize(getUuidRequestBody),
-                Encoding.UTF8, "application/json"));
-
-            // Check status
-            var content = await response.Content.ReadAsStringAsync();
+            var response = await client.PostAsync(UUID_ENDPOINT, content, ct);
+            var contentStr = await response.Content.ReadAsStringAsync(ct);
             if (!response.IsSuccessStatusCode)
             {
-                _logger.LogError(content);
+                _logger.LogError(contentStr);
                 return "";
             }
-            else
-            {
-                return content;
-            }
+            return contentStr;
         }
 
         public async Task<CarbonCalculatorResponse?> RunAsync(CarbonCalculatorRequest request, CancellationToken ct = default)
@@ -189,7 +178,7 @@ namespace HNTAS.Core.Api.Services
             if (client.BaseAddress is null)
                 client.BaseAddress = new Uri(DEFAULT_BASE_URL);
             client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
-            string uuid = await GetUuid(hnId, client);
+            string uuid = await GetUuid(hnId, client, ct);
 
             try
             {
@@ -275,7 +264,7 @@ namespace HNTAS.Core.Api.Services
             }
         }
 
-        public async Task CreateAsync(HnCarbonCalculation newCalculation) =>
-            await _hnCarbonCalculationsCollection.InsertOneAsync(newCalculation);
+        public async Task CreateAsync(HnCarbonCalculation newCalculation, CancellationToken ct = default) =>
+            await _hnCarbonCalculationsCollection.InsertOneAsync(newCalculation, cancellationToken: ct);
     }
 }

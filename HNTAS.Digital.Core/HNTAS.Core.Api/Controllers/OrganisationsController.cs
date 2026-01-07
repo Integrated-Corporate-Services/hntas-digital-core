@@ -55,22 +55,22 @@ namespace HNTAS.Core.Api.Controllers
                     _logger.LogWarning("Organisation with ID: {orgId} not found for update.", orgId);
                     return NotFound($"Organisation with ID: {orgId} not found.");
                 }
-                RegisteredAddress oldAddress = existingOrg.RegisteredAddress;
 
                 string fullName = StringFormatter.ToTitleCaseSingleWord(existingUser.FirstName) + " " + StringFormatter.ToTitleCaseSingleWord(existingUser.LastName);
 
                 // update Organization document using the data from the request
 
+                var oldNameAndAddress = $"{existingOrg.Name}, {StringFormatter.FormatAddress(existingOrg.RegisteredAddress)}";
+                var newNameAndAddress = $"{request.Name}, {StringFormatter.FormatAddress(request.RegisteredAddress)}";
+
+
                 existingOrg.Type = request.Type;
                 existingOrg.CompaniesHouseNumber = request.CompaniesHouseNumber;
                 existingOrg.Name = request.Name;
-                existingOrg.RegisteredAddress = oldAddress;
+                existingOrg.RegisteredAddress = request.RegisteredAddress;
                 existingOrg.LastModifiedAt = DateTime.UtcNow;
                 existingOrg.LastModifiedBy = userId;
 
-
-                var oldNameAndAddress = $"{existingOrg.Name}, {StringFormatter.FormatAddress(existingOrg.RegisteredAddress)}";
-                var newNameAndAddress = $"{request.Name}, {StringFormatter.FormatAddress(request.RegisteredAddress)}";
 
                 await _organisationService.UpdateAsync(existingOrg.Id, existingOrg);
 

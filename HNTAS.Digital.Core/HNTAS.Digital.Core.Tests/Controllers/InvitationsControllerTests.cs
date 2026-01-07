@@ -1,20 +1,16 @@
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 using AutoMapper;
+using HNTAS.Core.Api.Controllers;
+using HNTAS.Core.Api.Data.Models;
+using HNTAS.Core.Api.Enums;
+using HNTAS.Core.Api.Interfaces;
+using HNTAS.Core.Api.Models;
+using HNTAS.Core.Api.Models.Users;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Moq;
-using Xunit;
-using HNTAS.Core.Api.Controllers;
-using HNTAS.Core.Api.Interfaces;
-using HNTAS.Core.Api.Data.Models;
-using HNTAS.Core.Api.Models;
-using HNTAS.Core.Api.Models.Users;
-using HNTAS.Core.Api.Enums;
 
-namespace HNTAS.Core.Api.Tests.Controllers
+namespace HNTAS.Digital.Core.Tests.Controllers
 {
     public class InvitationsControllerTests
     {
@@ -39,7 +35,7 @@ namespace HNTAS.Core.Api.Tests.Controllers
                 _mockMapper.Object,
                 _mockOrganisationService.Object
             );
-        }        
+        }
 
         [Fact]
         public async Task GetInvitationById_Positive_ReturnsOkWithMappedResponse()
@@ -106,7 +102,7 @@ namespace HNTAS.Core.Api.Tests.Controllers
             // Assert
             Assert.IsType<NotFoundResult>(actionResult.Result);
             _mockInvitationService.Verify(s => s.GetByIdAsync(id), Times.Once);
-        }        
+        }
 
         [Fact]
         public async Task AddUserInvitation_Positive_CreatesInvitationAndReturnsCreatedId()
@@ -171,7 +167,7 @@ namespace HNTAS.Core.Api.Tests.Controllers
             var badRequest = Assert.IsType<ObjectResult>(result);
             Assert.Equal(null, badRequest.StatusCode);
             _mockInvitationService.Verify(i => i.CreateAsync(It.IsAny<Invitation>()), Times.Never);
-        }        
+        }
 
         [Fact]
         public async Task SendInvitationEmail_Positive_HeatNetworkInvitation_EmailSentAndNoContentReturned()

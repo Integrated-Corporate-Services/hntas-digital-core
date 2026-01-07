@@ -1,5 +1,7 @@
 ﻿using HNTAS.Core.Api.Configuration;
 using HNTAS.Core.Api.Data.Models;
+using HNTAS.Core.Api.Enums;
+using HNTAS.Core.Api.Extensions;
 using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
 using Microsoft.Extensions.Options;
@@ -23,6 +25,18 @@ namespace HNTAS.Core.Api.Services
             _govUkNotifyService = govUkNotifyService;
             _notificationSettings = options?.Value;
             _hntasServiceSettings = hntasServiceOptions?.Value;
+        }
+
+        private static string MaskEmail(string email)
+        {
+            if (string.IsNullOrWhiteSpace(email) || !email.Contains("@"))
+                return "[redacted]";
+            var parts = email.Split('@');
+            var local = parts[0];
+            var domain = parts[1];
+            if (local.Length < 2)
+                return $"* Hidden *@{domain}";
+            return $"{local[0]}*****@{domain}";
         }
 
         public async Task TrySendOrgCreatedEmailAsync(User user, Organisation organization)
@@ -52,14 +66,36 @@ namespace HNTAS.Core.Api.Services
             );
 
             if (emailSent)
-                _logger.LogInformation("Email sent successfully to {EmailId} for user {UserId}", user.EmailId, user.Id);
+                _logger.LogInformation("Email sent successfully to {MaskedEmail} for user {UserId}", MaskEmail(user.EmailId), user.Id);
             else
                 _logger.LogWarning("Email failed to send to {EmailId} for user {UserId}", user.EmailId, user.Id);
         }
 
 
+        public async Task TrySendOrgUpdatedEmailAsync(string fullName, string userEmail, string oldNameAndAddress, string newNameAndAddress)
+        {
+
+            var personalisation = new Dictionary<string, dynamic>
+            {
+                { "user_name", fullName },
+                { "old_address", oldNameAndAddress },
+                { "new_address", newNameAndAddress }
+            };
+
+            var emailSent = await _govUkNotifyService.SendEmailAsync(
+                userEmail,
+                _notificationSettings.OrgDetailsUpdatedEmailTemplateId,
+                personalisation
+            );
+
+            if (emailSent)
+                _logger.LogInformation("Organisation-updated email sent successfully to {EmailId}.", MaskEmail(userEmail));
+            else
+                _logger.LogWarning("Organisation-updated email failed to send to {EmailId}.", MaskEmail(userEmail));
+        }
+
         // --- Private Helper Method ---
-        public async Task TrySendInvitationEmailAsync(Invitation invitation, string token, string heatNetworkName)
+        public async Task TrySendHeatNetworkInvitationEmailAsync(Invitation invitation, string token, string heatNetworkName)
         {
             if (invitation == null || string.IsNullOrWhiteSpace(invitation.InvitedEmail))
             {
@@ -74,15 +110,42 @@ namespace HNTAS.Core.Api.Services
                 _notificationSettings.ContributorInvitationTemplatedId,
                 new Dictionary<string, dynamic>
                 {
-                { "subject_name", heatNetworkName },
+                { "subject_name", heatNetworkName ?? string.Empty },
                 { "hntas-digital-service-link", fullUrl },
                 }
             );
 
             if (emailSent)
-                _logger.LogInformation("Email sent successfully to {EmailId} for InviterUserId {UserId}", invitation.InvitedEmail, invitation.InviterUserId);
+                _logger.LogInformation("Email sent successfully to {EmailId} for InviterUserId {UserId}", MaskEmail(invitation.InvitedEmail), invitation.InviterUserId);
             else
-                _logger.LogWarning("Email failed to send to {EmailId} for InviterUserId {UserId}", invitation.InvitedEmail, invitation.InviterUserId);
+                _logger.LogWarning("Email failed to send to {EmailId} for InviterUserId {UserId}", MaskEmail(invitation.InvitedEmail), invitation.InviterUserId);
+        }
+
+        public async Task TrySendOrganisationInvitationEmailAsync(Invitation invitation, string token, string organisationName, string inviterName)
+        {
+            if (invitation == null || string.IsNullOrWhiteSpace(invitation.InvitedEmail))
+            {
+                _logger.LogInformation("Skipping email: missing Invitation or InvitedEmail for invitation {InvitationId}", invitation?.Id);
+                return;
+            }
+
+            var fullUrl = $"{_hntasServiceSettings.BaseUrl.TrimEnd('/')}{_hntasServiceSettings.InvitationPath}?token={token}";
+
+            var emailSent = await _govUkNotifyService.SendEmailAsync(
+                invitation.InvitedEmail,
+                _notificationSettings.OrganisationUserInvitationTemplatedId,
+                new Dictionary<string, dynamic>
+                {
+                    { "org_name", organisationName ?? string.Empty },
+                    { "rp_name" , inviterName },
+                    { "link-to-register", fullUrl },
+                }
+            );
+
+            if (emailSent)
+                _logger.LogInformation("Email sent successfully to {EmailId} for InviterUserId {UserId}", MaskEmail(invitation.InvitedEmail), invitation.InviterUserId);
+            else
+                _logger.LogWarning("Email failed to send to {EmailId} for InviterUserId {UserId}", MaskEmail(invitation.InvitedEmail), invitation.InviterUserId);
         }
 
         public async Task TrySendAssessorEmailAsync(string emailAddress, string hnName, string hnId, string contributorName)
@@ -131,6 +194,20 @@ namespace HNTAS.Core.Api.Services
                     { "hn_id", hnId },
                 }
             );
+        }
+
+        public async Task TrySendHNDiscontinedEmailAsync(User userToUpdate, string hnName, ContributorRole contributorRole)
+        {
+            var emailSent = await _govUkNotifyService.SendEmailAsync(
+           userToUpdate.EmailId,
+           _notificationSettings.ContributorHeatNetworkDiscontinuedTemplatedId,
+               new Dictionary<string, dynamic>
+               {
+                    { "hn_user_name", $"{StringFormatter.ToTitleCaseSingleWord(userToUpdate.FirstName)} {StringFormatter.ToTitleCaseSingleWord(userToUpdate.LastName)}" },
+                    { "hn_name",hnName },
+                    { "hn_role", contributorRole.GetDescription() },
+               }
+           );
         }
     }
 }

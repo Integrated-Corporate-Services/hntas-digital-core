@@ -1,7 +1,10 @@
 using HNTAS.Core.Api.Configuration;
+using HNTAS.Core.Api.DataMigrations;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.MappingProfiles;
 using HNTAS.Core.Api.Services;
+using Microsoft.Extensions.Options;
+using MongoDB.Driver;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -27,6 +30,34 @@ builder.Services.AddSingleton<ISoaService, SoaService>();
 builder.Services.AddSingleton<IGovUkNotifyService, GovUkNotifyService>();
 builder.Services.AddSingleton<IHeatNetworkService, HeatNetworkService>();
 builder.Services.AddSingleton<IEmailService, EmailService>();
+builder.Services.AddSingleton<ICountryAndTerritoryService, CountryAndTerritoryService>();
+
+
+builder.Services.Configure<AWSDocDbSettings>(
+    builder.Configuration.GetSection("AWSDocDbSettings"));
+
+builder.Services.AddSingleton<IMongoClient>(sp =>
+{
+    var connectionString = Environment.GetEnvironmentVariable("DOCUMENT_DB_CONNECTION_STRING");
+    if (string.IsNullOrWhiteSpace(connectionString))
+    {
+        throw new InvalidOperationException("DOCUMENT_DB_CONNECTION_STRING environment variable is not set.");
+    }
+
+    return new MongoClient(connectionString); // Only ONE client instance created
+});
+
+builder.Services.AddSingleton<IMongoDatabase>(sp =>
+{
+    var client = sp.GetRequiredService<IMongoClient>();
+    var dbSettings = sp.GetRequiredService<IOptions<AWSDocDbSettings>>().Value;
+
+    return client.GetDatabase(dbSettings.DatabaseName);
+});
+
+
+builder.Services.AddHttpClient();
+builder.Services.AddScoped<ICarbonCalculatorService, CarbonCalculatorService>();
 
 builder.Services.AddControllers().AddJsonOptions(options =>
 {
@@ -39,6 +70,17 @@ Console.WriteLine("***********************************");
 Console.WriteLine("Environment: " + builder.Environment.EnvironmentName);
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var serviceProvider = scope.ServiceProvider;
+
+    var awsDocDbSettings = serviceProvider.GetRequiredService<IOptions<AWSDocDbSettings>>();
+    var logger = serviceProvider.GetRequiredService<ILogger<SeedCountriesAndTerritories>>();
+
+    var migration = new SeedCountriesAndTerritories(awsDocDbSettings, logger);
+    await migration.RunAsync();
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

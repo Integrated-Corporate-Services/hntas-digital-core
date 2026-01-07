@@ -1,5 +1,7 @@
 ﻿using AutoMapper;
 using HNTAS.Core.Api.Data.Models;
+using HNTAS.Core.Api.Enums;
+using HNTAS.Core.Api.Extensions;
 using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Models;
 using HNTAS.Core.Api.Models.Soa;
@@ -33,7 +35,6 @@ namespace HNTAS.Core.Api.MappingProfiles
                 .ForMember(dest => dest.MobileNumber, opt => opt.MapFrom(src => src.MobileNumber))
                 .ForMember(dest => dest.ContactNumberExtension, opt => opt.MapFrom(src => src.ContactNumberExtension))
                 .ForMember(dest => dest.OrgId, opt => opt.MapFrom(src => src.OrgId))
-                .ForMember(dest => dest.HnIds, opt => opt.MapFrom(src => src.HnIds))
                 .ForMember(dest => dest.Roles, opt => opt.MapFrom(src =>
                     src.Roles != null ? src.Roles.Select(role => role).ToList() : null
                 ))
@@ -101,6 +102,32 @@ namespace HNTAS.Core.Api.MappingProfiles
             CreateMap<UploadedDocument, UploadedAssessmentDocumentResponse>();
             CreateMap<UploadedDocument, UploadedAssessorDocumentResponse>();
             CreateMap<UploadedDocument, UploadedCertifierDocumentResponse>();
+
+
+
+            // Map from HeatNetworkUserResponse to HeatNetworkInfo
+            CreateMap<HeatNetworkUserResponse, HeatNetworkInfo>()
+                .ForMember(dest => dest.HnId, opt => opt.MapFrom(src => src.HnId))
+                .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name));
+
+            CreateMap<User, UserRoleDetailResponse>()
+                .ForMember(dest => dest.FullName, opt => opt.MapFrom(src => $"{src.FirstName} {src.LastName}".Trim()))
+                .ForMember(dest => dest.UserId, opt => opt.MapFrom(src => src.Id))
+                .ForMember(dest => dest.RoleDescription, opt => opt.MapFrom(src => UserRole.ResponsiblePerson.GetDescription()));
+
+
+            CreateMap<UserDetailsResult, UserDetailsResponse>();
+
+            CreateMap<OrganisationDetailResult, OrganisationResponse>();
+
+            CreateMap<UserDetailsResult, ManagedUserResponse>()
+             .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
+             .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.FullName))
+             .ForMember(dest => dest.EmailId, opt => opt.MapFrom(src => src.EmailId))
+             .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status))
+             .ForMember(dest => dest.Roles, opt => opt.MapFrom(src =>
+                 src.Roles != null ? src.Roles.Select(r => r.ToString()).ToList() : null));
         }
+
     }
 }

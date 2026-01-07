@@ -1,19 +1,14 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using AutoMapper;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Logging;
-using Moq;
-using Xunit;
 using HNTAS.Core.Api.Controllers;
 using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models.Soa;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
+using Moq;
 
-namespace HNTAS.Core.Api.Tests.Controllers
+namespace HNTAS.Digital.Core.Tests.Controllers
 {
     public class HeatNetworksControllerTests
     {
@@ -219,7 +214,7 @@ namespace HNTAS.Core.Api.Tests.Controllers
             // Assert
             var objResult = Assert.IsType<ObjectResult>(result.Result);
             Assert.Equal(StatusCodes.Status500InternalServerError, objResult.StatusCode);
-            Assert.IsType<Microsoft.AspNetCore.Mvc.ProblemDetails>(objResult.Value);
+            Assert.IsType<ProblemDetails>(objResult.Value);
         }
     }
 }

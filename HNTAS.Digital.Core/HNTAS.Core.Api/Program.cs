@@ -56,6 +56,9 @@ builder.Services.AddSingleton<IMongoDatabase>(sp =>
 });
 
 
+builder.Services.AddHttpClient();
+builder.Services.AddScoped<ICarbonCalculatorService, CarbonCalculatorService>();
+
 builder.Services.AddControllers().AddJsonOptions(options =>
 {
     options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;

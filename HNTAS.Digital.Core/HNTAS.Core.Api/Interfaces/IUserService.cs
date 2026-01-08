@@ -1,5 +1,6 @@
 ﻿using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Models;
+using MongoDB.Driver;
 
 namespace HNTAS.Core.Api.Interfaces
 {
@@ -8,14 +9,22 @@ namespace HNTAS.Core.Api.Interfaces
         Task<List<User>> GetAsync();
         Task<User> GetByIdAsync(string id);
         Task<User> GetByUserOneLoginIdAsync(string userId);
+        Task<User?> GetByEmailAsync(string emailId);
+        Task<List<User>> GetUsersByOrgIdAsync(string organisationId);
         Task CreateAsync(User newUser);
         Task UpdateAsync(string id, User updatedUser);
+        Task<UpdateResult> UpdateOrgIdAsync(string userId, string orgId);
         Task RemoveAsync(string id);
         Task<List<User>> GetRegisteredUsers(List<string> invitedEmails);
-        Task<UserDetailsResponse> GetUserWithDetailsAsync(string userId);
+        Task<UserDetailsResult> GetUserWithDetailsAsync(string userId);
 
         Task<List<User>> GetAssessorsByHnIdAsync(string hnId);
         Task<User?> GetResponsiblePersonByHnIdAsync(string hnId);
         Task<List<User>> GetContributorsByHnIdAsync(string hnId);
+
+        Task<List<UserDetailsResult>> GetUsersByInvitedEmailsWithDetailsAsync(List<string> invitedEmails);
+        Task<List<UserRoleDetailResponse>> GetHeatNetworkUsersWithRolesAsync(string hnId);
+
+
     }
 }

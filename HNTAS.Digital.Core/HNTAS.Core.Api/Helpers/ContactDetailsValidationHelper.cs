@@ -6,7 +6,7 @@ namespace HNTAS.Core.Api.Helpers
     public class ContactDetailsValidationHelper
     {
         public static (string? LandlineNumber, string? ContactNumberExtension, string? MobileNumber) GetValidatedContactDetails(
-         PreferredContactType preferredContactType,
+         PreferredContactType? preferredContactType,
         string? landlineNumber,
         string? contactNumberExtension,
         string? mobileNumber,
@@ -38,6 +38,13 @@ namespace HNTAS.Core.Api.Helpers
                     {
                         modelState.AddModelError(nameof(mobileNumber), "Enter your mobile number.");
                     }
+                    break;
+                case PreferredContactType.PreferNotToSay:
+                    modelState.Remove(nameof(landlineNumber));
+                    modelState.Remove(nameof(contactNumberExtension));
+                    modelState.Remove(nameof(mobileNumber));
+                    break;
+                default:
                     break;
             }
 

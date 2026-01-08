@@ -43,9 +43,6 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonElement("contactNumberExtension")]
         public string? ContactNumberExtension { get; set; }
 
-        [BsonElement("hnIds")]
-        public List<string> HnIds { get; set; } = [];
-
         [BsonElement("roles")]
         [BsonRepresentation(BsonType.String)]
         public List<UserRole> Roles { get; set; } = [];
@@ -56,5 +53,10 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonElement("status")]
         [BsonRepresentation(BsonType.String)]
         public UserStatus Status { get; set; }
+
+        [BsonElement("createdAt")]
+        [BsonRepresentation(BsonType.DateTime)]
+        public DateTime CreatedAt { get; set; }
+
     }
 }

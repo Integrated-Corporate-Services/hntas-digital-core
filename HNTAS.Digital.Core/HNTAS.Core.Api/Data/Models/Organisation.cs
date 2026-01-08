@@ -13,18 +13,38 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonElement("orgId")]
         public string? OrgId { get; set; }
 
-        [BsonElement("type")] // Changed "OrganisationType" to "type"
+        [BsonElement("type")]
         [BsonRepresentation(BsonType.String)]
         public OrganisationType Type { get; set; }
 
-        [BsonElement("companiesHouseNumber")] // Changed from "companies_house_number"
+        [BsonElement("companiesHouseNumber")]
         public string? CompaniesHouseNumber { get; set; }
 
-        [BsonElement("name")] // Changed from "name"
+        [BsonElement("name")]
         public string Name { get; set; }
 
-        [BsonElement("registeredAddress")] // Changed from "registered_address"
+        [BsonElement("registeredAddress")]
         public RegisteredAddress RegisteredAddress { get; set; }
+
+        [BsonElement("hnIds")]
+        public List<string> HnIds { get; set; } = [];
+
+        [BsonElement("createdBy")]
+        public string CreatedBy { get; set; }
+
+        [BsonElement("createdAt")]
+        [BsonRepresentation(BsonType.DateTime)]
+        public DateTime CreatedAt { get; set; }
+
+        [BsonElement("lastModifiedBy")]
+        public string? LastModifiedBy { get; set; }
+
+        [BsonElement("lastModifiedAt")]
+        [BsonRepresentation(BsonType.DateTime)]
+        public DateTime? LastModifiedAt { get; set; }
+
+        [BsonElement("rpUserId")]
+        public string? RpUserId { get; set; }
     }
 
 }

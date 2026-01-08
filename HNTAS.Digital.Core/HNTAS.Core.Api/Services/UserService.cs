@@ -1,6 +1,8 @@
 ﻿using HNTAS.Core.Api.Configuration;
 using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Enums;
+using HNTAS.Core.Api.Extensions;
+using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
 using Microsoft.Extensions.Options;
@@ -12,27 +14,19 @@ namespace HNTAS.Core.Api.Services
 {
     public class UserService : IUserService
     {
-        private readonly IMongoCollection<User> _usersCollection;
-        private readonly IMongoCollection<Organisation> _organisationsCollection;
-        private readonly IMongoCollection<HeatNetwork> _heatNetworksCollection;
         private readonly ILogger<UserService> _logger;
+        private readonly IMongoCollection<User> _usersCollection;
+        private readonly IMongoCollection<Organisation> _OrgCollection;
 
-        public UserService(IOptions<AWSDocDbSettings> dbSettings, ILogger<UserService> logger)
+        public UserService(
+        IMongoDatabase mongoDatabase,
+        IOptions<AWSDocDbSettings> dbSettings,
+        ILogger<UserService> logger)
         {
             _logger = logger;
-
-            var connectionString = Environment.GetEnvironmentVariable("DOCUMENT_DB_CONNECTION_STRING");
-            if (string.IsNullOrWhiteSpace(connectionString))
-            {
-                throw new InvalidOperationException("MongoDB connection string is not configured. Set 'DOCUMENT_DB_CONNECTION_STRING' environment variable.");
-            }
-
-            _logger.LogInformation("Initializing UserService with connection string: {ConnectionString}", connectionString);
-
-            var mongoClient = new MongoClient(connectionString);
-            var mongoDatabase = mongoClient.GetDatabase(dbSettings.Value.DatabaseName);
-
             _usersCollection = mongoDatabase.GetCollection<User>(dbSettings.Value.UsersCollectionName);
+            _OrgCollection = mongoDatabase.GetCollection<Organisation>(dbSettings.Value.OrganisationsCollectionName);
+            _logger.LogInformation("UserService initialized via Dependency Injection.");
         }
 
         public async Task<List<User>> GetAsync() =>
@@ -40,6 +34,9 @@ namespace HNTAS.Core.Api.Services
 
         public async Task<User?> GetByIdAsync(string id) =>
             await _usersCollection.Find(u => u.Id == id).FirstOrDefaultAsync();
+
+        public async Task<User?> GetByEmailAsync(string emailId) =>
+          await _usersCollection.Find(u => u.EmailId == emailId).FirstOrDefaultAsync();
 
         public async Task<User?> GetByUserOneLoginIdAsync(string oneLoginId) =>
             await _usersCollection.Find(u => u.OneLoginId == oneLoginId).FirstOrDefaultAsync();
@@ -66,15 +63,37 @@ namespace HNTAS.Core.Api.Services
             return await _usersCollection.Find(filter).ToListAsync();
         }
 
-
         public async Task<User?> GetResponsiblePersonByHnIdAsync(string hnId)
         {
-            var filter = Builders<User>.Filter.And(
-                Builders<User>.Filter.AnyEq(u => u.HnIds, hnId),
-                Builders<User>.Filter.AnyEq(u => u.Roles, UserRole.RegulatoryContact)
-            );
 
-            return await _usersCollection.Find(filter).FirstOrDefaultAsync();
+            // Filter to find the Organisation whose HnIds array contains the target hnId
+            var orgFilter = Builders<Organisation>.Filter.AnyEq(o => o.HnIds, hnId);
+
+            // Select only the RpUserId field to keep the query light
+            var projection = Builders<Organisation>.Projection.Include(o => o.RpUserId);
+
+            var organisation = await _OrgCollection
+                                       .Find(orgFilter)
+                                       .Project<Organisation>(projection)
+                                       .FirstOrDefaultAsync();
+
+            // Check if an organisation was found or if it has an RP assigned
+            if (organisation == null || string.IsNullOrEmpty(organisation.RpUserId))
+            {
+                _logger.LogWarning("No organisation found for HN ID {HnId} or RpUserId is missing.", hnId);
+                return null;
+            }
+
+
+            // Filter by the RpUserId from the organisation
+            var userFilter = Builders<User>.Filter.Eq(u => u.Id, organisation.RpUserId);
+
+            // *Optional secondary check*: Ensure the user also has the ResponsiblePerson role
+            var roleCheck = Builders<User>.Filter.AnyEq(u => u.Roles, UserRole.ResponsiblePerson);
+
+            var finalFilter = Builders<User>.Filter.And(userFilter, roleCheck);
+
+            return await _usersCollection.Find(finalFilter).FirstOrDefaultAsync();
         }
 
 
@@ -88,57 +107,153 @@ namespace HNTAS.Core.Api.Services
             return await _usersCollection.Find(filter).ToListAsync();
         }
 
+        public async Task<List<UserRoleDetailResponse>> GetHeatNetworkUsersWithRolesAsync(string hnId)
+        {
+            var pipeline = new[]
+            {
+                // 1. Unwind the HnRoleMappings array
+                new BsonDocument("$unwind", new BsonDocument
+                {
+                    { "path", "$hnRoleMappings" },
+                    { "preserveNullAndEmptyArrays", false }
+                }),
 
-        public async Task<UserDetailsResponse> GetUserWithDetailsAsync(string userId)
+                // 2. Match only mappings with the specified Heat Network ID
+                new BsonDocument("$match", new BsonDocument("hnRoleMappings.hnId", hnId)),
+
+                // 3. Project only the necessary fields
+                new BsonDocument("$project", new BsonDocument
+                {
+                    { "userId", "$_id" },
+                    { "firstName", 1 },
+                    { "lastName", 1 },
+                    { "emailId", 1 },
+                    { "role", "$hnRoleMappings.role" }
+                })
+            };
+
+            var results = await _usersCollection
+                .Aggregate<BsonDocument>(pipeline)
+                .ToListAsync();
+
+            return results.Select(doc => new UserRoleDetailResponse
+            {
+                FullName = $"{StringFormatter.ToTitleCaseSingleWord(doc["firstName"].ToString())} {StringFormatter.ToTitleCaseSingleWord(doc["lastName"].ToString())}",
+                UserId = doc["userId"].ToString(),
+                EmailId = doc["emailId"].ToString(),
+                RoleDescription = Enum.TryParse<ContributorRole>(doc["role"].ToString(), out var role) ? role.GetDescription() : "Unknown Role"
+            }).ToList();
+        }
+
+        public async Task<UpdateResult> UpdateOrgIdAsync(string userId, string orgId)
+        {
+            var filter = Builders<User>.Filter.Eq(u => u.Id, userId);
+
+            var update = Builders<User>.Update.Set(u => u.OrgId, orgId);
+
+            return await _usersCollection.UpdateOneAsync(filter, update);
+        }
+
+
+        public async Task<List<User>> GetUsersByOrgIdAsync(string organisationId)
+        {
+            var filter = Builders<User>.Filter.Eq(u => u.OrgId, organisationId);
+
+            return await _usersCollection
+                .Find(filter)
+                .ToListAsync();
+        }
+
+
+
+        public async Task<UserDetailsResult> GetUserWithDetailsAsync(string userId)
         {
             var userObjectId = ObjectId.Parse(userId);
 
-            var pipeline = new[]
-            {
-            // Match the user by _id
-            new BsonDocument("$match", new BsonDocument("_id", userObjectId)),
+            // 1. Define the specific $match stage for a single user ID
+            var matchStage = new BsonDocument("$match", new BsonDocument("_id", userObjectId));
 
-            // Lookup organisation using custom OrgId (string)
-            new BsonDocument("$lookup", new BsonDocument
+            // 2. Execute the common pipeline
+            using (var cursor = GetUsersDetailsPipeline(matchStage))
             {
-                { "from", "Organisations" },
-                { "localField", "orgId" },           // string in Users
-                { "foreignField", "orgId" },         // string in Organisations
-                { "as", "organisationDetails" }
-            }),
+                return await cursor.FirstOrDefaultAsync();
+            }
 
-            new BsonDocument("$unwind", new BsonDocument
+        }
+
+
+        public async Task<List<UserDetailsResult>> GetUsersByInvitedEmailsWithDetailsAsync(List<string> invitedEmails)
+        {
+            // 1. Define the specific $match stage for multiple email IDs
+            var matchStage = new BsonDocument("$match",
+                new BsonDocument("emailId", new BsonDocument("$in", new BsonArray(invitedEmails))));
+
+            using (var cursor = GetUsersDetailsPipeline(matchStage))
             {
-                { "path", "$organisationDetails" },
-                { "preserveNullAndEmptyArrays", true }
-            }),
+                return await cursor.ToListAsync();
+            }
+        }
 
-            // Lookup heat networks using hn_id (string)
-            new BsonDocument("$lookup", new BsonDocument
+        // --- Private Helper Method for Reusable Pipeline ---
+
+        /// <summary>
+        /// Executes the common MongoDB aggregation pipeline to fetch user details.
+        /// </summary>
+        private IAsyncCursor<UserDetailsResult> GetUsersDetailsPipeline(BsonDocument matchStage)
+        {
+            var pipeline = new List<BsonDocument>
             {
-                { "from", "HeatNetworks" },
-                { "localField", "hnIds" },           // array of strings in Users
-                { "foreignField", "hnId" },         // string in HeatNetworks
-                { "as", "heatNetworkDetails" }
-            }),
+                // The dynamic filter stage
+                matchStage,
 
-            // Final projection into DTO shape
-            new BsonDocument("$project", new BsonDocument
-            {
-                { "_id", new BsonDocument("$toString", "$_id") },
-                { "oneloginId", 1 },
-                { "firstName", 1 },
-                { "lastName", 1 },
-                { "emailId", 1 },
-                { "jobTitle", 1 },
-                { "preferredContactType", 1 },
-                { "landlineNumber", 1 },
-                { "mobileNumber", new BsonDocument("$ifNull", new BsonArray { "$mobileNumber", BsonNull.Value }) },
-                { "roles", 1 },
-                { "status", 1 },
+                new BsonDocument("$lookup", new BsonDocument
+                {
+                    { "from", "Organisations" },
+                    { "localField", "orgId" },
+                    { "foreignField", "orgId" },
+                    { "as", "organisationDetails" }
+                }),
 
-                // Null-safe organisation projection
-                { "organisation", new BsonDocument("$cond", new BsonDocument
+                new BsonDocument("$unwind", new BsonDocument
+                {
+                    { "path", "$organisationDetails" },
+                    { "preserveNullAndEmptyArrays", true }
+                }),
+
+                new BsonDocument("$lookup", new BsonDocument
+                {
+                    { "from", "HeatNetworks" },
+                    { "localField", "organisationDetails.hnIds" },
+                    { "foreignField", "hnId" },
+                    { "as", "organisationHeatNetworkDetails" }
+                }),
+
+                new BsonDocument("$lookup", new BsonDocument
+                {
+                    { "from", "HeatNetworks" },
+                    { "localField", "hnRoleMappings.hnId" },
+                    { "foreignField", "hnId" },
+                    { "as", "mappedHeatNetworks" }
+                }),
+
+                // Final projection into DTO shape (unchanged)
+                new BsonDocument("$project", new BsonDocument
+                {
+                    { "_id", new BsonDocument("$toString", "$_id") },
+                    { "oneloginId", 1 },
+                    { "firstName", 1 },
+                    { "lastName", 1 },
+                    { "emailId", 1 },
+                    { "jobTitle", 1 },
+                    { "preferredContactType", 1 },
+                    { "landlineNumber", 1 },
+                    { "contactNumberExtension", 1 },
+                    { "mobileNumber", new BsonDocument("$ifNull", new BsonArray { "$mobileNumber", BsonNull.Value }) },
+                    { "roles", 1 },
+                    { "status", 1 },
+
+                    // Organisation projection
+                    { "organisation", new BsonDocument("$cond", new BsonDocument
                     {
                         { "if", new BsonDocument("$or", new BsonArray {
                             new BsonDocument("$eq", new BsonArray { "$organisationDetails", BsonNull.Value }),
@@ -151,34 +266,73 @@ namespace HNTAS.Core.Api.Services
                                 { "name", "$organisationDetails.name" },
                                 { "companiesHouseNumber", "$organisationDetails.companiesHouseNumber" },
                                 { "type", "$organisationDetails.type" },
-                                { "registeredAddress", "$organisationDetails.registeredAddress" }
+                                { "registeredAddress", "$organisationDetails.registeredAddress" },
+
+                                // Heat networks nested inside organisation
+                                { "heatNetworks", new BsonDocument("$map", new BsonDocument
+                                    {
+                                        { "input", "$organisationHeatNetworkDetails" },
+                                        { "as", "hn" },
+                                        { "in", new BsonDocument
+                                            {
+                                                { "hnId", "$$hn.hnId" },
+                                                { "name", "$$hn.name" },
+                                                { "location", "$$hn.location" }
+                                            }
+                                        }
+                                    })
+                                }
                             }
                         }
-                    })
-                },
+                    }) },
 
-                // Heat networks projection into neatNetworks
-                { "neatNetworks", new BsonDocument("$map", new BsonDocument
-                    {
-                        { "input", "$heatNetworkDetails" },
-                        { "as", "hn" },
-                        { "in", new BsonDocument
-                            {
-                                { "hnId", "$$hn.hnId" },
-                                { "name", "$$hn.name" },
-                                { "location", "$$hn.location" }
+                    // HnRoleMappings projection
+                    { "hnRoleMappings", new BsonDocument("$map", new BsonDocument
+                        {
+                            { "input", "$hnRoleMappings" },
+                            { "as", "mapping" },
+                            { "in", new BsonDocument
+                                {
+                                    { "role", "$$mapping.role" },
+                                    { "heatNetwork", new BsonDocument("$let", new BsonDocument
+                                        {
+                                            { "vars", new BsonDocument("matchedHn", new BsonDocument("$arrayElemAt", new BsonArray
+                                                {
+                                                    new BsonDocument("$filter", new BsonDocument
+                                                        {
+                                                            { "input", "$mappedHeatNetworks" },
+                                                            { "as", "details" },
+                                                            { "cond", new BsonDocument("$eq", new BsonArray { "$$details.hnId", "$$mapping.hnId" }) }
+                                                        }),
+                                                    0
+                                                }))
+                                            },
+                                            { "in", new BsonDocument("$cond", new BsonArray
+                                                {
+                                                    new BsonDocument("$not", new BsonArray { "$$matchedHn" }),
+                                                    BsonNull.Value,
+                                                    new BsonDocument
+                                                        {
+                                                            { "hnId", "$$matchedHn.hnId" },
+                                                            { "name", "$$matchedHn.name" },
+                                                            { "location", "$$matchedHn.location" }
+                                                        }
+                                                })
+                                            }
+                                        })
+                                    }
+                                }
                             }
-                        }
-                    })
-                }
-            })
-        };
+                        })
+                    }
+                })
+            };
 
-            var result = await _usersCollection
-                .Aggregate<UserDetailsResponse>(pipeline)
-                .FirstOrDefaultAsync();
-
-            return result;
+            return _usersCollection.Aggregate<UserDetailsResult>(pipeline);
         }
+
+
+
     }
+
 }

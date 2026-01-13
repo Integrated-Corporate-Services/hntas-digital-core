@@ -31,6 +31,7 @@ builder.Services.AddSingleton<IGovUkNotifyService, GovUkNotifyService>();
 builder.Services.AddSingleton<IHeatNetworkService, HeatNetworkService>();
 builder.Services.AddSingleton<IEmailService, EmailService>();
 builder.Services.AddSingleton<ICountryAndTerritoryService, CountryAndTerritoryService>();
+builder.Services.AddSingleton<IAssessorService, AssessorService>();
 
 
 builder.Services.Configure<AWSDocDbSettings>(

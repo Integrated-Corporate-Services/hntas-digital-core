@@ -14,5 +14,7 @@ namespace HNTAS.Core.Api.Interfaces
         Task RemoveAsync(string id);
 
         Task<List<ManagedUserResponse>> GetInvitedUsersAsRegisteredAsync(string inviterUserId);
+
+        Task ExecuteRoleSwapAsync(User invitedUser, User? replacedUser, Invitation invitation);
     }
 }

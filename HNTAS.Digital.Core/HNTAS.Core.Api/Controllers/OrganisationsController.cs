@@ -41,7 +41,6 @@ namespace HNTAS.Core.Api.Controllers
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> EditOrgDetails(string orgId, string userId, [FromBody] OrganisationRequest request)
         {
-
             try
             {
                 var existingUser = await _userService.GetByIdAsync(userId);
@@ -56,25 +55,24 @@ namespace HNTAS.Core.Api.Controllers
                     _logger.LogWarning("Organisation with ID: {orgId} not found for update.", orgId);
                     return NotFound($"Organisation with ID: {orgId} not found.");
                 }
-                RegisteredAddress oldAddress = existingOrg.RegisteredAddress;
 
                 string fullName = StringFormatter.ToTitleCaseSingleWord(existingUser.FirstName) + " " + StringFormatter.ToTitleCaseSingleWord(existingUser.LastName);
 
-                // Create a new Organization document using the data from the request
-                var updateOrg = new Organisation
-                {
-                    Type = request.Type,
-                    CompaniesHouseNumber = request.CompaniesHouseNumber,
-                    Name = request.Name,
-                    RegisteredAddress = _mapper.Map<RegisteredAddress>(request.RegisteredAddress),
-                    LastModifiedBy = userId,
-                    LastModifiedDate = DateTime.UtcNow
-                };
+                // update Organization document using the data from the request
 
                 var oldNameAndAddress = $"{existingOrg.Name}, {StringFormatter.FormatAddress(existingOrg.RegisteredAddress)}";
-                var newNameAndAddress = $"{updateOrg.Name}, {StringFormatter.FormatAddress(updateOrg.RegisteredAddress)}";
+                var newNameAndAddress = $"{request.Name}, {StringFormatter.FormatAddress(request.RegisteredAddress)}";
 
-                await _organisationService.UpdateAsync(existingOrg.Id, updateOrg); // Save the new organization to its collection
+
+                existingOrg.Type = request.Type;
+                existingOrg.CompaniesHouseNumber = request.CompaniesHouseNumber;
+                existingOrg.Name = request.Name;
+                existingOrg.RegisteredAddress = request.RegisteredAddress;
+                existingOrg.LastModifiedAt = DateTime.UtcNow;
+                existingOrg.LastModifiedBy = userId;
+
+
+                await _organisationService.UpdateAsync(existingOrg.Id, existingOrg);
 
                 _emailService.TrySendOrgUpdatedEmailAsync(fullName, existingUser.EmailId, oldNameAndAddress, newNameAndAddress);
 
@@ -164,5 +162,42 @@ namespace HNTAS.Core.Api.Controllers
 
             return Ok(organisation);
         }
+
+
+
+        [HttpPatch("{orgId}/user/{userId}/heatnetwork/{heatNetworkId}")]
+        [Consumes(MediaTypeNames.Application.Json)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult> UpdateHeatNetworkId([FromRoute] string orgId, [FromRoute] string userId, [FromRoute] string heatNetworkId)
+        {
+            try
+            {
+                var organisation = await _organisationService.GetByOrgIdAsync(orgId.ToUpper());
+
+                if (organisation == null)
+                {
+                    _logger.LogWarning("Organisation with OrgId {OrgId} not found for heat network ID update.", orgId);
+                    return NotFound();
+                }
+
+                if (!organisation.HnIds.Contains(heatNetworkId))
+                {
+                    organisation.HnIds.Add(heatNetworkId);
+                    organisation.LastModifiedAt = DateTime.UtcNow;
+                    organisation.LastModifiedBy = userId;
+                    await _organisationService.UpdateAsync(organisation.Id, organisation);
+                }
+
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while updating heat network ID for organisation with OrgId: {OrgId}", orgId);
+                return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while updating the heat network ID.");
+            }
+        }
     }
+
 }

@@ -13,21 +13,11 @@ namespace HNTAS.Core.Api.Services
         private readonly IMongoCollection<Organisation> _organizationsCollection;
         private readonly ILogger<OrganisationService> _logger;
 
-        public OrganisationService(IOptions<AWSDocDbSettings> dbSettings, ILogger<OrganisationService> logger)
+        public OrganisationService(IOptions<AWSDocDbSettings> dbSettings, ILogger<OrganisationService> logger, IMongoDatabase mongoDatabase)
         {
             _logger = logger;
-            string? connectionString = Environment.GetEnvironmentVariable("DOCUMENT_DB_CONNECTION_STRING");
-            _logger.LogInformation("Initializing OrganizationService with connection string: {connectionString}", connectionString);
-
-            if (string.IsNullOrEmpty(connectionString))
-            {
-                throw new InvalidOperationException("MongoDB connection string is not configured. Set 'DOCUMENT_DB_CONNECTION_STRING' environment variable");
-            }
-
-            var mongoClient = new MongoClient(connectionString);
-            var mongoDatabase = mongoClient.GetDatabase(dbSettings.Value.DatabaseName);
-
             _organizationsCollection = mongoDatabase.GetCollection<Organisation>(dbSettings.Value.OrganisationsCollectionName);
+            _logger.LogInformation("OrganisationService initialized via Dependency Injection.");
         }
 
         // Get an organization by its ID
@@ -54,7 +44,9 @@ namespace HNTAS.Core.Api.Services
                 .Set(o => o.Name, updatedOrganization.Name)
                 .Set(o => o.RegisteredAddress, updatedOrganization.RegisteredAddress)
                 .Set(o => o.LastModifiedBy, updatedOrganization.LastModifiedBy)
-                .Set(o => o.LastModifiedDate, updatedOrganization.LastModifiedDate));
+                .Set(o => o.LastModifiedAt, updatedOrganization.LastModifiedAt)
+                .Set(o => o.HnIds, updatedOrganization.HnIds)
+                .Set(o => o.RpUserId, updatedOrganization.RpUserId));
 
         // Remove an organization by ID
         public async Task RemoveAsync(string orgId) =>

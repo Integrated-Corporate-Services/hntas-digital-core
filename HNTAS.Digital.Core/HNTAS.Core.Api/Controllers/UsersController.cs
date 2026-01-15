@@ -78,9 +78,15 @@ public class UsersController : ControllerBase
         _logger.LogInformation("Attempting to retrieve all users.");
         try
         {
-            var user = await _userService.GetUserWithDetailsAsync(id);
-            _logger.LogInformation("Successfully retrieved {UserCount} users.", user.Id);
-            return Ok(user);
+            var userDetails = await _userService.GetUserWithDetailsAsync(id);
+
+            var userResponse = _mapper.Map<UserDetailsResponse>(userDetails);
+
+            //Manual mapping needed because of the complexity
+            userResponse.HeatNetworks = GetHeatNetworksForUser(userDetails);
+
+            _logger.LogInformation("Successfully retrieved {UserCount} users.", userResponse?.Id);
+            return Ok(userResponse);
         }
         catch (Exception ex)
         {
@@ -271,7 +277,8 @@ public class UsersController : ControllerBase
             {
                 OneLoginId = registrationData.OneLoginId,
                 EmailId = registrationData.EmailId,
-                Status = registrationData.Status
+                Status = registrationData.Status,
+                CreatedAt = DateTime.UtcNow,
             };
 
             await _userService.CreateAsync(newUser);
@@ -341,7 +348,7 @@ public class UsersController : ControllerBase
                 Name = request.Organisation.Name,
                 RegisteredAddress = _mapper.Map<RegisteredAddress>(request.Organisation.RegisteredAddress),
                 CreatedBy = existingUser.Id,
-                CreatedDate = DateTime.UtcNow,
+                CreatedAt = DateTime.UtcNow,
                 RpUserId = existingUser.Id
             };
 
@@ -431,7 +438,7 @@ public class UsersController : ControllerBase
                 Type = request.Type,
                 RegisteredAddress = _mapper.Map<RegisteredAddress>(request.RegisteredAddress),
                 CreatedBy = userId,
-                CreatedDate = DateTime.UtcNow,
+                CreatedAt = DateTime.UtcNow,
             };
 
             await _organisationService.CreateAsync(newOrganisation);
@@ -583,23 +590,23 @@ public class UsersController : ControllerBase
             // Mark invitation as accepted
             invitation.Status = InvitationStatus.Accepted;
             invitation.AcceptedAt = DateTime.UtcNow;
-            await _invitationService.UpdateAsync(invitation.Id, invitation);
 
             // Check for existing user
-            var existingUser = await _userService.GetByUserOneLoginIdAsync(request.OneLoginId);
-            if (existingUser != null)
+            var invitedUser = await _userService.GetByUserOneLoginIdAsync(request.OneLoginId);
+
+            if (invitedUser != null && invitation.InvitedHnId != null)
             {
-                existingUser.HnIds ??= new List<string>();
-                if (!existingUser.HnIds.Contains(invitation.InvitedHnId))
+                invitedUser.HnRoleMappings = invitedUser.HnRoleMappings ?? new List<HnRoleMapping>();
+
+                if (invitation.InvitedOrgId != null)
                 {
-                    existingUser.HnIds.Add(invitation.InvitedHnId);
+                    invitedUser.OrgId = invitation.InvitedOrgId;
                 }
-                // Add any new roles from the invitation
-                existingUser.HnRoleMappings = existingUser.HnRoleMappings ?? new List<HnRoleMapping>();
+
                 foreach (var role in invitation.InvitedRoles)
                 {
                     // Update HnRoleMappings
-                    var hnRoleMapping = existingUser.HnRoleMappings.FirstOrDefault(m => m.HnId == invitation.InvitedHnId);
+                    var hnRoleMapping = invitedUser.HnRoleMappings.FirstOrDefault(m => m.HnId == invitation.InvitedHnId);
                     if (hnRoleMapping == null)
                     {
                         hnRoleMapping = new HnRoleMapping
@@ -607,23 +614,49 @@ public class UsersController : ControllerBase
                             HnId = invitation.InvitedHnId,
                             Role = role,
                         };
-                        existingUser.HnRoleMappings.Add(hnRoleMapping);
+                        invitedUser.HnRoleMappings.Add(hnRoleMapping);
                     }
                     else if (!(hnRoleMapping.Role == role))
                     {
                         hnRoleMapping.Role = role;
                     }
                 }
-                await _userService.UpdateAsync(existingUser.Id, existingUser);
 
-                _logger.LogInformation("Existing invited user updated: {UserId})", existingUser.Id);
-                return Ok(existingUser.Id);
+                //await _userService.UpdateAsync(invitedUser.Id, invitedUser);
+                await _invitationService.ExecuteRoleSwapAsync(invitedUser, null, invitation);
+
+                _logger.LogInformation("Existing invited user updated: {UserId})", invitedUser.Id);
+
+                return Ok(invitedUser.Id);
+            }
+            if (invitedUser != null && invitation.InvitedOrgId != null)
+            {
+                //Prepare Invited User (Gains Roles)
+                invitedUser.Roles = MapAndFilterRoles(invitation.InvitedRoles);
+
+                var rpReplaceRole = MapAndFilterRoles(invitation.RolesToReplace);
+
+                //who is rp get rp user
+                var rpuserId = invitation.ReplacedUserId;
+                var rpUser = await _userService.GetByIdAsync(rpuserId);
+
+                rpUser.Roles = MapAndFilterRoles(invitation.RolesToReplace);
+
+                await _invitationService.ExecuteRoleSwapAsync(invitedUser, rpUser, invitation);
+
+                //replace organisation RpUserId
+                var organisation = await _organisationService.GetByOrgIdAsync(invitation.InvitedOrgId);
+                organisation.RpUserId = invitedUser.Id;
+
+                await _organisationService.UpdateAsync(organisation.Id, organisation);
+
+                return StatusCode(StatusCodes.Status201Created, invitedUser.Id);
             }
             else
             {
                 // Create new user from invitation
-                var newUser = BuildUserFromInvitation(request, invitation);
-                await _userService.CreateAsync(newUser);
+                var newUser = await BuildUserFromInvitation(request, invitation);
+                await _invitationService.ExecuteRoleSwapAsync(newUser, null, invitation);
                 _logger.LogInformation("New invited user registered: {UserId} (DB Id: {Id})", newUser.OneLoginId, newUser.Id);
                 return StatusCode(StatusCodes.Status201Created, newUser.Id);
             }
@@ -666,42 +699,7 @@ public class UsersController : ControllerBase
         return Ok(roles);
     }
 
-    // Remaining methods (UpdateHeatNetworkId, DeleteUser, CheckOrganisationExistence) are unchanged as they don't involve the nested documents that were moved.
 
-    [HttpPatch("{id:length(24)}/heatnetwork/{heatNetworkId}")]
-    [Consumes(MediaTypeNames.Application.Json)]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    public async Task<ActionResult> UpdateHeatNetworkId(string id, [FromRoute] string heatNetworkId)
-    {
-        try
-        {
-            var existingUser = await _userService.GetByIdAsync(id);
-            if (existingUser == null)
-            {
-                _logger.LogWarning("User with ID {UserId} not found for heat network ID update.", id);
-                return NotFound();
-            }
-
-            if (existingUser.HnIds == null)
-            {
-                existingUser.HnIds = new List<string>() { heatNetworkId };
-            }
-            else if (!existingUser.HnIds.Contains(heatNetworkId))
-            {
-                existingUser.HnIds.Add(heatNetworkId);
-            }
-
-            await _userService.UpdateAsync(id, existingUser);
-            return NoContent();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "An error occurred while updating heat network ID for user with ID: {UserId}", id);
-            return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while updating the heat network ID.");
-        }
-    }
 
 
     [HttpDelete("{id}")]
@@ -770,37 +768,48 @@ public class UsersController : ControllerBase
         if (user == null)
         {
             _logger.LogWarning("User with ID {UserId} not found.", userId);
-            return null;
+            return NotFound();
         }
 
-        _logger.LogInformation("Successfully retrieved managed users for user ID: {UserId}", userId);
+        // Map responsible user
+        var managedUsers = new List<ManagedUserResponse>();
+        var responsibleUser = _mapper.Map<ManagedUserResponse>(user);
+        responsibleUser.HeatNetworks = MapHeatNetworks(user);
+        managedUsers.Add(responsibleUser);
 
-
-
-        var managedUsers = new List<ManagedUserResponse>
-        {
-            _mapper.Map<ManagedUserResponse>(user)
-        };
-
+        // Get invitations and registered users
         var invitations = await _invitationService.GetInvitedUsersAsRegisteredAsync(user.Id);
         var invitedEmails = invitations.Select(i => i.EmailId).Distinct().ToList();
-        var registeredUsers = await _userService.GetRegisteredUsersDetailsAsync(invitedEmails);
+        var invitedUsersDetail = await _userService.GetUsersByInvitedEmailsWithDetailsAsync(invitedEmails);
 
-        if (registeredUsers != null || registeredUsers.Any())
+        var registeredUsers = _mapper.Map<List<ManagedUserResponse>>(invitedUsersDetail);
+        foreach (var ruser in registeredUsers)
         {
-            // Exclude the responsible user from the registered users list
+            var sourceUser = invitedUsersDetail.FirstOrDefault(x => x.Id == ruser.Id);
+            ruser.HeatNetworks = MapHeatNetworks(sourceUser);
+        }
+
+        if (registeredUsers != null && registeredUsers.Any())
+        {
+            // Exclude the responsible user
             registeredUsers = registeredUsers.Where(ru => ru.EmailId != user.EmailId).ToList();
             managedUsers.AddRange(registeredUsers);
         }
 
-        var invitedUsers = invitations.ToList()
-        .Where(i =>
-            (!registeredUsers.Any(u =>
-                u.EmailId == i.EmailId ||
-                u.HeatNetworks.Any(x => x.HnId == i.HeatNetworks?.FirstOrDefault()?.HnId))) || i.Status == InvitationStatus.Invited.ToString()).ToList();
+        // Process invited users (latest per email/HN combination)
+        var invitedUsers = invitations
+            .GroupBy(i => new { i.EmailId, i.HeatNetworks?.FirstOrDefault()?.HnId })
+            .Select(g => g.OrderByDescending(i => i.InvitedAt).First())
+            .Where(i =>
+                !registeredUsers.Any(u =>
+                    u.EmailId == i.EmailId ||
+                    (u.HeatNetworks?.Any(x => x.HnId == i.HeatNetworks?.FirstOrDefault()?.HnId) ?? false)
+                )
+                || i.Status == InvitationStatus.Invited.ToString()
+            )
+            .ToList();
 
-
-        if (invitedUsers != null || invitedUsers.Count != 0)
+        if (invitedUsers.Any())
         {
             managedUsers.AddRange(invitedUsers);
         }
@@ -952,25 +961,62 @@ public class UsersController : ControllerBase
             { ContributorRole.ResponsiblePerson, UserRole.ResponsiblePerson }
     };
 
-    private User BuildUserFromInvitation(InvitedUserRequest request, Invitation invitation)
-    {
-        var roles = new List<UserRole> { };
 
-        if (invitation.InvitedRoles != null)
+    private List<UserRole> MapAndFilterRoles(List<ContributorRole>? rolesToMap)
+    {
+        return rolesToMap?
+            .Select(role =>
+                RoleMapping.TryGetValue(role, out var mappedRole)
+                ? (UserRole?)mappedRole
+                : null
+            )
+            .Where(mappedRole => mappedRole.HasValue)
+            .Select(mappedRole => mappedRole!.Value)
+            .ToList()
+            ?? new List<UserRole>();
+    }
+
+    private static List<HeatNetworkInfo> MapHeatNetworks(UserDetailsResult user)
+    {
+        var heatNetworks = GetHeatNetworksForUser(user);
+        return heatNetworks?.Select(x => new HeatNetworkInfo
         {
-            foreach (var contributorRole in invitation.InvitedRoles)
+            HnId = x.HnId,
+            Name = x.Name
+        }).ToList() ?? new List<HeatNetworkInfo>();
+    }
+
+    private static List<HeatNetworkUserResponse>? GetHeatNetworksForUser(UserDetailsResult src)
+    {
+        // Define the roles that grant access to the Organisation's full HeatNetwork list
+        var rolesGrantingFullAccess = new List<UserRole> {
+           UserRole.ResponsiblePerson,
+           UserRole.Coordinator
+        };
+
+        // 1. Check for specific Heat Network role mappings (Highest Priority).
+        if (src.HnRoleMappings != null && src.HnRoleMappings.Count > 0)
+        {
+            return src.HnRoleMappings.Select(m => m.HeatNetwork).ToList();
+        }
+
+        bool hasFullAccessRole = src.Roles != null &&
+                                 src.Roles.Any(r => rolesGrantingFullAccess.Contains(r));
+
+        if (hasFullAccessRole)
+        {
+            // If the user is RP or Coordinator, assign ALL heat networks from the organization.
+            if (src.Organisation != null && src.Organisation.HeatNetworks != null)
             {
-                if (RoleMapping.TryGetValue(contributorRole, out var userRole))
-                {
-                    roles.Add(userRole);
-                }
-                else
-                {
-                    roles.Add(UserRole.Contributor);
-                }
+                return src.Organisation.HeatNetworks.ToList();
             }
         }
 
+        return null;
+    }
+
+    private async Task<User> BuildUserFromInvitation(InvitedUserRequest request, Invitation invitation)
+    {
         var user = new User
         {
             OneLoginId = request.OneLoginId,
@@ -979,17 +1025,24 @@ public class UsersController : ControllerBase
             LastName = invitation.LastName,
             JobTitle = null,
             Status = UserStatus.Active,
-            OrgId = null,
-            Roles = roles,
-            HnIds = [invitation.InvitedHnId],
-            HnRoleMappings = [new HnRoleMapping
-                                {
-                                    HnId = invitation.InvitedHnId,
-                                    Role = invitation.InvitedRoles.FirstOrDefault()
-                                }
-                            ]
+            OrgId = invitation.InvitedOrgId
         };
+
+        if (invitation.InvitedHnId != null)
+        {
+            user.HnRoleMappings = new List<HnRoleMapping>
+            {
+                new HnRoleMapping
+                {
+                    HnId = invitation.InvitedHnId,
+                    Role = invitation.InvitedRoles.FirstOrDefault()
+                }
+            };
+        }
+
+        user.Roles = MapAndFilterRoles(invitation.InvitedRoles);
 
         return user;
     }
+
 }

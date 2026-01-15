@@ -32,6 +32,34 @@ builder.Services.AddSingleton<IGovUkNotifyService, GovUkNotifyService>();
 builder.Services.AddSingleton<IHeatNetworkService, HeatNetworkService>();
 builder.Services.AddSingleton<IEmailService, EmailService>();
 builder.Services.AddSingleton<ICountryAndTerritoryService, CountryAndTerritoryService>();
+builder.Services.AddSingleton<IAssessorService, AssessorService>();
+
+
+builder.Services.Configure<AWSDocDbSettings>(
+    builder.Configuration.GetSection("AWSDocDbSettings"));
+
+builder.Services.AddSingleton<IMongoClient>(sp =>
+{
+    var connectionString = Environment.GetEnvironmentVariable("DOCUMENT_DB_CONNECTION_STRING");
+    if (string.IsNullOrWhiteSpace(connectionString))
+    {
+        throw new InvalidOperationException("DOCUMENT_DB_CONNECTION_STRING environment variable is not set.");
+    }
+
+    return new MongoClient(connectionString); // Only ONE client instance created
+});
+
+builder.Services.AddSingleton<IMongoDatabase>(sp =>
+{
+    var client = sp.GetRequiredService<IMongoClient>();
+    var dbSettings = sp.GetRequiredService<IOptions<AWSDocDbSettings>>().Value;
+
+    return client.GetDatabase(dbSettings.DatabaseName);
+});
+
+
+builder.Services.AddHttpClient();
+builder.Services.AddScoped<ICarbonCalculatorService, CarbonCalculatorService>();
 
 
 

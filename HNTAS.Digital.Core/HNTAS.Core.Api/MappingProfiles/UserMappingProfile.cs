@@ -62,7 +62,9 @@ namespace HNTAS.Core.Api.MappingProfiles
             .ForMember(dest => dest.Location, opt => opt.MapFrom(src => src.Location))
             .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name))
             .ForMember(dest => dest.Pathway, opt => opt.MapFrom(src => src.Pathway))
-            .ForMember(dest => dest.Soa, opt => opt.MapFrom(src => src.Soa));
+            .ForMember(dest => dest.Soa, opt => opt.MapFrom(src => src.Soa))
+            .ForMember(dest => dest.CreatedBy, opt => opt.MapFrom(src => src.CreatedBy))
+            .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => src.CreatedAt));
 
             CreateMap<Soa, SoaResponse>()
             .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status.ToString()))

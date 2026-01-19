@@ -44,23 +44,22 @@ namespace HNTAS.Core.Api.Controllers
 
         /// <summary>
         /// Updated to GOV.UK parameter naming conventions (snake_case)
-        /// URL: GET /external/heat-networks/search?from_date=2026-01-01&to_date=2026-01-15 - YYYY-MM-DD
+        /// URL: GET /api/external/heat-networks/search?from_date=2026-01-01&to_date=2026-01-15
         /// </summary>
         [HttpGet("/api/external/heat-networks/search")]
         [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<HeatNetworkResponse>))]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<ActionResult<List<HeatNetworkResponse>>> GetExternalHeatNetworksByDate(
-           [FromQuery] DateTime fromDate,
-           [FromQuery] DateTime toDate)
+            [FromQuery(Name = "from_date")] DateTime fromDate,
+            [FromQuery(Name = "to_date")] DateTime toDate)
         {
             // GOV.UK Standards recommend clear error messages for validation
             if (fromDate > toDate)
-                return BadRequest("The 'fromDate' cannot be after the 'toDate'.");
+                return BadRequest("The 'from_date' cannot be after the 'to_date'.");
 
             _logger.LogInformation("External API: Searching networks between {From} and {To}", fromDate, toDate);
             try
             {
-                // Ensure the service call handles the full day of 'toDate'
                 var networks = await _hnService.GetByDateRangeAsync(fromDate, toDate);
                 return Ok(_mapper.Map<List<HeatNetworkResponse>>(networks));
             }

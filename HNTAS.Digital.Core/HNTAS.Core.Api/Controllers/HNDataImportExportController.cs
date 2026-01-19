@@ -1,17 +1,16 @@
 ﻿
 using HNTAS.Core.Api.Services;
 using Microsoft.AspNetCore.Mvc;
-using System.Text;
 
 namespace HNTAS.Core.Api.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class DocdbExportController : ControllerBase
+    public class HNDataImportExportController : ControllerBase
     {
-        private readonly IDocdbExportService _service;
+        private readonly IHNDataImportExportService _service;
 
-        public DocdbExportController(IDocdbExportService service)
+        public HNDataImportExportController(IHNDataImportExportService service)
         {
             _service = service;
         }
@@ -19,7 +18,7 @@ namespace HNTAS.Core.Api.Controllers
         [HttpGet("hn-users-orgs")]
         public async Task<IActionResult> GetJson([FromQuery] int? take = 100)
         {
-            var rows = await _service.GetFlattenedHeatNetworkUserOrgAsync();
+            var rows = await _service.GetAllHeatNetworkRowsAsync();
             return Ok(rows);
         }
 
@@ -28,7 +27,7 @@ namespace HNTAS.Core.Api.Controllers
         public async Task<IActionResult> GetCsv([FromQuery] int? take = 100)
         {
             // Get the flattened rows (already filtered to ResponsiblePerson per your service)
-            var rows = await _service.GetFlattenedHeatNetworkUserOrgAsync();
+            var rows = await _service.GetAllHeatNetworkRowsAsync();
 
             // Apply optional take
             if (take.HasValue && take.Value > 0)
@@ -45,10 +44,10 @@ namespace HNTAS.Core.Api.Controllers
             {
                 // Null-safe values
                 var hnId = r.HnId ?? string.Empty;
-                var name = r.HeatNetworkName ?? string.Empty;
-                var loc = r.Location ?? string.Empty;
-                var orgId = r.OrgId ?? string.Empty;
-                var email = r.EmailId ?? string.Empty;
+                var name = r.HnName ?? string.Empty;
+                var loc = r.HnLocation ?? string.Empty;
+                var orgId = r.OrganisationId ?? string.Empty;
+                var email = r.UserEmailId ?? string.Empty;
                 var orgNm = r.OrganisationName ?? string.Empty;
 
                 // CSV-escape each field: wrap in double quotes and escape inner quotes by doubling them
@@ -76,5 +75,7 @@ namespace HNTAS.Core.Api.Controllers
             return File(csvBytes, "text/csv; charset=utf-8", fileName);
 
         }
+
+
     }
 }

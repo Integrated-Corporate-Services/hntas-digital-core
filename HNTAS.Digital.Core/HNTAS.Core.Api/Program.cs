@@ -83,7 +83,7 @@ builder.Services.AddScoped<ICarbonCalculatorService, CarbonCalculatorService>();
 //    return client.GetDatabase(cfg.DatabaseName);
 //});
 
-builder.Services.AddScoped<IDocdbExportService, DocdbExportService>();
+builder.Services.AddScoped<IHNDataImportExportService, HNDataImportExportService>();
 
 
 builder.Services.AddControllers().AddJsonOptions(options =>

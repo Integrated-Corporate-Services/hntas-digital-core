@@ -13,6 +13,6 @@ namespace HNTAS.Core.Api.Services
         /// Use <paramref name="take"/> to limit for testing.
         /// </summary>
         //Task<List<DocdbExportRow>> GetAsync(int? take = null);
-        Task<List<DocdbExportRow>> GetFlattenedHeatNetworkUserOrgAsync();
+        //Task<List<DocdbExportRow>> GetFlattenedHeatNetworkUserOrgAsync();
     }
 }

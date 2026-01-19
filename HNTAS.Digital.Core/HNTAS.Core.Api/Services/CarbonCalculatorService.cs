@@ -110,19 +110,17 @@ namespace HNTAS.Core.Api.Services
                     _logger.LogError("Calculation failed. Status={Status}, Body={Body}", (int)resp.StatusCode, body);
                     return null;
                 }
-
+                
                 using var doc = JsonDocument.Parse(body);
                 var root = doc.RootElement;
-
+                var formatted = JsonSerializer.Serialize(doc, new JsonSerializerOptions { WriteIndented = true });
+                _logger.LogInformation("Calculation response: {Body}", body);
                 JsonElement calculation;
-                if (root.TryGetProperty("result", out var result) &&
-                    result.TryGetProperty("calculation", out calculation))
+                
+                if (!root.TryGetProperty("calculation", out calculation))
                 {
-                    // Found under result.calculation
-                }
-                else if (!root.TryGetProperty("calculation", out calculation))
-                {
-                    _logger.LogError("Missing 'calculation' in response.");
+                    var formattedRoot = JsonSerializer.Serialize(root, new JsonSerializerOptions { WriteIndented = true });
+                    _logger.LogError("Missing 'calculation' in response : {formattedRoot}", formattedRoot );
                     return null;
                 }
 

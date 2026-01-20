@@ -48,36 +48,40 @@ namespace HNTAS.Core.Api.Services
 
         private async Task<string> GetUuid(string hnId, HttpClient client, CancellationToken ct)
         {
+            _logger.LogInformation("Entered GetUuid");
             var getUuidRequestBody = new { token = API_TOKEN, network_id = hnId };
             using var content = new StringContent(System.Text.Json.JsonSerializer.Serialize(getUuidRequestBody),
                                                  Encoding.UTF8, "application/json");
 
             var response = await client.PostAsync(UUID_ENDPOINT, content, ct);
             var contentStr = await response.Content.ReadAsStringAsync(ct);
+            _logger.LogInformation("Response received(GetUuid): {contentStr}", contentStr);
             if (!response.IsSuccessStatusCode)
             {
                 _logger.LogError(contentStr);
                 return "";
             }
+            _logger.LogInformation("Leaving GetUuid: {contentStr}", contentStr);
             return contentStr;
         }
 
         // Fix for CS1503: Use JsonSerializer to serialize the request object to JSON string, then parse it as JsonNode
         public async Task<CarbonCalculatorResponse?> RunAsync(CarbonCalculatorRequest request, CancellationToken ct = default)
         {
+            _logger.LogInformation("Entering RunAsync");
             var hnId = request.Background.NetworkID;
             if (string.IsNullOrWhiteSpace(API_TOKEN))
             {
                 _logger.LogError("API token not configured. Set {EnvVar}.", API_TOKEN);
                 return null;
             }
-
+            _logger.LogInformation("API_TOKEN read: {API_TOKEN}", API_TOKEN);
             var client = _httpClientFactory.CreateClient(nameof(CarbonCalculatorService));
             if (client.BaseAddress is null)
                 client.BaseAddress = new Uri(DEFAULT_BASE_URL);
             client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
             string uuid = await GetUuid(hnId, client, ct);
-                
+            _logger.LogInformation("Uuid read: {uuid}", uuid);
             try
             {
                 // Serialize the request object to JSON string, then parse it as JsonNode
@@ -96,12 +100,12 @@ namespace HNTAS.Core.Api.Services
                     WriteIndented = false,
                     DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
                 });
-
+                
                 using var req = new HttpRequestMessage(HttpMethod.Post, CALC_ENDPOINT)
                 {
                     Content = new StringContent(json, Encoding.UTF8, "application/json")
                 };
-
+                _logger.LogInformation("Calling Carbondescent with req: {req}", req);
                 var resp = await client.SendAsync(req, ct);
                 var body = await resp.Content.ReadAsStringAsync(ct);
 
@@ -114,7 +118,7 @@ namespace HNTAS.Core.Api.Services
                 using var doc = JsonDocument.Parse(body);
                 var root = doc.RootElement;
                 var formatted = JsonSerializer.Serialize(doc, new JsonSerializerOptions { WriteIndented = true });
-                _logger.LogInformation("Calculation response: {Body}", body);
+                _logger.LogInformation("Calculation response: (parsed body){formatted}", formatted);
                 JsonElement calculation;
 
                 if (!root.TryGetProperty("calculation", out calculation))
@@ -135,6 +139,7 @@ namespace HNTAS.Core.Api.Services
                 var str = arr[0].GetString();
                 if (decimal.TryParse(str, NumberStyles.Any, CultureInfo.InvariantCulture, out var intensity))
                 {
+                    _logger.LogInformation("All good. INTENSITY: {intensity}", intensity);
                     var hnCarbonCalculation = new HnCarbonCalculation
                     {
                         HnId = hnId,

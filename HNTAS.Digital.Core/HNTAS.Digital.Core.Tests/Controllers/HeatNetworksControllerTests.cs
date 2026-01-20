@@ -68,7 +68,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             _mockMapper.Setup(m => m.Map<List<HeatNetworkResponse>>(It.IsAny<List<HeatNetwork>>()))
                        .Returns(responseList);
 
-            var controller = new HeatNetworksController(_hnServiceMock.Object, _loggerMock.Object, _counterServiceMock.Object, _mapperMock.Object);
+            var controller = new HeatNetworksController(_mockHnService.Object, _mockLogger.Object, _mockCounterService.Object, _mockMapper.Object);
 
             // Act
             var result = await _controller.GetHeatNetworks();
@@ -87,7 +87,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             // Arrange
             _mockHnService.Setup(s => s.GetAsync()).ThrowsAsync(new Exception("DB failure"));
 
-            var controller = new HeatNetworksController(_hnServiceMock.Object, _loggerMock.Object, _counterServiceMock.Object, _mapperMock.Object);
+            var controller = new HeatNetworksController(_mockHnService.Object, _mockLogger.Object, _mockCounterService.Object, _mockMapper.Object);
 
             // Act
             var result = await _controller.GetHeatNetworks();
@@ -114,7 +114,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             _mockMapper.Setup(m => m.Map<List<HeatNetworkResponse>>(It.IsAny<List<HeatNetwork>>()))
                        .Returns(responseList);
 
-            var controller = new HeatNetworksController(_hnServiceMock.Object, _loggerMock.Object, _counterServiceMock.Object, _mapperMock.Object);
+            var controller = new HeatNetworksController(_mockHnService.Object, _mockLogger.Object, _mockCounterService.Object, _mockMapper.Object);
 
             // Act
             var result = await _controller.GetHeatNetworksByHnIds(hnIdsString);
@@ -133,7 +133,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             // Arrange
             string hnIdsString = null; // controller will interpret as no ids
 
-            var controller = new HeatNetworksController(_hnServiceMock.Object, _loggerMock.Object, _counterServiceMock.Object, _mapperMock.Object);
+            var controller = new HeatNetworksController(_mockHnService.Object, _mockLogger.Object, _mockCounterService.Object, _mockMapper.Object);
 
             // Act
             var result = await _controller.GetHeatNetworksByHnIds(hnIdsString);
@@ -169,7 +169,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
         public async Task GetHeatNetworkByHnId_WithEmptyId_ReturnsBadRequest()
         {
             // Arrange
-            var controller = new HeatNetworksController(_hnServiceMock.Object, _loggerMock.Object, _counterServiceMock.Object, _mapperMock.Object);
+            var controller = new HeatNetworksController(_mockHnService.Object, _mockLogger.Object, _mockCounterService.Object, _mockMapper.Object);
 
             // Act
             var result = await _controller.GetHeatNetworkByHnId(string.Empty);

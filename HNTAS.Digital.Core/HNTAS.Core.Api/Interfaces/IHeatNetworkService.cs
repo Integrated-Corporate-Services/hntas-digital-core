@@ -8,5 +8,6 @@ namespace HNTAS.Core.Api.Interfaces
         Task<List<HeatNetwork>> GetByHnIdsAsync(List<string> ids);
         Task<HeatNetwork> GetByHnIdAsync(string hnId);
         Task CreateAsync(HeatNetwork newHeatNetwork);
+        Task<List<HeatNetwork>> GetByDateRangeAsync(DateTime fromDate, DateTime toDate);
     }
 }

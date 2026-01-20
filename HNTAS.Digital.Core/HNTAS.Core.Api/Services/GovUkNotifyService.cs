@@ -22,8 +22,7 @@ namespace HNTAS.Core.Api.Services
 
             // Initialize the official GOV.UK Notify client
             _notificationClient = new NotificationClient(_apiKey);
-            _logger = logger;
-            _logger.LogInformation("GovUk api_key : {_apiKey}", _apiKey);
+            _logger = logger;            
         }
 
         /// <summary>

@@ -12,17 +12,21 @@ namespace HNTAS.Digital.Core.Tests.Controllers
 {
     public class HeatNetworksControllerTests
     {
-        private readonly Mock<IHeatNetworkService> _hnServiceMock;
-        private readonly Mock<ICounterService> _counterServiceMock;
-        private readonly Mock<IMapper> _mapperMock;
-        private readonly Mock<ILogger<HeatNetworksController>> _loggerMock;
+        private readonly Mock<IHeatNetworkService> _mockHnService;
+        private readonly Mock<ICounterService> _mockCounterService;
+        private readonly Mock<IMapper> _mockMapper;
+        private readonly Mock<ILogger<HeatNetworksController>> _mockLogger;
+        private readonly HeatNetworksController _controller;
 
         public HeatNetworksControllerTests()
         {
-            _hnServiceMock = new Mock<IHeatNetworkService>();
-            _counterServiceMock = new Mock<ICounterService>();
-            _mapperMock = new Mock<IMapper>();
-            _loggerMock = new Mock<ILogger<HeatNetworksController>>();
+            _mockHnService = new Mock<IHeatNetworkService>();
+            _mockCounterService = new Mock<ICounterService>();
+            _mockMapper = new Mock<IMapper>();
+            _mockLogger = new Mock<ILogger<HeatNetworksController>>();
+
+            // Assuming these dependencies are injected via the constructor in your partial class
+            _controller = new HeatNetworksController(_mockHnService.Object, _mockLogger.Object, _mockCounterService.Object, _mockMapper.Object);
         }
 
         private HeatNetwork SampleHeatNetwork(string id = "1", string hnId = null)
@@ -60,14 +64,14 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             var domainList = new List<HeatNetwork> { SampleHeatNetwork("1", "HN0000001") };
             var responseList = new List<HeatNetworkResponse> { SampleHeatNetworkResponse("1", "HN0000001") };
 
-            _hnServiceMock.Setup(s => s.GetAsync()).ReturnsAsync(domainList);
-            _mapperMock.Setup(m => m.Map<List<HeatNetworkResponse>>(It.IsAny<List<HeatNetwork>>()))
+            _mockHnService.Setup(s => s.GetAsync()).ReturnsAsync(domainList);
+            _mockMapper.Setup(m => m.Map<List<HeatNetworkResponse>>(It.IsAny<List<HeatNetwork>>()))
                        .Returns(responseList);
 
-            var controller = new HeatNetworksController(_hnServiceMock.Object, _loggerMock.Object, _counterServiceMock.Object, _mapperMock.Object);
+            var controller = new HeatNetworksController(_mockHnService.Object, _mockLogger.Object, _mockCounterService.Object, _mockMapper.Object);
 
             // Act
-            var result = await controller.GetHeatNetworks();
+            var result = await _controller.GetHeatNetworks();
 
             // Assert
             var ok = Assert.IsType<OkObjectResult>(result.Result);
@@ -81,12 +85,12 @@ namespace HNTAS.Digital.Core.Tests.Controllers
         public async Task GetHeatNetworks_OnException_Returns500()
         {
             // Arrange
-            _hnServiceMock.Setup(s => s.GetAsync()).ThrowsAsync(new Exception("DB failure"));
+            _mockHnService.Setup(s => s.GetAsync()).ThrowsAsync(new Exception("DB failure"));
 
-            var controller = new HeatNetworksController(_hnServiceMock.Object, _loggerMock.Object, _counterServiceMock.Object, _mapperMock.Object);
+            var controller = new HeatNetworksController(_mockHnService.Object, _mockLogger.Object, _mockCounterService.Object, _mockMapper.Object);
 
             // Act
-            var result = await controller.GetHeatNetworks();
+            var result = await _controller.GetHeatNetworks();
 
             // Assert
             var objResult = Assert.IsType<ObjectResult>(result.Result);
@@ -104,16 +108,16 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             var domainList = new List<HeatNetwork> { SampleHeatNetwork("1", "HN0000001") };
             var responseList = new List<HeatNetworkResponse> { SampleHeatNetworkResponse("1", "HN0000001") };
 
-            _hnServiceMock.Setup(s => s.GetByHnIdsAsync(It.Is<List<string>>(l => l.SequenceEqual(ids))))
+            _mockHnService.Setup(s => s.GetByHnIdsAsync(It.Is<List<string>>(l => l.SequenceEqual(ids))))
                           .ReturnsAsync(domainList);
 
-            _mapperMock.Setup(m => m.Map<List<HeatNetworkResponse>>(It.IsAny<List<HeatNetwork>>()))
+            _mockMapper.Setup(m => m.Map<List<HeatNetworkResponse>>(It.IsAny<List<HeatNetwork>>()))
                        .Returns(responseList);
 
-            var controller = new HeatNetworksController(_hnServiceMock.Object, _loggerMock.Object, _counterServiceMock.Object, _mapperMock.Object);
+            var controller = new HeatNetworksController(_mockHnService.Object, _mockLogger.Object, _mockCounterService.Object, _mockMapper.Object);
 
             // Act
-            var result = await controller.GetHeatNetworksByHnIds(hnIdsString);
+            var result = await _controller.GetHeatNetworksByHnIds(hnIdsString);
 
             // Assert
             var ok = Assert.IsType<OkObjectResult>(result.Result);
@@ -129,10 +133,10 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             // Arrange
             string hnIdsString = null; // controller will interpret as no ids
 
-            var controller = new HeatNetworksController(_hnServiceMock.Object, _loggerMock.Object, _counterServiceMock.Object, _mapperMock.Object);
+            var controller = new HeatNetworksController(_mockHnService.Object, _mockLogger.Object, _mockCounterService.Object, _mockMapper.Object);
 
             // Act
-            var result = await controller.GetHeatNetworksByHnIds(hnIdsString);
+            var result = await _controller.GetHeatNetworksByHnIds(hnIdsString);
 
             // Assert
             var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
@@ -148,13 +152,11 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             var domain = SampleHeatNetwork("1", hnId);
             var response = SampleHeatNetworkResponse("1", hnId);
 
-            _hnServiceMock.Setup(s => s.GetByHnIdAsync(hnId)).ReturnsAsync(domain);
-            _mapperMock.Setup(m => m.Map<HeatNetworkResponse>(It.IsAny<HeatNetwork>())).Returns(response);
-
-            var controller = new HeatNetworksController(_hnServiceMock.Object, _loggerMock.Object, _counterServiceMock.Object, _mapperMock.Object);
+            _mockHnService.Setup(s => s.GetByHnIdAsync(hnId)).ReturnsAsync(domain);
+            _mockMapper.Setup(m => m.Map<HeatNetworkResponse>(It.IsAny<HeatNetwork>())).Returns(response);
 
             // Act
-            var result = await controller.GetHeatNetworkByHnId(hnId);
+            var result = await _controller.GetHeatNetworkByHnId(hnId);
 
             // Assert
             var ok = Assert.IsType<OkObjectResult>(result.Result);
@@ -167,10 +169,10 @@ namespace HNTAS.Digital.Core.Tests.Controllers
         public async Task GetHeatNetworkByHnId_WithEmptyId_ReturnsBadRequest()
         {
             // Arrange
-            var controller = new HeatNetworksController(_hnServiceMock.Object, _loggerMock.Object, _counterServiceMock.Object, _mapperMock.Object);
+            var controller = new HeatNetworksController(_mockHnService.Object, _mockLogger.Object, _mockCounterService.Object, _mockMapper.Object);
 
             // Act
-            var result = await controller.GetHeatNetworkByHnId(string.Empty);
+            var result = await _controller.GetHeatNetworkByHnId(string.Empty);
 
             // Assert
             var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
@@ -183,13 +185,11 @@ namespace HNTAS.Digital.Core.Tests.Controllers
         {
             // Arrange
             var input = SampleHeatNetwork("1", hnId: null); // no HnId set
-            _counterServiceMock.Setup(c => c.GetNextSequenceValue("heatNetworkId_sequence")).ReturnsAsync(1L);
-            _hnServiceMock.Setup(s => s.CreateAsync(It.IsAny<HeatNetwork>())).Returns(Task.CompletedTask);
-
-            var controller = new HeatNetworksController(_hnServiceMock.Object, _loggerMock.Object, _counterServiceMock.Object, _mapperMock.Object);
+            _mockCounterService.Setup(c => c.GetNextSequenceValue("heatNetworkId_sequence")).ReturnsAsync(1L);
+            _mockHnService.Setup(s => s.CreateAsync(It.IsAny<HeatNetwork>())).Returns(Task.CompletedTask);
 
             // Act
-            var result = await controller.AddHeatNetwork(input);
+            var result = await _controller.AddHeatNetwork(input);
 
             // Assert
             var created = Assert.IsType<CreatedAtActionResult>(result.Result);
@@ -204,17 +204,123 @@ namespace HNTAS.Digital.Core.Tests.Controllers
         {
             // Arrange
             var input = SampleHeatNetwork("1", "HN0000001");
-            _hnServiceMock.Setup(s => s.CreateAsync(It.IsAny<HeatNetwork>())).ThrowsAsync(new Exception("write failed"));
-
-            var controller = new HeatNetworksController(_hnServiceMock.Object, _loggerMock.Object, _counterServiceMock.Object, _mapperMock.Object);
+            _mockHnService.Setup(s => s.CreateAsync(It.IsAny<HeatNetwork>())).ThrowsAsync(new Exception("write failed"));
 
             // Act
-            var result = await controller.AddHeatNetwork(input);
+            var result = await _controller.AddHeatNetwork(input);
 
             // Assert
             var objResult = Assert.IsType<ObjectResult>(result.Result);
             Assert.Equal(StatusCodes.Status500InternalServerError, objResult.StatusCode);
             Assert.IsType<ProblemDetails>(objResult.Value);
         }
+
+
+
+        #region GetExternalHeatNetworks Tests
+
+        [Fact]
+        public async Task GetExternalHeatNetworks_ReturnsOk_WithData()
+        {
+            // Arrange
+            var mockNetworks = new List<HeatNetwork> { new HeatNetwork() };
+            var mockResponse = new List<HeatNetworkResponse> { new HeatNetworkResponse() };
+
+            _mockHnService.Setup(s => s.GetAsync()).ReturnsAsync(mockNetworks);
+            _mockMapper.Setup(m => m.Map<List<HeatNetworkResponse>>(mockNetworks)).Returns(mockResponse);
+
+            // Act
+            var result = await _controller.GetExternalHeatNetworks();
+
+            // Assert
+            var okResult = Assert.IsType<OkObjectResult>(result.Result);
+            Assert.Equal(mockResponse, okResult.Value);
+        }
+
+        [Fact]
+        public async Task GetExternalHeatNetworks_Returns500_OnException()
+        {
+            // Arrange
+            _mockHnService.Setup(s => s.GetAsync()).ThrowsAsync(new System.Exception());
+
+            // Act
+            var result = await _controller.GetExternalHeatNetworks();
+
+            // Assert
+            var statusCodeResult = Assert.IsType<ObjectResult>(result.Result);
+            Assert.Equal(500, statusCodeResult.StatusCode);
+        }
+
+        #endregion
+
+        #region GetExternalHeatNetworkById Tests
+
+        [Fact]
+        public async Task GetExternalHeatNetworkById_ReturnsNotFound_WhenNull()
+        {
+            // Arrange
+            _mockHnService.Setup(s => s.GetByHnIdAsync("123")).ReturnsAsync((HeatNetwork)null);
+
+            // Act
+            var result = await _controller.GetExternalHeatNetworkById("123");
+
+            // Assert
+            Assert.IsType<NotFoundResult>(result.Result);
+        }
+
+        [Fact]
+        public async Task GetExternalHeatNetworkById_ReturnsOk_WhenFound()
+        {
+            // Arrange
+            var network = new HeatNetwork { Id = "123" };
+            var response = new HeatNetworkResponse { Id = "123" };
+            _mockHnService.Setup(s => s.GetByHnIdAsync("123")).ReturnsAsync(network);
+            _mockMapper.Setup(m => m.Map<HeatNetworkResponse>(network)).Returns(response);
+
+            // Act
+            var result = await _controller.GetExternalHeatNetworkById("123");
+
+            // Assert
+            var okResult = Assert.IsType<OkObjectResult>(result.Result);
+            Assert.Equal(response, okResult.Value);
+        }
+
+        #endregion
+
+
+        #region GetExternalHeatNetworksByDate Tests
+
+        [Fact]
+        public async Task GetExternalHeatNetworksByDate_ReturnsBadRequest_WhenDatesInvalid()
+        {
+            // Arrange
+            var from = DateTime.Now.AddDays(1);
+            var to = DateTime.Now;
+
+            // Act
+            var result = await _controller.GetExternalHeatNetworksByDate(from, to);
+
+            // Assert
+            var badRequestResult = Assert.IsType<BadRequestObjectResult>(result.Result);
+            Assert.Equal("The 'fromDate' cannot be after the 'toDate'.", badRequestResult.Value);
+        }
+
+        [Fact]
+        public async Task GetExternalHeatNetworksByDate_ReturnsOk_WithValidRange()
+        {
+            // Arrange
+            var from = DateTime.Now.AddDays(-1);
+            var to = DateTime.Now;
+            _mockHnService.Setup(s => s.GetByDateRangeAsync(from, to))
+                        .ReturnsAsync(new List<HeatNetwork>());
+
+            // Act
+            var result = await _controller.GetExternalHeatNetworksByDate(from, to);
+
+            // Assert
+            Assert.IsType<OkObjectResult>(result.Result);
+        }
+
+        #endregion
     }
 }

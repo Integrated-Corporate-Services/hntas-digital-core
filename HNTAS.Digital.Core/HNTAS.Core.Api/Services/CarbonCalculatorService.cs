@@ -76,6 +76,10 @@ namespace HNTAS.Core.Api.Services
                 return null;
             }
             _logger.LogInformation("API_TOKEN read: {API_TOKEN}", API_TOKEN);
+            var govukkey = Environment.GetEnvironmentVariable("GOV_NOTIFY_API_KEY");
+            var osapikey = Environment.GetEnvironmentVariable("OS_API_KEY");
+            _logger.LogInformation("Gov uk API key: {govukkey}", govukkey);
+            _logger.LogInformation("Gov uk API key: {osapikey}", osapikey);
             var client = _httpClientFactory.CreateClient(nameof(CarbonCalculatorService));
             if (client.BaseAddress is null)
                 client.BaseAddress = new Uri(DEFAULT_BASE_URL);

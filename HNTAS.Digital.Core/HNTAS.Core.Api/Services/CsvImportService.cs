@@ -1,11 +1,7 @@
 ﻿
-using CsvHelper;
-using CsvHelper.Configuration;
 using HNTAS.Core.Api.Controllers;
-using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
 using MongoDB.Driver;
-using System.Globalization;
 using System.Text;
 
 
@@ -31,6 +27,41 @@ namespace HNTAS.Core.Api.Services
             _heatNetworkCollection = db.GetCollection<BsonDocument>("HeatNetworks");
             _usersCollection = db.GetCollection<BsonDocument>("Users");
             _logger = logger;
+        }
+
+
+        private static BsonValue ToDecimal128OrNull(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return BsonNull.Value;
+
+            // Use invariant culture to avoid comma vs dot decimal issues.
+            if (decimal.TryParse(value, System.Globalization.NumberStyles.Any,
+                    System.Globalization.CultureInfo.InvariantCulture, out var dec))
+            {
+                return new BsonDecimal128(dec);
+            }
+
+            return BsonNull.Value;
+        }
+
+        private static BsonValue ToDateOrNull(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return BsonNull.Value;
+
+            // Your CSV looks like dd/MM/yyyy e.g. 23/12/2025
+            if (DateTime.TryParseExact(value.Trim(),
+                    new[] { "dd/MM/yyyy", "d/M/yyyy" },
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.AssumeUniversal, out var dt))
+            {
+                return dt;
+            }
+
+            // fallback parse if formats vary
+            if (DateTime.TryParse(value, out dt))
+                return dt;
+
+            return BsonNull.Value;
         }
 
         public async Task<ImportResult> ImportFromCsvAsync(IFormFile file, CancellationToken ct = default)
@@ -79,14 +110,38 @@ namespace HNTAS.Core.Api.Services
                     string orgPostcode = GetCell(cells, headerIndex, "OrgPostcode");
                     string phoneNumber = GetCell(cells, headerIndex, "PhoneNumber");
                     string companiesHouseNo = GetCell(cells, headerIndex, "CompaniesHouseNo");
+                    string dateOfHnRegistration = GetCell(cells, headerIndex, "DateOfHnRegistration"); //hn
+                    string registeredVia = GetCell(cells, headerIndex, "RegisteredVia"); //hn
+                    string ecStreetAddress = GetCell(cells, headerIndex, "EcStreetAddress"); // hn
+                    string ecTown = GetCell(cells, headerIndex, "EcTown"); // hn
+                    string ecPostcode = GetCell(cells, headerIndex, "EcPostcode"); // hn
                     string hnId = GetCell(cells, headerIndex, "HnId");
                     string hnName = GetCell(cells, headerIndex, "HnName");
                     string ecLat = GetCell(cells, headerIndex, "ECLatitude");
                     string ecLong = GetCell(cells, headerIndex, "ECLongitude");
 
+
+                    bool missingIds =
+                        string.IsNullOrWhiteSpace(emailId) ||
+                        string.IsNullOrWhiteSpace(oneLoginId) ||
+                        string.IsNullOrWhiteSpace(hnId);
+
+                    // Has a CompaniesHouse number
+                    bool hasCompaniesHouseNo = !string.IsNullOrWhiteSpace(companiesHouseNo);
+
+                    // No CompaniesHouse number, but has OrgName + StreetAddress + Postcode
+                    bool hasOrgAddress =
+                        !string.IsNullOrWhiteSpace(organisationName) &&
+                        !string.IsNullOrWhiteSpace(orgStreetAddress) &&
+                        !string.IsNullOrWhiteSpace(orgPostcode);
+
+                    // Must have either A or B
+                    bool missingOrganisation = !(hasCompaniesHouseNo || hasOrgAddress);
+
+
                     // Validate mandatory fields
-                    if (string.IsNullOrWhiteSpace(emailId) ||
-                        string.IsNullOrWhiteSpace(companiesHouseNo) ||
+                    if (missingIds ||
+                        missingOrganisation ||
                         string.IsNullOrWhiteSpace(hnId))
                     {
                         result.Errors.Add($"Line {lineNumber}: Missing required fields.");
@@ -94,6 +149,7 @@ namespace HNTAS.Core.Api.Services
                     }
 
                     result.RowsProcessed++;
+                    var orgType = hasCompaniesHouseNo ? "UkCompaniesHouse" : "OtherUkOrganisation";
 
 
                     // STEP 1: Create or fetch user (by emailId + oneLoginId)
@@ -127,7 +183,6 @@ namespace HNTAS.Core.Api.Services
                     else
                     {
                         userId = existingUser["_id"].AsObjectId.ToString();
-                        userOrgId = existingUser.TryGetValue("orgId", out var x) ? x.AsString : null;
                         _logger.LogInformation("User {EmailId} already exists with _id {UserId}", emailId, userId);
                         result.UsersUpdated++;
                     }
@@ -143,7 +198,7 @@ namespace HNTAS.Core.Api.Services
                         var orgDoc = new BsonDocument
                         {
                             { "orgId", Guid.NewGuid().ToString() },
-                            { "type", "UkCompaniesHouse" },
+                            { "type", orgType },
                             { "companiesHouseNumber", companiesHouseNo },
                             { "name", organisationName },
                             { "registeredAddress", new BsonDocument
@@ -163,39 +218,65 @@ namespace HNTAS.Core.Api.Services
 
                         await _orgCollection.InsertOneAsync(orgDoc, cancellationToken: ct);
                         result.OrganisationsInserted++;
-                        _logger.LogInformation("Inserted Organisation CHN {CHN} with createdBy {UserId}", companiesHouseNo, userId);
+                        _logger.LogInformation("Inserted Organisation named {organisationName} with createdBy {UserId}", organisationName, userId);
                     }
                     else
                     {
-                        orgId = existingOrg.TryGetValue("orgId", out var v) ? v.AsString : null;
-                        _logger.LogInformation("Organisation CHN {CHN} already exists. Skipping.", companiesHouseNo);
+                        // companiesHouseNo cannot be same, otherUkOrganisations may have same names with different address, so not checking
+                        if (orgType == "UkCompaniesHouse")
+                        {
+                            orgId = existingOrg.TryGetValue("orgId", out var v) ? v.AsString : null;
+                            _logger.LogInformation("Organisation CHN {CHN} already exists. Skipping.", companiesHouseNo);
+                        }
+                        
                     }
 
 
                     // STEP 3: Create HeatNetwork
+
                     var hnFilter = Builders<BsonDocument>.Filter.Eq("hnId", hnId);
                     var existingHn = await _heatNetworkCollection.Find(hnFilter).FirstOrDefaultAsync(ct);
 
-                    if (existingHn == null)
+                    if (existingHn != null)
                     {
+                        _logger.LogInformation("HeatNetwork {HnId} already exists. Skipping insert.", hnId);
+                    }
+                    else
+                    {
+                        _logger.LogInformation("Inserting new HeatNetwork {HnId}", hnId);
+
                         var hnDoc = new BsonDocument
                         {
                             { "hnId", hnId },
                             { "name", hnName },
-                            { "location", $"{ecLat},{ecLong}" },
+
+                            // NEW: address block from EC* fields
+                            { "address", new BsonDocument
+                                {
+                                    { "addressLine1", ecStreetAddress ?? string.Empty },
+                                    { "addressLine2", BsonNull.Value },
+                                    { "town", ecTown ?? string.Empty },
+                                    { "county", BsonNull.Value },
+                                    { "postcode", ecPostcode ?? string.Empty },
+                                    { "country", "United Kingdom" }
+                                }
+                            },
+                            { "ecDetails", new BsonDocument
+                                {
+                                    { "latitude", ToDecimal128OrNull(ecLat) },
+                                    { "longitude", ToDecimal128OrNull(ecLong) }
+                                }
+                            },
+                            { "registeredVia", registeredVia ?? string.Empty },        // NEW
+                            { "dateOfRegistration", ToDateOrNull(dateOfHnRegistration) },
                             { "pathway", BsonNull.Value },
                             { "soa", BsonNull.Value },
-                            { "createdBy", userId },  // IMPORTANT
+                            { "createdBy", userId },
                             { "createdAt", DateTime.UtcNow }
                         };
 
                         await _heatNetworkCollection.InsertOneAsync(hnDoc, cancellationToken: ct);
                         result.HeatNetworksInserted++;
-                        _logger.LogInformation("Inserted HeatNetwork {HnId} with createdBy {UserId}", hnId, userId);
-                    }
-                    else
-                    {
-                        _logger.LogInformation("HeatNetwork {HnId} already exists. Skipping.", hnId);
                     }
 
                     // STEP 4: Update User with HN + Role mappings

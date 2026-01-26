@@ -12,11 +12,14 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonElement("hnId")]
         public string? HnId { get; set; }
 
-        [BsonElement("location")]
-        public string Location { get; set; }
-
         [BsonElement("name")]
-        public string Name { get; set; }
+        public string Name { get; set; } = string.Empty;
+
+        [BsonElement("address")]
+        public RegisteredAddress? Address { get; set; }
+
+        [BsonElement("ecDetails")]
+        public ECDetails? ECDetails { get; set; }
 
         [BsonElement("pathway")]
         public string Pathway { get; set; }

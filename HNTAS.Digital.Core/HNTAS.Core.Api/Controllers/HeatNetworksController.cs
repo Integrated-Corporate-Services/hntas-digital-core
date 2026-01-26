@@ -9,7 +9,7 @@ namespace HNTAS.Core.Api.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class HeatNetworksController : ControllerBase
+    public partial class HeatNetworksController : ControllerBase
     {
         private readonly IHeatNetworkService _hnService;
         private readonly ILogger<HeatNetworksController> _logger;
@@ -24,12 +24,11 @@ namespace HNTAS.Core.Api.Controllers
             _mapper = mapper;
         }
 
-
         /// <summary>
-        /// Retrieves a list of all users.
+        /// Retrieves a list of all heat networks available in the system.
         /// </summary>
-        /// <returns>A list of user objects.</returns>
-        [HttpGet] // This defines the route as GET /api/users
+        /// <returns>A list of heat network response objects.</returns>
+        [HttpGet] // This defines the route as GET /api/HeatNetworks
         [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<HeatNetworkResponse>))]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<List<HeatNetworkResponse>>> GetHeatNetworks()
@@ -41,7 +40,7 @@ namespace HNTAS.Core.Api.Controllers
                 var heatNetworksResponse = _mapper.Map<List<HeatNetworkResponse>>(heatNetworks);
                 _logger.LogInformation("Successfully retrieved {HeatNetworkCount} heatNetworks.", heatNetworks.Count);
 
-                return Ok(heatNetworksResponse); // Returns 200 OK with the list of users
+                return Ok(heatNetworksResponse); // Returns 200 OK with the list of heat networks
             }
             catch (Exception ex)
             {
@@ -130,19 +129,10 @@ namespace HNTAS.Core.Api.Controllers
         [HttpPost("add-heat-network")]
         [Consumes(MediaTypeNames.Application.Json)]
         [ProducesResponseType(typeof(HeatNetworkResponse), StatusCodes.Status201Created)]
-        [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(StatusCodes.Status409Conflict)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<HeatNetworkResponse>> AddHeatNetwork([FromBody] HeatNetwork heatNetworkDetails)
         {
-            //if (!ModelState.IsValid)
-            //{
-            //    _logger.LogWarning("Invalid initial registration data for UserId: {UserId}, EmailId: {EmailId}. Errors: {Errors}",
-            //        registrationData.OneLoginId, registrationData.EmailId, string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
-            //    return ValidationProblem(ModelState);
-            //}
-
             try
             {
                 if (String.IsNullOrWhiteSpace(heatNetworkDetails.HnId))
@@ -151,7 +141,6 @@ namespace HNTAS.Core.Api.Controllers
                     var heatNetworkId = $"HN{sequenceID:D7}";
                     heatNetworkDetails.HnId = heatNetworkId;
                     _logger.LogInformation("Generated new heat network ID: {HeatNetworkId}", heatNetworkDetails.HnId);
-
                 }
 
                 await _hnService.CreateAsync(heatNetworkDetails);
@@ -159,19 +148,8 @@ namespace HNTAS.Core.Api.Controllers
 
                 return CreatedAtAction(nameof(AddHeatNetwork), new { id = heatNetworkDetails.Id }, heatNetworkDetails);
             }
-            //catch (MongoWriteException ex) when (ex.WriteError.Category == ServerErrorCategory.DuplicateKey)
-            //{
-            //    _logger.LogWarning(ex, "Duplicate key error during initial user registration for UserId: {UserId}, EmailId: {EmailId}", registrationData.OneLoginId, registrationData.EmailId);
-            //    return Conflict(new ProblemDetails
-            //    {
-            //        Status = StatusCodes.Status409Conflict,
-            //        Title = "User Already Exists",
-            //        Detail = $"A user with the provided UserId ({registrationData.OneLoginId}) or EmailId ({registrationData.EmailId}) already exists."
-            //    });
-            //}
             catch (Exception ex)
             {
-                //_logger.LogError(ex, "Unexpected error during initial user registration for UserId: {UserId}, EmailId: {EmailId}", registrationData.OneLoginId, registrationData.EmailId);
                 return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
                 {
                     Status = StatusCodes.Status500InternalServerError,

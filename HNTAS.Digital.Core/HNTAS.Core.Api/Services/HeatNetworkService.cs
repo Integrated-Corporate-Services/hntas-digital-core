@@ -36,5 +36,22 @@ namespace HNTAS.Core.Api.Services
             var filter = Builders<HeatNetwork>.Filter.In(hn => hn.HnId, hnIds);
             return await _hnCollection.Find(filter).ToListAsync();
         }
+
+        public async Task<List<HeatNetwork>> GetByDateRangeAsync(DateTime fromDate, DateTime toDate)
+        {
+            // GOV.UK/ISO 8601 standard: Ensure we cover the full 'to' day
+            // This sets toDate to 23:59:59 of that day
+            var endOfDay = toDate.Date.AddDays(1).AddTicks(-1);
+
+            var filter = Builders<HeatNetwork>.Filter.And(
+                Builders<HeatNetwork>.Filter.Gte(x => x.CreatedAt, fromDate.Date),
+                Builders<HeatNetwork>.Filter.Lte(x => x.CreatedAt, endOfDay)
+            );
+
+            return await _hnCollection
+                .Find(filter)
+                .SortByDescending(x => x.CreatedAt) // Standard practice: show newest first
+                .ToListAsync();
+        }
     }
 }

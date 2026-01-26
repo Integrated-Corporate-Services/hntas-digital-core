@@ -18,11 +18,11 @@ namespace HNTAS.Core.Api.Services
         {
             // Retrieve API key from configuration
             _apiKey = Environment.GetEnvironmentVariable("GOV_NOTIFY_API_KEY") ?? throw new ArgumentNullException(
-                "GOV.UK Notify API key 'GovUkNotify:ApiKey' is not configured.");
+                "GOV.UK Notify API key 'GovUkNotify:ApiKey' is not configured.");           
 
             // Initialize the official GOV.UK Notify client
             _notificationClient = new NotificationClient(_apiKey);
-            _logger = logger;
+            _logger = logger;            
         }
 
         /// <summary>

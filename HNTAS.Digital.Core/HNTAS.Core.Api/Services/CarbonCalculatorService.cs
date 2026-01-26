@@ -47,37 +47,35 @@ namespace HNTAS.Core.Api.Services
         }
 
         private async Task<string> GetUuid(string hnId, HttpClient client, CancellationToken ct)
-        {
+        {            
             var getUuidRequestBody = new { token = API_TOKEN, network_id = hnId };
             using var content = new StringContent(System.Text.Json.JsonSerializer.Serialize(getUuidRequestBody),
                                                  Encoding.UTF8, "application/json");
-
             var response = await client.PostAsync(UUID_ENDPOINT, content, ct);
-            var contentStr = await response.Content.ReadAsStringAsync(ct);
+            var contentStr = await response.Content.ReadAsStringAsync(ct);            
             if (!response.IsSuccessStatusCode)
             {
                 _logger.LogError(contentStr);
                 return "";
-            }
+            }            
             return contentStr;
         }
 
         // Fix for CS1503: Use JsonSerializer to serialize the request object to JSON string, then parse it as JsonNode
         public async Task<CarbonCalculatorResponse?> RunAsync(CarbonCalculatorRequest request, CancellationToken ct = default)
-        {
+        {            
             var hnId = request.Background.NetworkID;
             if (string.IsNullOrWhiteSpace(API_TOKEN))
             {
                 _logger.LogError("API token not configured. Set {EnvVar}.", API_TOKEN);
                 return null;
-            }
-
+            }            
             var client = _httpClientFactory.CreateClient(nameof(CarbonCalculatorService));
             if (client.BaseAddress is null)
                 client.BaseAddress = new Uri(DEFAULT_BASE_URL);
             client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
             string uuid = await GetUuid(hnId, client, ct);
-                
+            
             try
             {
                 // Serialize the request object to JSON string, then parse it as JsonNode
@@ -96,12 +94,11 @@ namespace HNTAS.Core.Api.Services
                     WriteIndented = false,
                     DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
                 });
-
+                
                 using var req = new HttpRequestMessage(HttpMethod.Post, CALC_ENDPOINT)
                 {
                     Content = new StringContent(json, Encoding.UTF8, "application/json")
-                };
-
+                };                
                 var resp = await client.SendAsync(req, ct);
                 var body = await resp.Content.ReadAsStringAsync(ct);
 
@@ -113,16 +110,12 @@ namespace HNTAS.Core.Api.Services
 
                 using var doc = JsonDocument.Parse(body);
                 var root = doc.RootElement;
-
+                var formatted = JsonSerializer.Serialize(doc, new JsonSerializerOptions { WriteIndented = true });                
                 JsonElement calculation;
-                if (root.TryGetProperty("result", out var result) &&
-                    result.TryGetProperty("calculation", out calculation))
+                if (!root.TryGetProperty("calculation", out calculation))
                 {
-                    // Found under result.calculation
-                }
-                else if (!root.TryGetProperty("calculation", out calculation))
-                {
-                    _logger.LogError("Missing 'calculation' in response.");
+                    var formattedRoot = JsonSerializer.Serialize(root, new JsonSerializerOptions { WriteIndented = true });
+                    _logger.LogError("Missing 'calculation' in response : {formattedRoot}", formattedRoot );
                     return null;
                 }
 
@@ -136,7 +129,7 @@ namespace HNTAS.Core.Api.Services
 
                 var str = arr[0].GetString();
                 if (decimal.TryParse(str, NumberStyles.Any, CultureInfo.InvariantCulture, out var intensity))
-                {
+                {                    
                     var hnCarbonCalculation = new HnCarbonCalculation
                     {
                         HnId = hnId,

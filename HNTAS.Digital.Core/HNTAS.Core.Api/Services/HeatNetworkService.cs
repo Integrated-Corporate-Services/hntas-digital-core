@@ -138,7 +138,7 @@ namespace HNTAS.Core.Api.Services
                     { "_id", new BsonDocument("$toString", "$_id") },
                     { "hnId", 1 },
                     { "hnName", "$name" },
-                    { "registrationSource", new BsonDocument("$literal", "Manual") },
+                    { "registrationSource", 1 },
                     { "pathway", 1 },
                     { "createdAt", 1 },
                     { "createdBy", 1 },

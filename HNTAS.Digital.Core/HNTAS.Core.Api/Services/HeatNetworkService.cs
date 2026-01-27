@@ -1,7 +1,9 @@
 ﻿using HNTAS.Core.Api.Configuration;
 using HNTAS.Core.Api.Data.Models;
+using HNTAS.Core.Api.Data.Models.External;
 using HNTAS.Core.Api.Interfaces;
 using Microsoft.Extensions.Options;
+using MongoDB.Bson;
 using MongoDB.Driver;
 
 namespace HNTAS.Core.Api.Services
@@ -52,6 +54,123 @@ namespace HNTAS.Core.Api.Services
                 .Find(filter)
                 .SortByDescending(x => x.CreatedAt) // Standard practice: show newest first
                 .ToListAsync();
+        }
+
+
+        public async Task<HeatNetworkExternalResponse> GetDetailsByHnIdAsync(string hnId)
+        {
+            var matchStage = new BsonDocument("$match", new BsonDocument("hnId", hnId));
+
+            using (var cursor = GetHeatNetworkDetailsPipeline(matchStage))
+            {
+                return await cursor.FirstOrDefaultAsync();
+            }
+        }
+
+        public async Task<List<HeatNetworkExternalResponse>> GetDetailsAsync()
+        {
+            // An empty BsonDocument acts as a "match all" filter
+            var matchStage = new BsonDocument("$match", new BsonDocument());
+
+            using (var cursor = GetHeatNetworkDetailsPipeline(matchStage))
+            {
+                return await cursor.ToListAsync();
+            }
+        }
+
+        public async Task<List<HeatNetworkExternalResponse>> GetDetailsByDateRangeAsync(DateTime fromDate, DateTime toDate)
+        {
+            var endOfDay = toDate.Date.AddDays(1).AddTicks(-1);
+            var matchStage = new BsonDocument("$match", new BsonDocument("createdAt",
+                new BsonDocument
+                {
+                    { "$gte", fromDate.Date },
+                    { "$lte", endOfDay }
+                }));
+
+            using (var cursor = GetHeatNetworkDetailsPipeline(matchStage))
+            {
+                return await cursor.ToListAsync();
+            }
+        }
+
+        private IAsyncCursor<HeatNetworkExternalResponse> GetHeatNetworkDetailsPipeline(BsonDocument matchStage)
+        {
+            var pipeline = new List<BsonDocument>
+            {
+                // 1. Initial Filter
+                matchStage,
+
+                // 2. Lookup Organisation (linked via hnId in the hnIds array)
+                new BsonDocument("$lookup", new BsonDocument
+                {
+                    { "from", "Organisations" },
+                    { "localField", "hnId" },
+                    { "foreignField", "hnIds" },
+                    { "as", "rpDocs" }
+                }),
+
+                new BsonDocument("$unwind", new BsonDocument
+                {
+                    { "path", "$rpDocs" },
+                    { "preserveNullAndEmptyArrays", true }
+                }),
+
+                // 3. Lookup User (using rpUserId from the Organisation document)
+                // This is where we get the emailId from
+                new BsonDocument("$lookup", new BsonDocument
+                {
+                    { "from", "Users" },
+                    { "localField", "rpDocs.rpUserId" },
+                    { "foreignField", "_id" },
+                    { "as", "userDocs" }
+                }),
+
+                new BsonDocument("$unwind", new BsonDocument
+                {
+                    { "path", "$userDocs" },
+                    { "preserveNullAndEmptyArrays", true }
+                }),
+
+                // 4. Final Projection
+                new BsonDocument("$project", new BsonDocument
+                {
+                    { "_id", new BsonDocument("$toString", "$_id") },
+                    { "hnId", 1 },
+                    { "hnName", "$name" },
+                    { "registrationSource", 1 },
+                    { "pathway", 1 },
+                    { "createdAt", 1 },
+                    { "createdBy", 1 },
+
+                    { "soa", new BsonDocument("status", "$soa") },
+
+                    { "energyCentre", new BsonDocument
+                        {
+                            { "latitude", new BsonDocument("$toString", "$ecDetails.latitude") },
+                            { "longitude", new BsonDocument("$toString", "$ecDetails.longitude") },
+                            { "address", "$address" }
+                        }
+                    },
+
+                    // Map RP Details (using data from both the Org join and the User join)
+                    { "rpDetails", new BsonDocument("$cond", new BsonArray
+                        {
+                            new BsonDocument("$not", "$rpDocs"),
+                            BsonNull.Value,
+                            new BsonDocument
+                            {
+                                { "orgId", "$rpDocs.orgId" },
+                                { "orgName", "$rpDocs.name" },
+                                { "emailId", "$userDocs.emailId" }, // Pulled from the User join
+                                { "orgAddress", "$rpDocs.registeredAddress" }
+                            }
+                        })
+                    }
+                })
+            };
+
+            return _hnCollection.Aggregate<HeatNetworkExternalResponse>(pipeline);
         }
     }
 }

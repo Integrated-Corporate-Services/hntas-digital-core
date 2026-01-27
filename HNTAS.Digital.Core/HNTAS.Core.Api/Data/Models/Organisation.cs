@@ -44,6 +44,7 @@ namespace HNTAS.Core.Api.Data.Models
         public DateTime? LastModifiedAt { get; set; }
 
         [BsonElement("rpUserId")]
+        [BsonRepresentation(BsonType.ObjectId)]
         public string? RpUserId { get; set; }
     }
 

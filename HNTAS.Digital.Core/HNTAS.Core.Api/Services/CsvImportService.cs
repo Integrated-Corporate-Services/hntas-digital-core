@@ -1,5 +1,6 @@
 ﻿
 using HNTAS.Core.Api.Controllers;
+using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Interfaces;
 using MongoDB.Bson;
 using MongoDB.Driver;
@@ -19,53 +20,27 @@ namespace HNTAS.Core.Api.Services
         private readonly IMongoCollection<BsonDocument> _heatNetworkCollection;
         private readonly IMongoCollection<BsonDocument> _usersCollection;
         private readonly IOrganisationService _organisationService;
+        private readonly IUserService _userService;
+        private readonly IHeatNetworkService _heatNetworkService;
+        private readonly ICounterService _orgCounterService;
         private readonly ILogger<CsvImportService> _logger;
 
         public CsvImportService(
             IMongoDatabase db,
             IOrganisationService organisationService,
+            IUserService userService,
+            IHeatNetworkService heatNetworkService,
+            ICounterService orgCounterService,
             ILogger<CsvImportService> logger)
         {
             _orgCollection = db.GetCollection<BsonDocument>("Organisations");
             _heatNetworkCollection = db.GetCollection<BsonDocument>("HeatNetworks");
             _usersCollection = db.GetCollection<BsonDocument>("Users");
             _organisationService = organisationService;
+            _userService = userService;
+            _heatNetworkService = heatNetworkService;
+            _orgCounterService = orgCounterService;
             _logger = logger;
-        }
-
-
-        private static BsonValue ToDecimal128OrNull(string? value)
-        {
-            if (string.IsNullOrWhiteSpace(value)) return BsonNull.Value;
-
-            // Use invariant culture to avoid comma vs dot decimal issues.
-            if (decimal.TryParse(value, System.Globalization.NumberStyles.Any,
-                    System.Globalization.CultureInfo.InvariantCulture, out var dec))
-            {
-                return new BsonDecimal128(dec);
-            }
-
-            return BsonNull.Value;
-        }
-
-        private static BsonValue ToDateOrNull(string? value)
-        {
-            if (string.IsNullOrWhiteSpace(value)) return BsonNull.Value;
-
-            // Your CSV looks like dd/MM/yyyy e.g. 23/12/2025
-            if (DateTime.TryParseExact(value.Trim(),
-                    new[] { "dd/MM/yyyy", "d/M/yyyy" },
-                    System.Globalization.CultureInfo.InvariantCulture,
-                    System.Globalization.DateTimeStyles.AssumeUniversal, out var dt))
-            {
-                return dt;
-            }
-
-            // fallback parse if formats vary
-            if (DateTime.TryParse(value, out dt))
-                return dt;
-
-            return BsonNull.Value;
         }
 
         public async Task<ImportResult> ImportFromCsvAsync(IFormFile file, CancellationToken ct = default)
@@ -103,6 +78,7 @@ namespace HNTAS.Core.Api.Services
 
                 try
                 {
+                    #region Reading CSV line
                     var cells = SplitCsvLine(line);
 
                     // Extract CSV fields
@@ -114,17 +90,20 @@ namespace HNTAS.Core.Api.Services
                     string orgPostcode = GetCell(cells, headerIndex, "OrgPostcode");
                     string phoneNumber = GetCell(cells, headerIndex, "PhoneNumber");
                     string companiesHouseNo = GetCell(cells, headerIndex, "CompaniesHouseNo");
-                    string dateOfHnRegistration = GetCell(cells, headerIndex, "DateOfHnRegistration"); //hn
-                    string registeredVia = GetCell(cells, headerIndex, "RegisteredVia"); //hn
-                    string ecStreetAddress = GetCell(cells, headerIndex, "EcStreetAddress"); // hn
-                    string ecTown = GetCell(cells, headerIndex, "EcTown"); // hn
-                    string ecPostcode = GetCell(cells, headerIndex, "EcPostcode"); // hn
+                    string dateOfOrgRegistration = GetCell(cells, headerIndex, "DateOfRegistration");
                     string hnId = GetCell(cells, headerIndex, "HnId");
                     string hnName = GetCell(cells, headerIndex, "HnName");
+                    string dateOfHnRegistration = GetCell(cells, headerIndex, "DateOfHnRegistration");
+                    string registrationSource = GetCell(cells, headerIndex, "RegistrationSource");
+                    string ecStreetAddress = GetCell(cells, headerIndex, "EcStreetAddress");
+                    string ecTown = GetCell(cells, headerIndex, "EcTown");
+                    string ecPostcode = GetCell(cells, headerIndex, "EcPostcode");                  
                     string ecLat = GetCell(cells, headerIndex, "ECLatitude");
                     string ecLong = GetCell(cells, headerIndex, "ECLongitude");
 
+                    #endregion
 
+                    #region Validating mandatory fields
                     bool missingIds =
                         string.IsNullOrWhiteSpace(emailId) ||
                         string.IsNullOrWhiteSpace(oneLoginId) ||
@@ -152,149 +131,93 @@ namespace HNTAS.Core.Api.Services
                     }
 
                     result.RowsProcessed++;
-                    var orgType = hasCompaniesHouseNo ? "UkCompaniesHouse" : "OtherUkOrganisation";
-
+                    #endregion
 
                     // STEP 1: Create or fetch user (by emailId + oneLoginId)
-                    var userFilter = Builders<BsonDocument>.Filter.Eq("emailId", emailId);
-                    var existingUser = await _usersCollection.Find(userFilter).FirstOrDefaultAsync(ct);
+                    User existingUser = await _userService.GetByEmailAsync(emailId);
+                    var orgType = hasCompaniesHouseNo ? HNTAS.Core.Api.Enums.OrganisationType.UkCompaniesHouse : HNTAS.Core.Api.Enums.OrganisationType.OtherUkOrganisation;
                     string userId;
                     string userOrgId = "";
 
                     if (existingUser == null)
                     {
                         // Create a minimal user first
-                        var newUser = new BsonDocument
+                        var newUser = new User
                         {
-                            { "emailId", emailId },
-                            { "oneloginId", oneLoginId },
-                            { "preferredContactType", "Mobile" },
-                            { "landlineNumber", BsonNull.Value },
-                            { "mobileNumber", phoneNumber },
-                            { "roles", new BsonArray() },  // empty for now
-                            { "hnRoleMappings", new BsonArray() },
-                            { "status", "Active" },
-                            { "createdAt", DateTime.UtcNow }
+                            EmailId = emailId,
+                            OneLoginId = oneLoginId,
+                            PreferredContactType = HNTAS.Core.Api.Enums.PreferredContactType.Mobile,
+                            LandlineNumber = null,
+                            MobileNumber = phoneNumber,
+                            Roles = new List<HNTAS.Core.Api.Enums.UserRole>(),  // empty for now
+                            HnRoleMappings = new List<HnRoleMapping>(),
+                            Status = HNTAS.Core.Api.Enums.UserStatus.Active,
+                            CreatedAt = DateTime.UtcNow
                         };
 
-                        await _usersCollection.InsertOneAsync(newUser, cancellationToken: ct);
-                        userId = newUser["_id"].AsObjectId.ToString();
-
-                        _logger.LogInformation("Created new User {EmailId}.", emailId);
+                        await _userService.CreateAsync(newUser);                        
+                        userId = newUser.Id;
+                        _logger.LogInformation("Created new User {userId}.", userId);
                         result.UsersInserted++;
                     }
                     else
                     {
-                        userId = existingUser["_id"].AsObjectId.ToString();
-                        userOrgId = existingUser["orgId"].ToString();
-                        _logger.LogInformation("User {EmailId} already exists.", emailId);
+                        userId = existingUser.Id;
+                        userOrgId = existingUser.OrgId;
+                        _logger.LogInformation("User {userId} already exists.", userId);
                         result.UsersUpdated++;
-                    }
-
-                    // Step 2.1: Creating proper org filter
-
-                    // Normalize helpers (trim + lower, but keep null as null)
-                    static string? Norm(string? s) =>
-                        string.IsNullOrWhiteSpace(s) ? null : s.Trim().ToLowerInvariant();
-
-                    // Inputs from CSV (or your DTO)
-                    var chNo = string.IsNullOrWhiteSpace(companiesHouseNo) ? null : companiesHouseNo;
-                    var normOrgName = Norm(organisationName);
-                    var normStreet = Norm(orgStreetAddress);
-                    var normPostcode = Norm(orgPostcode);
-
-                    // Build filters
-                    var f = Builders<BsonDocument>.Filter;
-
-                    // If Companies House Number exists, use that as primary key
-                    FilterDefinition<BsonDocument> chFilter = null;
-                    if (!string.IsNullOrWhiteSpace(chNo))
-                    {
-                        chFilter = f.Eq("companiesHouseNumber", chNo);
-                    }
-
-                    // Fallback identity: orgName + street + postcode (normalized)
-                    FilterDefinition<BsonDocument> nameAddrPcFilter = null;
-                    if (normOrgName != null && normStreet != null && normPostcode != null)
-                    {
-                        nameAddrPcFilter =
-                            f.Eq("norm.orgName", normOrgName) &
-                            f.Eq("norm.street", normStreet) &
-                            f.Eq("norm.postcode", normPostcode);
-                    }
-
-                    // Combine: if both are available, use OR; if only one, use that one
-                    FilterDefinition<BsonDocument> orgFilter = null;
-
-                    if (chFilter != null)
-                        orgFilter = chFilter;
-                    else if (chFilter == null)
-                        orgFilter = nameAddrPcFilter;
-                    else
-                    {
-                        // You have neither CH number nor a complete name+address+postcode → cannot search reliably
-                        // Decide whether to skip or throw a validation error.
-                        result.Errors.Add($"Line {lineNumber}: Missing identity (companiesHouseNo OR orgName+streetAddress+postCode).");
-                        continue;
-                    }
-
+                    }                    
 
                     // STEP 2.2: Create Organisation
-                    var existingOrg = await _orgCollection.Find(orgFilter).FirstOrDefaultAsync(ct);
-                    var orgId = "";
 
+                    Organisation existingOrg = null;
+                    if(orgType == HNTAS.Core.Api.Enums.OrganisationType.UkCompaniesHouse)
+                        existingOrg = await _organisationService.GetByIdAsync(companiesHouseNo);
+                    else if(orgType == HNTAS.Core.Api.Enums.OrganisationType.OtherUkOrganisation)
+                        existingOrg = await _organisationService.GetByOrgIdOrNameAsync(organisationName);
+                    var orgId = "";
                     if (existingOrg == null)
                     {
-                        orgId = Guid.NewGuid().ToString();
-                        var orgDoc = new BsonDocument
+                        Organisation newOrg = new Organisation
                         {
-                            { "orgId", orgId },
-                            { "type", orgType },
-                            { "companiesHouseNumber", companiesHouseNo },
-                            { "name", organisationName },
-                            { "registeredAddress", new BsonDocument
-                                {
-                                    { "addressLine1", orgStreetAddress },
-                                    { "addressLine2", "" },
-                                    { "town", orgTown },
-                                    { "county", BsonNull.Value },
-                                    { "postcode", orgPostcode },
-                                    { "country", "United Kingdom" }
-                                }
+                            Type = orgType,
+                            OrgId = $"ORG{await _orgCounterService.GetNextSequenceValue("orgId_sequence"):D7}",
+                            CompaniesHouseNumber = hasCompaniesHouseNo ? companiesHouseNo : null,
+                            Name = organisationName,
+                            RegisteredAddress = new RegisteredAddress
+                            {
+                                AddressLine1 = orgStreetAddress,
+                                AddressLine2 = null,
+                                Town = orgTown,
+                                County = null,
+                                Postcode = orgPostcode,
+                                Country = "United Kingdom"
                             },
-                            { "hnIds", new BsonArray { hnId } },
-                            { "createdBy", userId },   // IMPORTANT
-                            { "createdAt", DateTime.UtcNow }
+                            HnIds = new List<string> { hnId },
+                            CreatedBy = userId,
+                            CreatedAt = string.IsNullOrWhiteSpace(dateOfOrgRegistration) ? DateTime.UtcNow : DateTime.ParseExact(dateOfHnRegistration, new[] { "dd/MM/yyyy", "d/M/yyyy" }, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AssumeUniversal)
                         };
 
-                        await _orgCollection.InsertOneAsync(orgDoc, cancellationToken: ct);
+                        await _organisationService.CreateAsync(newOrg);
+                        orgId = newOrg.OrgId;
                         result.OrganisationsInserted++;
                         _logger.LogInformation("Inserted Organisation named {organisationName}.", organisationName);
                     }
                     else
                     {
-                        orgId = existingOrg.TryGetValue("orgId", out var v) ? v.AsString : null;
+                        orgId = existingOrg.OrgId;
                         _logger.LogInformation("Organisation CHN already exists. Skipping.");
                     }
 
                     if (string.IsNullOrEmpty(userOrgId) && !string.IsNullOrWhiteSpace(orgId))
                     {
-                        var updateUserWithOrg = Builders<BsonDocument>.Update
-                            .Set("orgId", orgId);
-
-                        await _usersCollection.UpdateOneAsync(
-                            Builders<BsonDocument>.Filter.Eq("_id", ObjectId.Parse(userId)),
-                            updateUserWithOrg,
-                            cancellationToken: ct
-                        );
-
-                        _logger.LogInformation("Updated new user {EmailId}.", emailId, orgId);
+                        await _userService.UpdateOrgIdAsync(userId, orgId);
+                        _logger.LogInformation("Updated new user {userId}.", userId);
                     }
 
                     // STEP 3: Create HeatNetwork
-
-                    var hnFilter = Builders<BsonDocument>.Filter.Eq("hnId", hnId);
-                    var existingHn = await _heatNetworkCollection.Find(hnFilter).FirstOrDefaultAsync(ct);
+                                        
+                    var existingHn = await _heatNetworkService.GetByHnIdAsync(hnId);
 
                     if (existingHn != null)
                     {
@@ -302,37 +225,31 @@ namespace HNTAS.Core.Api.Services
                     }
                     else
                     {
-                        var hnDoc = new BsonDocument
+                        HeatNetwork newHn = new HeatNetwork
                         {
-                            { "hnId", hnId },
-                            { "name", hnName },
-
-                            // NEW: address block from EC* fields
-                            { "address", new BsonDocument
-                                {
-                                    { "addressLine1", ecStreetAddress ?? string.Empty },
-                                    { "addressLine2", BsonNull.Value },
-                                    { "town", ecTown ?? string.Empty },
-                                    { "county", BsonNull.Value },
-                                    { "postcode", ecPostcode ?? string.Empty },
-                                    { "country", "United Kingdom" }
-                                }
+                            HnId = hnId,
+                            Name = hnName,
+                            Address = new RegisteredAddress
+                            {
+                                AddressLine1 = ecStreetAddress ?? string.Empty,
+                                AddressLine2 = null,
+                                Town = ecTown ?? string.Empty,
+                                County = null,
+                                Postcode =  ecPostcode ?? string.Empty,
+                                Country = "United Kingdom"
                             },
-                            { "ecDetails", new BsonDocument
-                                {
-                                    { "latitude", ToDecimal128OrNull(ecLat) },
-                                    { "longitude", ToDecimal128OrNull(ecLong) }
-                                }
+                            ECDetails = new ECDetails
+                            {
+                                Latitude = string.IsNullOrWhiteSpace(ecLat) ? (decimal?)null : decimal.Parse(ecLat, System.Globalization.CultureInfo.InvariantCulture),
+                                Longitude = string.IsNullOrWhiteSpace(ecLong) ? (decimal?)null : decimal.Parse(ecLong, System.Globalization.CultureInfo.InvariantCulture)
                             },
-                            { "registeredVia", registeredVia ?? string.Empty },        // NEW
-                            { "dateOfRegistration", ToDateOrNull(dateOfHnRegistration) },
-                            { "pathway", BsonNull.Value },
-                            { "soa", BsonNull.Value },
-                            { "createdBy", userId },
-                            { "createdAt", DateTime.UtcNow }
+                            RegistrationSource = HNTAS.Core.Api.Enums.RegistrationSource.OFGEM,
+                            Pathway = null,
+                            Soa = null,
+                            CreatedBy = userId,
+                            CreatedAt = string.IsNullOrWhiteSpace(dateOfHnRegistration) ? DateTime.UtcNow : DateTime.ParseExact(dateOfHnRegistration, new[] { "dd/MM/yyyy", "d/M/yyyy" }, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AssumeUniversal)
                         };
-
-                        await _heatNetworkCollection.InsertOneAsync(hnDoc, cancellationToken: ct);
+                        await _heatNetworkService.CreateAsync(newHn);
                         result.HeatNetworksInserted++;
                     }
 

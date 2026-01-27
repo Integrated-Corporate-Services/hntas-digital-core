@@ -1,5 +1,6 @@
 ﻿
 using HNTAS.Core.Api.Controllers;
+using HNTAS.Core.Api.Interfaces;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using System.Text;
@@ -17,15 +18,18 @@ namespace HNTAS.Core.Api.Services
         private readonly IMongoCollection<BsonDocument> _orgCollection;
         private readonly IMongoCollection<BsonDocument> _heatNetworkCollection;
         private readonly IMongoCollection<BsonDocument> _usersCollection;
+        private readonly IOrganisationService _organisationService;
         private readonly ILogger<CsvImportService> _logger;
 
         public CsvImportService(
             IMongoDatabase db,
+            IOrganisationService organisationService,
             ILogger<CsvImportService> logger)
         {
             _orgCollection = db.GetCollection<BsonDocument>("Organisations");
             _heatNetworkCollection = db.GetCollection<BsonDocument>("HeatNetworks");
             _usersCollection = db.GetCollection<BsonDocument>("Users");
+            _organisationService = organisationService;
             _logger = logger;
         }
 
@@ -138,7 +142,6 @@ namespace HNTAS.Core.Api.Services
                     // Must have either A or B
                     bool missingOrganisation = !(hasCompaniesHouseNo || hasOrgAddress);
 
-
                     // Validate mandatory fields
                     if (missingIds ||
                         missingOrganisation ||
@@ -183,21 +186,69 @@ namespace HNTAS.Core.Api.Services
                     else
                     {
                         userId = existingUser["_id"].AsObjectId.ToString();
+                        userOrgId = existingUser["orgId"].ToString();
                         _logger.LogInformation("User {EmailId} already exists.", emailId);
                         result.UsersUpdated++;
                     }
 
+                    // Step 2.1: Creating proper org filter
 
-                    // STEP 2: Create Organisation
-                    var orgFilter = Builders<BsonDocument>.Filter.Eq("companiesHouseNumber", companiesHouseNo);
+                    // Normalize helpers (trim + lower, but keep null as null)
+                    static string? Norm(string? s) =>
+                        string.IsNullOrWhiteSpace(s) ? null : s.Trim().ToLowerInvariant();
+
+                    // Inputs from CSV (or your DTO)
+                    var chNo = string.IsNullOrWhiteSpace(companiesHouseNo) ? null : companiesHouseNo;
+                    var normOrgName = Norm(organisationName);
+                    var normStreet = Norm(orgStreetAddress);
+                    var normPostcode = Norm(orgPostcode);
+
+                    // Build filters
+                    var f = Builders<BsonDocument>.Filter;
+
+                    // If Companies House Number exists, use that as primary key
+                    FilterDefinition<BsonDocument> chFilter = null;
+                    if (!string.IsNullOrWhiteSpace(chNo))
+                    {
+                        chFilter = f.Eq("companiesHouseNumber", chNo);
+                    }
+
+                    // Fallback identity: orgName + street + postcode (normalized)
+                    FilterDefinition<BsonDocument> nameAddrPcFilter = null;
+                    if (normOrgName != null && normStreet != null && normPostcode != null)
+                    {
+                        nameAddrPcFilter =
+                            f.Eq("norm.orgName", normOrgName) &
+                            f.Eq("norm.street", normStreet) &
+                            f.Eq("norm.postcode", normPostcode);
+                    }
+
+                    // Combine: if both are available, use OR; if only one, use that one
+                    FilterDefinition<BsonDocument> orgFilter = null;
+
+                    if (chFilter != null)
+                        orgFilter = chFilter;
+                    else if (chFilter == null)
+                        orgFilter = nameAddrPcFilter;
+                    else
+                    {
+                        // You have neither CH number nor a complete name+address+postcode → cannot search reliably
+                        // Decide whether to skip or throw a validation error.
+                        result.Errors.Add($"Line {lineNumber}: Missing identity (companiesHouseNo OR orgName+streetAddress+postCode).");
+                        continue;
+                    }
+
+
+                    // STEP 2.2: Create Organisation
                     var existingOrg = await _orgCollection.Find(orgFilter).FirstOrDefaultAsync(ct);
                     var orgId = "";
 
                     if (existingOrg == null)
                     {
+                        orgId = Guid.NewGuid().ToString();
                         var orgDoc = new BsonDocument
                         {
-                            { "orgId", Guid.NewGuid().ToString() },
+                            { "orgId", orgId },
                             { "type", orgType },
                             { "companiesHouseNumber", companiesHouseNo },
                             { "name", organisationName },
@@ -222,15 +273,23 @@ namespace HNTAS.Core.Api.Services
                     }
                     else
                     {
-                        // companiesHouseNo cannot be same, otherUkOrganisations may have same names with different address, so not checking
-                        if (orgType == "UkCompaniesHouse")
-                        {
-                            orgId = existingOrg.TryGetValue("orgId", out var v) ? v.AsString : null;
-                            _logger.LogInformation("Organisation CHN already exists. Skipping.");
-                        }
-                        
+                        orgId = existingOrg.TryGetValue("orgId", out var v) ? v.AsString : null;
+                        _logger.LogInformation("Organisation CHN already exists. Skipping.");
                     }
 
+                    if (string.IsNullOrEmpty(userOrgId) && !string.IsNullOrWhiteSpace(orgId))
+                    {
+                        var updateUserWithOrg = Builders<BsonDocument>.Update
+                            .Set("orgId", orgId);
+
+                        await _usersCollection.UpdateOneAsync(
+                            Builders<BsonDocument>.Filter.Eq("_id", ObjectId.Parse(userId)),
+                            updateUserWithOrg,
+                            cancellationToken: ct
+                        );
+
+                        _logger.LogInformation("Updated new user {EmailId}.", emailId, orgId);
+                    }
 
                     // STEP 3: Create HeatNetwork
 
@@ -303,21 +362,6 @@ namespace HNTAS.Core.Api.Services
                         _logger.LogInformation("Appended hnRoleMapping for user.");
                     else
                         _logger.LogInformation("User {EmailId} already has hnRoleMapping for this heat network skipped", emailId, hnId);
-                    
-                    if (string.IsNullOrEmpty(userOrgId) && !string.IsNullOrWhiteSpace(orgId))
-                    {
-                        var updateUserWithOrg = Builders<BsonDocument>.Update
-                            .Set("orgId", orgId);
-
-                        await _usersCollection.UpdateOneAsync(
-                            Builders<BsonDocument>.Filter.Eq("_id", ObjectId.Parse(userId)),
-                            updateUserWithOrg,
-                            cancellationToken: ct
-                        );
-
-                        _logger.LogInformation("Updated new user {EmailId}.", emailId, orgId);
-                    }
-
                 }
                 catch (Exception ex)
                 {

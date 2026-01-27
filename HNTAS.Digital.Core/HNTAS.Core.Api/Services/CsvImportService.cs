@@ -177,13 +177,13 @@ namespace HNTAS.Core.Api.Services
                         await _usersCollection.InsertOneAsync(newUser, cancellationToken: ct);
                         userId = newUser["_id"].AsObjectId.ToString();
 
-                        _logger.LogInformation("Created new User {EmailId} with _id {UserId}", emailId, userId);
+                        _logger.LogInformation("Created new User {EmailId}.", emailId);
                         result.UsersInserted++;
                     }
                     else
                     {
                         userId = existingUser["_id"].AsObjectId.ToString();
-                        _logger.LogInformation("User {EmailId} already exists with _id {UserId}", emailId, userId);
+                        _logger.LogInformation("User {EmailId} already exists.", emailId);
                         result.UsersUpdated++;
                     }
 
@@ -218,7 +218,7 @@ namespace HNTAS.Core.Api.Services
 
                         await _orgCollection.InsertOneAsync(orgDoc, cancellationToken: ct);
                         result.OrganisationsInserted++;
-                        _logger.LogInformation("Inserted Organisation named {organisationName} with createdBy {UserId}", organisationName, userId);
+                        _logger.LogInformation("Inserted Organisation named {organisationName}.", organisationName);
                     }
                     else
                     {
@@ -226,7 +226,7 @@ namespace HNTAS.Core.Api.Services
                         if (orgType == "UkCompaniesHouse")
                         {
                             orgId = existingOrg.TryGetValue("orgId", out var v) ? v.AsString : null;
-                            _logger.LogInformation("Organisation CHN {CHN} already exists. Skipping.", companiesHouseNo);
+                            _logger.LogInformation("Organisation CHN already exists. Skipping.");
                         }
                         
                     }
@@ -239,12 +239,10 @@ namespace HNTAS.Core.Api.Services
 
                     if (existingHn != null)
                     {
-                        _logger.LogInformation("HeatNetwork {HnId} already exists. Skipping insert.", hnId);
+                        _logger.LogInformation("HeatNetwork already exists. Skipping insert.");
                     }
                     else
                     {
-                        _logger.LogInformation("Inserting new HeatNetwork {HnId}", hnId);
-
                         var hnDoc = new BsonDocument
                         {
                             { "hnId", hnId },
@@ -302,9 +300,9 @@ namespace HNTAS.Core.Api.Services
                     var res = await _usersCollection.UpdateOneAsync(filter, update, cancellationToken: ct);
 
                     if (res.ModifiedCount > 0)
-                        _logger.LogInformation("Appended hnRoleMapping for user {EmailId}: {HnId}", emailId, hnId);
+                        _logger.LogInformation("Appended hnRoleMapping for user.");
                     else
-                        _logger.LogInformation("User {EmailId} already has hnRoleMapping for {HnId} - skipped", emailId, hnId);
+                        _logger.LogInformation("User {EmailId} already has hnRoleMapping for this heat network skipped", emailId, hnId);
                     
                     if (string.IsNullOrEmpty(userOrgId) && !string.IsNullOrWhiteSpace(orgId))
                     {
@@ -317,7 +315,7 @@ namespace HNTAS.Core.Api.Services
                             cancellationToken: ct
                         );
 
-                        _logger.LogInformation("Updated new user {EmailId} with orgId {OrgId}", emailId, orgId);
+                        _logger.LogInformation("Updated new user {EmailId}.", emailId, orgId);
                     }
 
                 }

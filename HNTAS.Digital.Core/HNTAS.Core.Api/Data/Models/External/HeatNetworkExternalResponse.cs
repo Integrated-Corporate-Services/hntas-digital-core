@@ -1,4 +1,5 @@
-﻿using MongoDB.Bson;
+﻿using HNTAS.Core.Api.Enums;
+using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
 namespace HNTAS.Core.Api.Data.Models.External
@@ -14,7 +15,7 @@ namespace HNTAS.Core.Api.Data.Models.External
         public string HnName { get; set; }
 
         [BsonElement("registrationSource")]
-        public string RegistrationSource { get; set; }
+        public RegistrationSource RegistrationSource { get; set; }
 
         [BsonElement("energyCentre")]
         public EnergyCentreDetails EnergyCentre { get; set; }

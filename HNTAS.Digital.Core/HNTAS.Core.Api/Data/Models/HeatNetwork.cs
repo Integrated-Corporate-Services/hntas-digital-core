@@ -1,4 +1,5 @@
-﻿using MongoDB.Bson;
+﻿using HNTAS.Core.Api.Enums;
+using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
 namespace HNTAS.Core.Api.Data.Models
@@ -23,6 +24,10 @@ namespace HNTAS.Core.Api.Data.Models
 
         [BsonElement("pathway")]
         public string Pathway { get; set; }
+
+        [BsonElement("registrationSource")]
+        [BsonRepresentation(BsonType.String)]
+        public RegistrationSource RegistrationSource { get; set; }
 
         [BsonElement("soa")]
         public Soa? Soa { get; set; }

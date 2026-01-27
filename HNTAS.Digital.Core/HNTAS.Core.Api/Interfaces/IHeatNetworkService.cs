@@ -1,4 +1,5 @@
 ﻿using HNTAS.Core.Api.Data.Models;
+using HNTAS.Core.Api.Data.Models.External;
 
 namespace HNTAS.Core.Api.Interfaces
 {
@@ -9,5 +10,11 @@ namespace HNTAS.Core.Api.Interfaces
         Task<HeatNetwork> GetByHnIdAsync(string hnId);
         Task CreateAsync(HeatNetwork newHeatNetwork);
         Task<List<HeatNetwork>> GetByDateRangeAsync(DateTime fromDate, DateTime toDate);
+
+
+        // --- Enriched Detail Methods (External/Response DTOs) ---
+        Task<HeatNetworkExternalResponse> GetDetailsByHnIdAsync(string hnId);
+        Task<List<HeatNetworkExternalResponse>> GetDetailsAsync();
+        Task<List<HeatNetworkExternalResponse>> GetDetailsByDateRangeAsync(DateTime fromDate, DateTime toDate);
     }
 }

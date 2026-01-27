@@ -1,4 +1,4 @@
-﻿using HNTAS.Core.Api.Models.Soa;
+﻿using HNTAS.Core.Api.Data.Models.External;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HNTAS.Core.Api.Controllers
@@ -6,14 +6,14 @@ namespace HNTAS.Core.Api.Controllers
     public partial class HeatNetworksController : ControllerBase
     {
         [HttpGet("/api/external/heat-networks")]
-        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<HeatNetworkResponse>))]
-        public async Task<ActionResult<List<HeatNetworkResponse>>> GetExternalHeatNetworks()
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<HeatNetworkExternalResponse>))]
+        public async Task<ActionResult<List<HeatNetworkExternalResponse>>> GetExternalHeatNetworks()
         {
             _logger.LogInformation("External API: Retrieving all heat networks.");
             try
             {
-                var networks = await _hnService.GetAsync();
-                return Ok(_mapper.Map<List<HeatNetworkResponse>>(networks));
+                var networks = await _hnService.GetDetailsAsync();
+                return Ok(networks);
             }
             catch (Exception ex)
             {
@@ -23,17 +23,17 @@ namespace HNTAS.Core.Api.Controllers
         }
 
         [HttpGet("/api/external/heat-network/{hnId}")]
-        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(HeatNetworkResponse))]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(HeatNetworkExternalResponse))]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<HeatNetworkResponse>> GetExternalHeatNetworkById(string hnId)
+        public async Task<ActionResult<HeatNetworkExternalResponse>> GetExternalHeatNetworkById(string hnId)
         {
             _logger.LogInformation("External API: Retrieving heat network {HnId}", hnId);
             try
             {
-                var network = await _hnService.GetByHnIdAsync(hnId);
+                var network = await _hnService.GetDetailsByHnIdAsync(hnId);
                 if (network == null) return NotFound();
 
-                return Ok(_mapper.Map<HeatNetworkResponse>(network));
+                return Ok(network);
             }
             catch (Exception ex)
             {
@@ -47,9 +47,9 @@ namespace HNTAS.Core.Api.Controllers
         /// URL: GET /api/external/heat-networks/search?from_date=2026-01-01&to_date=2026-01-15
         /// </summary>
         [HttpGet("/api/external/heat-networks/search")]
-        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<HeatNetworkResponse>))]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<HeatNetworkExternalResponse>))]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<ActionResult<List<HeatNetworkResponse>>> GetExternalHeatNetworksByDate(
+        public async Task<ActionResult<List<HeatNetworkExternalResponse>>> GetExternalHeatNetworksByDate(
             [FromQuery(Name = "from_date")] DateTime fromDate,
             [FromQuery(Name = "to_date")] DateTime toDate)
         {
@@ -60,8 +60,8 @@ namespace HNTAS.Core.Api.Controllers
             _logger.LogInformation("External API: Searching networks between {From} and {To}", fromDate, toDate);
             try
             {
-                var networks = await _hnService.GetByDateRangeAsync(fromDate, toDate);
-                return Ok(_mapper.Map<List<HeatNetworkResponse>>(networks));
+                var networks = await _hnService.GetDetailsByDateRangeAsync(fromDate, toDate);
+                return Ok(networks);
             }
             catch (Exception ex)
             {

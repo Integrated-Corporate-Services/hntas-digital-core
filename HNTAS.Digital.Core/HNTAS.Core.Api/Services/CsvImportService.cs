@@ -1,11 +1,9 @@
-﻿
-using HNTAS.Core.Api.Controllers;
+﻿using HNTAS.Core.Api.Controllers;
 using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Interfaces;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using System.Text;
-
 
 namespace HNTAS.Core.Api.Services
 {
@@ -108,20 +106,13 @@ namespace HNTAS.Core.Api.Services
                         string.IsNullOrWhiteSpace(emailId) ||
                         string.IsNullOrWhiteSpace(oneLoginId) ||
                         string.IsNullOrWhiteSpace(hnId);
-
-                    // Has a CompaniesHouse number
                     bool hasCompaniesHouseNo = !string.IsNullOrWhiteSpace(companiesHouseNo);
-
-                    // No CompaniesHouse number, but has OrgName + StreetAddress + Postcode
                     bool hasOrgAddress =
                         !string.IsNullOrWhiteSpace(organisationName) &&
                         !string.IsNullOrWhiteSpace(orgStreetAddress) &&
                         !string.IsNullOrWhiteSpace(orgPostcode);
-
-                    // Must have either A or B
                     bool missingOrganisation = !(hasCompaniesHouseNo || hasOrgAddress);
 
-                    // Validate mandatory fields
                     if (missingIds ||
                         missingOrganisation ||
                         string.IsNullOrWhiteSpace(hnId))
@@ -278,7 +269,7 @@ namespace HNTAS.Core.Api.Services
                     if (res.ModifiedCount > 0)
                         _logger.LogInformation("Appended hnRoleMapping for user.");
                     else
-                        _logger.LogInformation("User {EmailId} already has hnRoleMapping for this heat network skipped", emailId, hnId);
+                        _logger.LogInformation("User {userId} already has hnRoleMapping for this heat network skipped", userId, hnId);
                 }
                 catch (Exception ex)
                 {
@@ -323,8 +314,6 @@ namespace HNTAS.Core.Api.Services
             values.Add(sb.ToString()); // last value
             return values.ToArray();
         }
-
-
         private string GetCell(string[] cells, Dictionary<string, int> headerIndex, string col)
         {
             return headerIndex.TryGetValue(col, out int index) && index < cells.Length

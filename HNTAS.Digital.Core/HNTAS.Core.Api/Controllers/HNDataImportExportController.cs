@@ -1,6 +1,9 @@
 ﻿
+using HNTAS.Core.Api.Data.Models;
+using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Services;
 using Microsoft.AspNetCore.Mvc;
+using System.Xml.Linq;
 
 namespace HNTAS.Core.Api.Controllers
 {
@@ -16,7 +19,7 @@ namespace HNTAS.Core.Api.Controllers
         }
 
         [HttpGet("hn-users-orgs")]
-        public async Task<IActionResult> GetJson([FromQuery] int? take = 100)
+        public async Task<IActionResult> GetJson()
         {
             var rows = await _service.GetAllHeatNetworkRowsAsync();
             return Ok(rows);
@@ -35,20 +38,31 @@ namespace HNTAS.Core.Api.Controllers
                 rows = rows.Take(take.Value).ToList();
             }
 
-            // Build CSV in-memory
-            // Header: HnId, HeatNetworkName, Location, OrgId, EmailId, OrganisationName
             var sb = new System.Text.StringBuilder();
-            sb.AppendLine("HnId,HeatNetworkName,Location,OrgId,EmailId,OrganisationName");
+            sb.AppendLine("UserEmailId,OneloginId,OrganisationName,OrganisationId,OrgStreetAddress,OrgTown,OrgPostcode,PhoneNumber,CompaniesHouseNo,DateOfOrgRegistration,HnId,HnName,DateOfHnRegistration,RegistrationSource,ECStreetAddress,ECTown,ECPostcode,ECLatitude,ECLongitude");
 
             foreach (var r in rows)
             {
                 // Null-safe values
-                var hnId = r.HnId ?? string.Empty;
-                var name = r.HnName ?? string.Empty;
-                var loc = r.HnLocation ?? string.Empty;
-                var orgId = r.OrganisationId ?? string.Empty;
-                var email = r.UserEmailId ?? string.Empty;
-                var orgNm = r.OrganisationName ?? string.Empty;
+                var userEmailId = r.UserEmailId;
+                var oneLoginId = r.OneloginId;
+                var organisationName = r.OrganisationName;
+                var organisationId = r.OrganisationId;
+                var orgStreetAddress = r.OrgStreetAddress;
+                var orgTown = r.OrgTown;
+                var orgPostcode = r.OrgPostcode;
+                var phoneNumber = r.PhoneNumber;
+                var companiesHouseNo = r.CompaniesHouseNo;
+                var dateOfOrgRegistration = r.DateOfOrgRegistration;
+                var hnId = r.HnId;
+                var hnName = r.HnName;
+                var dateOfHnRegistration = r.DateOfHnRegistration;
+                var registrationSource = r.RegistrationSource;
+                var ecStreetAddress = r.ECStreetAddress;
+                var ecTown = r.ECTown;
+                var ecPostcode = r.ECPostcode;
+                var ecLatitude = r.ECLatitude;
+                var ecLongitude = r.ECLongitude;
 
                 // CSV-escape each field: wrap in double quotes and escape inner quotes by doubling them
                 string Esc(string s)
@@ -58,12 +72,24 @@ namespace HNTAS.Core.Api.Controllers
                     return $"\"{s.Replace("\"", "\"\"")}\"";
                 }
 
-                sb.Append(Esc(hnId)).Append(',')
-                  .Append(Esc(name)).Append(',')
-                  .Append(Esc(loc)).Append(',')
-                  .Append(Esc(orgId)).Append(',')
-                  .Append(Esc(email)).Append(',')
-                  .Append(Esc(orgNm)).AppendLine();
+                sb.Append(Esc(userEmailId)).Append(',').Append(Esc(oneLoginId)).Append(',')
+                  .Append(Esc(organisationName)).Append(',')
+                  .Append(Esc(organisationId)).Append(',')
+                  .Append(Esc(orgStreetAddress)).Append(',')
+                  .Append(Esc(orgTown)).Append(',')
+                  .Append(Esc(orgPostcode)).Append(',')
+                  .Append(Esc(phoneNumber)).Append(',')
+                  .Append(Esc(companiesHouseNo)).Append(',')
+                  .Append(Esc(dateOfOrgRegistration)).Append(',')
+                  .Append(Esc(hnId)).Append(',')
+                  .Append(Esc(hnName)).Append(',')
+                  .Append(Esc(dateOfHnRegistration)).Append(',')
+                  .Append(Esc(registrationSource)).Append(',')
+                  .Append(Esc(ecStreetAddress)).Append(',')
+                  .Append(Esc(ecTown)).Append(',')
+                  .Append(Esc(ecPostcode)).Append(',')
+                  .Append(Esc(ecLatitude)).Append(',')
+                  .Append(Esc(ecLongitude)).AppendLine();                
             }
 
             var csvBytes = System.Text.Encoding.UTF8.GetBytes(sb.ToString());
@@ -73,9 +99,6 @@ namespace HNTAS.Core.Api.Controllers
 
             // Return as a file result with text/csv content type and UTF-8 encoding
             return File(csvBytes, "text/csv; charset=utf-8", fileName);
-
         }
-
-
     }
 }

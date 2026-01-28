@@ -5,6 +5,7 @@ using HNTAS.Core.Api.MappingProfiles;
 using HNTAS.Core.Api.Services;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
+using System.Security.Authentication;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -47,6 +48,22 @@ builder.Services.AddSingleton<IMongoClient>(sp =>
 
     return new MongoClient(connectionString); // Only ONE client instance created
 });
+
+builder.Services.AddSingleton<IMongoDatabase>(sp =>
+{
+    var client = sp.GetRequiredService<IMongoClient>();
+    var dbSettings = sp.GetRequiredService<IOptions<AWSDocDbSettings>>().Value;
+
+    return client.GetDatabase(dbSettings.DatabaseName);
+});
+
+
+builder.Services.AddHttpClient();
+builder.Services.AddScoped<ICarbonCalculatorService, CarbonCalculatorService>();
+builder.Services.AddScoped<ICsvImportService, CsvImportService>();
+
+builder.Services.AddScoped<IHNDataImportExportService, HNDataImportExportService>();
+
 
 builder.Services.AddSingleton<IMongoDatabase>(sp =>
 {

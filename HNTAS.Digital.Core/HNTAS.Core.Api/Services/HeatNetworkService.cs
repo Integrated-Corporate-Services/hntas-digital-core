@@ -143,7 +143,9 @@ namespace HNTAS.Core.Api.Services
                     { "createdAt", 1 },
                     { "createdBy", 1 },
 
-                    { "soa", new BsonDocument("status", "$soa") },
+                    { "soa", new BsonDocument("status",
+                        new BsonDocument("$ifNull", new BsonArray { "$soa.status", "" }))
+                    },
 
                     { "energyCentre", new BsonDocument
                         {

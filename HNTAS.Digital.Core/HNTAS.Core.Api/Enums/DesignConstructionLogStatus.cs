@@ -1,12 +1,11 @@
-﻿
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Text.Json.Serialization;
 
 namespace HNTAS.Core.Api.Enums
 {
     [JsonConverter(typeof(JsonStringEnumConverter))]
-    public enum SoaStatus 
-    {
+    public enum DesignConstructionLogStatus
+    {        
         [Description("In Progress")]
         InProgress = 1,
         [Description("Submitted")]

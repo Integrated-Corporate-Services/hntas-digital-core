@@ -1,5 +1,6 @@
 ﻿using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Enums;
+using MongoDB.Bson.Serialization.Attributes;
 
 namespace HNTAS.Core.Api.Models.Soa
 {
@@ -14,15 +15,18 @@ namespace HNTAS.Core.Api.Models.Soa
         public SoaResponse? Soa { get; set; }
         public string CreatedBy { get; set; } = null!;
         public DateTime CreatedAt { get; set; }
+        public string? Phase { get; set; } = null;
+        public NetworkCharacteristicsResponse? NetworkCharacteristics { get; set; }
+        public NetworkElementsResponse? NetworkElements { get; set; }
+        public MeteringAndMonitoringStrategyResponse? MeteringAndMonitoringStrategy { get; set; }
+        public AssessmentPlanResponse? AssessmentPlan { get; set; }
+        public DesignConstructionLogResponse? DesignConstructionLog { get; set; }
+
     }
 
-    public class SoaResponse
+    public class SoaResponse : NetworkDetailsResponseBase
     {
         public SoaStatus Status { get; set; }
-        public DateTime CreatedAt { get; set; }
-        public string? CreatedBy { get; set; }
-        public DateTime? UpdatedAt { get; set; }
-        public string? UpdatedBy { get; set; }
         public JourneyDataResponse? JourneyData { get; set; }
     }
 
@@ -90,5 +94,27 @@ namespace HNTAS.Core.Api.Models.Soa
         public string UploadedBy { get; set; } = null!;
     }
 
+    public class NetworkCharacteristicsResponse : NetworkDetailsResponseBase {
+        public NetworkCharacteristicsStatus Status { get; set; }
+    }
+    public class NetworkElementsResponse : NetworkDetailsResponseBase {
+        public NetworkElementsStatus Status { get; set; }
+    }
+    public class MeteringAndMonitoringStrategyResponse : NetworkDetailsResponseBase {
+        public MeteringAndMonitoringStrategyStatus Status { get; set; }
+    }
+    public class AssessmentPlanResponse : NetworkDetailsResponseBase {
+        public AssessmentPlanStatus Status { get; set; }
+    }
+    public class DesignConstructionLogResponse : NetworkDetailsResponseBase {
+        public DesignConstructionLogStatus Status { get; set; }
+    }
 
+    public class NetworkDetailsResponseBase
+    {        
+        public DateTime CreatedAt { get; set; }
+        public string? CreatedBy { get; set; }
+        public DateTime? UpdatedAt { get; set; }
+        public string? UpdatedBy { get; set; }        
+    }
 }

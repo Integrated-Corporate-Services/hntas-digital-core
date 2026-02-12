@@ -5,7 +5,6 @@ using HNTAS.Core.Api.MappingProfiles;
 using HNTAS.Core.Api.Services;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
-using System.Security.Authentication;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -33,6 +32,7 @@ builder.Services.AddSingleton<IHeatNetworkService, HeatNetworkService>();
 builder.Services.AddSingleton<IEmailService, EmailService>();
 builder.Services.AddSingleton<ICountryAndTerritoryService, CountryAndTerritoryService>();
 builder.Services.AddSingleton<IAssessorService, AssessorService>();
+builder.Services.AddSingleton<IAuditService, AuditService>();
 
 
 builder.Services.Configure<AWSDocDbSettings>(

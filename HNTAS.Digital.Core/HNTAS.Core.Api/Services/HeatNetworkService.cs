@@ -1,4 +1,5 @@
 ﻿using HNTAS.Core.Api.Configuration;
+using HNTAS.Core.Api.Constants;
 using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Data.Models.External;
 using HNTAS.Core.Api.Interfaces;
@@ -12,16 +13,40 @@ namespace HNTAS.Core.Api.Services
     {
         private readonly IMongoCollection<HeatNetwork> _hnCollection;
         private readonly ILogger<HeatNetworkService> _logger;
+        private readonly IAuditService _auditService;
 
-        public HeatNetworkService(IOptions<AWSDocDbSettings> dbSettings, IMongoDatabase mongoDatabase, ILogger<HeatNetworkService> logger)
+        public HeatNetworkService(IOptions<AWSDocDbSettings> dbSettings,
+            IMongoDatabase mongoDatabase,
+            ILogger<HeatNetworkService> logger,
+            IAuditService auditService)
         {
             _hnCollection = mongoDatabase.GetCollection<HeatNetwork>(dbSettings.Value.HeatNetworksCollectionName);
             _logger = logger;
+            _auditService = auditService;
             _logger.LogInformation("HeatNetworkService initialized via Dependency Injection.");
         }
 
-        public async Task CreateAsync(HeatNetwork newHeatNetwork) =>
+        public async Task CreateAsync(HeatNetwork newHeatNetwork)
+        {
             await _hnCollection.InsertOneAsync(newHeatNetwork);
+
+            var isRegistrationEnabledString = Environment.GetEnvironmentVariable("IS_REGISTRATION_ENABLE");
+            if (!string.IsNullOrEmpty(isRegistrationEnabledString) &&
+                isRegistrationEnabledString.ToLower() == "true")
+            {
+                // Audit Code Here
+                await _auditService.SaveAuditAsync<HeatNetwork>(
+                    eventName: HeatNetworkEvents.Registered,
+                    actorId: newHeatNetwork.CreatedBy,
+                    entityId: newHeatNetwork.HnId,
+                    oldState: null,
+                    newState: newHeatNetwork
+                );
+            }
+
+            _logger.LogInformation("New heat network initially registered...");
+        }
+
 
         public async Task UpdateAsync(string id, HeatNetwork updatedHn) =>
             await _hnCollection.ReplaceOneAsync(hn => hn.Id == id, updatedHn);

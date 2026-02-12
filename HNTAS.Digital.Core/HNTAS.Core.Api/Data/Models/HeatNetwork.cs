@@ -29,8 +29,23 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonRepresentation(BsonType.String)]
         public RegistrationSource RegistrationSource { get; set; }
 
+        [BsonElement("networkCharacteristics")]
+        public NetworkCharacteristics? NetworkCharacteristics { get; set; }
+
+        [BsonElement("networkElements")]
+        public NetworkElements? NetworkElements { get; set; }
+
         [BsonElement("soa")]
         public Soa? Soa { get; set; }
+
+        [BsonElement("meteringAndMonitoringStrategy")]
+        public MeteringAndMonitoringStrategy? MeteringAndMonitoringStrategy { get; set; }
+
+        [BsonElement("assessmentPlan")]
+        public AssessmentPlan? AssessmentPlan { get; set; }
+
+        [BsonElement("designConstructionLog")]
+        public DesignConstructionLog? DesignConstructionLog { get; set; }
 
         [BsonElement("createdBy")]
         public string CreatedBy { get; set; }
@@ -38,5 +53,8 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonElement("createdAt")]
         [BsonRepresentation(BsonType.DateTime)]
         public DateTime CreatedAt { get; set; }
-    }
+
+        [BsonElement("phase")]
+        public string Phase { get; set; }
+    }    
 }

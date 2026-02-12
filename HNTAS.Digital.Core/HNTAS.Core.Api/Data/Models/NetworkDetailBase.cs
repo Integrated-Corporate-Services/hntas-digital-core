@@ -5,7 +5,11 @@ using MongoDB.Bson.Serialization.Attributes;
 namespace HNTAS.Core.Api.Data.Models
 {
     public class NetworkDetailBase
-    {        
+    {
+        [BsonElement("status")]
+        [BsonRepresentation(BsonType.String)]
+        public NetworkDetailsStatus Status { get; set; }
+
         [BsonElement("createdAt")]
         [BsonRepresentation(BsonType.DateTime)]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

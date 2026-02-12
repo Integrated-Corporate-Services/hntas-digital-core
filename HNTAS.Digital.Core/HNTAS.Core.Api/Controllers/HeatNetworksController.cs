@@ -158,5 +158,51 @@ namespace HNTAS.Core.Api.Controllers
                 });
             }
         }
+
+        /// <summary>
+        /// Updates the NetworkCharacteristics for a given heat network identified by HnId.
+        /// </summary>
+        [HttpPut("network-characteristics")]
+        [Consumes(MediaTypeNames.Application.Json)]
+        [ProducesResponseType(typeof(HeatNetworkResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<HeatNetworkResponse>> UpdateNetworkCharacteristics([FromBody] NetworkCharacteristics request, string hnId)
+        {            
+            if (string.IsNullOrWhiteSpace(hnId))
+            {
+                _logger.LogWarning("UpdateNetworkCharacteristics called with empty HnId.");
+                return BadRequest("Please provide a valid heat network HnId.");
+            }
+
+            if (request == null)
+            {
+                _logger.LogWarning("UpdateNetworkCharacteristics called without NetworkCharacteristics payload for HnId: {HnId}", hnId);
+                return BadRequest("Please provide NetworkCharacteristics to update.");
+            }
+
+            try
+            {
+                var existingHeatNetwork = await _hnService.GetByHnIdAsync(hnId);
+                if (existingHeatNetwork == null)
+                {
+                    _logger.LogInformation("No heat network found for HnId: {HnId}", hnId);
+                    return NotFound($"No heat network found for HnId '{hnId}'.");
+                }
+
+                existingHeatNetwork.NetworkCharacteristics = request;
+                await _hnService.UpdateAsync(hnId, existingHeatNetwork);
+                _logger.LogInformation("Updated NetworkCharacteristics for HnId: {HnId}", hnId);
+                var response = _mapper.Map<HeatNetworkResponse>(existingHeatNetwork);
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while updating NetworkCharacteristics for HnId: {HnId}", hnId);
+                return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while updating the heat network.");
+            }
+        }
+
     }
 }

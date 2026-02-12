@@ -23,6 +23,9 @@ namespace HNTAS.Core.Api.Services
         public async Task CreateAsync(HeatNetwork newHeatNetwork) =>
             await _hnCollection.InsertOneAsync(newHeatNetwork);
 
+        public async Task UpdateAsync(string id, HeatNetwork updatedHn) =>
+            await _hnCollection.ReplaceOneAsync(hn => hn.Id == id, updatedHn);
+
         public async Task<List<HeatNetwork>> GetAsync()
         {
             return await _hnCollection.Find(_ => true).ToListAsync();

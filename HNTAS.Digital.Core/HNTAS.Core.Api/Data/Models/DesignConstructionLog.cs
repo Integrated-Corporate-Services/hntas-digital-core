@@ -8,6 +8,6 @@ namespace HNTAS.Core.Api.Data.Models
     {
         [BsonElement("status")]
         [BsonRepresentation(BsonType.String)]
-        public DesignConstructionLogStatus Status { get; set; }
+        public NetworkDetailsStatus Status { get; set; }
     }
 }

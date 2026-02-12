@@ -4,7 +4,7 @@ using System.Text.Json.Serialization;
 namespace HNTAS.Core.Api.Enums
 {
     [JsonConverter(typeof(JsonStringEnumConverter))]
-    public enum DesignConstructionLogStatus
+    public enum NetworkDetailsStatus
     {        
         [Description("In Progress")]
         InProgress = 1,

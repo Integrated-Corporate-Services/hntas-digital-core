@@ -95,19 +95,19 @@ namespace HNTAS.Core.Api.Models.Soa
     }
 
     public class NetworkCharacteristicsResponse : NetworkDetailsResponseBase {
-        public NetworkCharacteristicsStatus Status { get; set; }
+        public NetworkDetailsStatus Status { get; set; }
     }
     public class NetworkElementsResponse : NetworkDetailsResponseBase {
-        public NetworkElementsStatus Status { get; set; }
+        public NetworkDetailsStatus Status { get; set; }
     }
     public class MeteringAndMonitoringStrategyResponse : NetworkDetailsResponseBase {
-        public MeteringAndMonitoringStrategyStatus Status { get; set; }
+        public NetworkDetailsStatus Status { get; set; }
     }
     public class AssessmentPlanResponse : NetworkDetailsResponseBase {
-        public AssessmentPlanStatus Status { get; set; }
+        public NetworkDetailsStatus Status { get; set; }
     }
     public class DesignConstructionLogResponse : NetworkDetailsResponseBase {
-        public DesignConstructionLogStatus Status { get; set; }
+        public NetworkDetailsStatus Status { get; set; }
     }
 
     public class NetworkDetailsResponseBase

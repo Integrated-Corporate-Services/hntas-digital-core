@@ -11,7 +11,5 @@
         public string HeatNetworksCollectionName { get; set; } = null!;
         public string CountriesAndTerritoriesCollectionName { get; set; } = null!;
         public string HnCarbonCalculationsCollectionName { get; set; } = null!;
-        public long HNSequenceStartValue { get; set; }
-        public long OrgSequenceStartValue { get; set; }
     }
 }

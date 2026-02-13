@@ -1,12 +1,14 @@
 ﻿using AutoMapper;
 using HNTAS.Core.Api.Controllers;
 using HNTAS.Core.Api.Data.Models;
+using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
 using HNTAS.Core.Api.Models.Users;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using MongoDB.Driver;
 using Moq;
 
 namespace HNTAS.Digital.Core.Tests.Controllers
@@ -179,7 +181,6 @@ namespace HNTAS.Digital.Core.Tests.Controllers
 
         #endregion
 
-
         #region GetManagedUsersAsync Tests
 
         [Fact]
@@ -287,6 +288,413 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             Assert.Single(managedUsers);
         }
 
+        #endregion
+
+        #region IsRpUser
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task IsRpUser_ShouldReturnOk_WithCorrectRoleStatus(bool hasRole)
+        {
+            // Arrange
+            string email = "test@example.com";
+            var user = new User
+            {
+                EmailId = email,
+                Roles = hasRole ? new List<UserRole> { UserRole.ResponsiblePerson } : new List<UserRole>()
+            };
+
+            _mockUserService.Setup(s => s.GetByEmailAsync(email))
+                .ReturnsAsync(user);
+
+            // Act
+            var result = await _controller.IsRpUser(email);
+
+            // Assert
+            var okResult = Assert.IsType<OkObjectResult>(result.Result);
+            Assert.Equal(hasRole, okResult.Value);
+        }
+
+
+        [Fact]
+        public async Task IsRpUser_ShouldReturnNotFound_WhenUserDoesNotExist()
+        {
+            // Arrange
+            string email = "test@example.com";
+            _mockUserService.Setup(s => s.GetByEmailAsync(email))
+                .ReturnsAsync((User)null);
+
+            // Act
+            var result = await _controller.IsRpUser(email);
+
+            // Assert
+            Assert.IsType<NotFoundResult>(result.Result);
+        }
+
+        [Fact]
+        public async Task IsRpUser_ShouldReturn500_WhenExceptionOccurs()
+        {
+            // Arrange
+            string email = "error@example.com";
+            _mockUserService.Setup(s => s.GetByEmailAsync(email))
+                .ThrowsAsync(new System.Exception("Database failure"));
+
+            // Act
+            var result = await _controller.IsRpUser(email);
+
+            // Assert
+            var statusCodeResult = Assert.IsType<ObjectResult>(result.Result);
+            Assert.Equal(StatusCodes.Status500InternalServerError, statusCodeResult.StatusCode);
+        }
+        #endregion
+
+        #region IsActiveUser
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData(" ")]
+        public async Task IsActiveUser_ShouldReturnBadRequest_WhenEmailIsInvalid(string email)
+        {
+            // Act
+            var result = await _controller.IsActiveUser(email);
+
+            // Assert
+            var badRequestResult = Assert.IsType<BadRequestObjectResult>(result.Result);
+            Assert.Equal("Email ID must be provided.", badRequestResult.Value);
+        }
+
+        [Theory]
+        [InlineData(UserStatus.Active, true)]
+        [InlineData(UserStatus.InActive, false)]
+        public async Task IsActiveUser_ShouldReturnOk_WithExpectedActiveStatus(UserStatus status, bool expectedResult)
+        {
+            // Arrange
+            string email = "test@example.com";
+            var user = new User { EmailId = email, Status = status };
+
+            _mockUserService.Setup(s => s.GetByEmailAsync(email))
+                .ReturnsAsync(user);
+
+            // Act
+            var result = await _controller.IsActiveUser(email);
+
+            // Assert
+            var okResult = Assert.IsType<OkObjectResult>(result.Result);
+            Assert.Equal(expectedResult, okResult.Value);
+        }
+
+        [Fact]
+        public async Task IsActiveUser_ShouldReturnNotFound_WhenUserDoesNotExist()
+        {
+            // Arrange
+            string email = "unknown@example.com";
+            _mockUserService.Setup(s => s.GetByEmailAsync(email))
+                .ReturnsAsync((User)null);
+
+            // Act
+            var result = await _controller.IsActiveUser(email);
+
+            // Assert
+            Assert.IsType<NotFoundResult>(result.Result);
+        }
+        #endregion
+
+        #region AcceptInvitationAsync
+
+        [Fact]
+        public async Task AcceptInvitationAsync_ShouldReturnValidationProblem_WhenModelStateIsInvalid()
+        {
+            // Arrange
+            _controller.ModelState.AddModelError("InvitedEmail", "Required");
+            var request = new InvitedUserRequest();
+
+            // Act
+            var result = await _controller.AcceptInvitationAsync(request);
+
+            // Assert
+            var objectResult = Assert.IsType<ObjectResult>(result);
+            var details = Assert.IsType<ValidationProblemDetails>(objectResult.Value);
+
+            Assert.NotNull(details.Errors);
+            Assert.True(details.Errors.ContainsKey("InvitedEmail"));
+        }
+
+        [Fact]
+        public async Task AcceptInvitationAsync_ShouldReturn500_WhenServiceThrowsException()
+        {
+            // Arrange
+            var request = new InvitedUserRequest { InvitationId = "123" };
+            _mockInvitationService.Setup(s => s.GetByIdAsync(It.IsAny<string>()))
+                .ThrowsAsync(new System.Exception("Critical Failure"));
+
+            // Act
+            var result = await _controller.AcceptInvitationAsync(request);
+
+            // Assert
+            var objectResult = Assert.IsType<ObjectResult>(result);
+            Assert.Equal(StatusCodes.Status500InternalServerError, objectResult.StatusCode);
+        }
+
+
+        [Fact]
+        public async Task AcceptInvitationAsync_ShouldUpdateExistingUser_WhenInvitedHnIdIsPresent()
+        {
+            // Arrange
+            var request = new InvitedUserRequest { InvitationId = "inv-123", OneLoginId = "login-123" };
+            var invitation = new Invitation
+            {
+                InvitedHnId = "hn-123",
+                InvitedRoles = new List<ContributorRole> { ContributorRole.DesignatedContractor }
+            };
+            var existingUser = new User { Id = "user-001", HnRoleMappings = new List<HnRoleMapping>() };
+
+            _mockInvitationService.Setup(s => s.GetByIdAsync("inv-123")).ReturnsAsync(invitation);
+            _mockUserService.Setup(s => s.GetByUserOneLoginIdAsync("login-123")).ReturnsAsync(existingUser);
+
+            // Act
+            var result = await _controller.AcceptInvitationAsync(request);
+
+            // Assert
+            var okResult = Assert.IsType<OkObjectResult>(result);
+            Assert.Equal("user-001", okResult.Value);
+            _mockInvitationService.Verify(s => s.ExecuteRoleSwapAsync(existingUser, null, invitation), Times.Once);
+        }
+
+
+        [Fact]
+        public async Task AcceptInvitationAsync_ShouldReplaceRP_WhenInvitedOrgIdIsPresent()
+        {
+            // Arrange
+            var request = new InvitedUserRequest { InvitationId = "inv-rp", OneLoginId = "new-rp-login" };
+            var invitation = new Invitation
+            {
+                InvitedOrgId = "org-99",
+                ReplacedUserId = "old-rp-id",
+                InvitedRoles = new List<ContributorRole> { ContributorRole.ResponsiblePerson },
+                RolesToReplace = new List<ContributorRole> { ContributorRole.Coordinator }
+            };
+
+            var newUser = new User { Id = "user-new", OneLoginId = "new-rp-login" };
+            var oldUser = new User { Id = "old-rp-id" };
+            var org = new Organisation { Id = "org-db-id", OrgId = "org-99" };
+
+            _mockInvitationService.Setup(s => s.GetByIdAsync(It.IsAny<string>())).ReturnsAsync(invitation);
+            _mockUserService.Setup(s => s.GetByUserOneLoginIdAsync(It.IsAny<string>())).ReturnsAsync(newUser);
+            _mockUserService.Setup(s => s.GetByIdAsync("old-rp-id")).ReturnsAsync(oldUser);
+            _mockOrgService.Setup(s => s.GetByOrgIdAsync("org-99")).ReturnsAsync(org);
+
+            // Act
+            var result = await _controller.AcceptInvitationAsync(request);
+
+            // Assert
+            var createdResult = Assert.IsType<ObjectResult>(result);
+            Assert.Equal(StatusCodes.Status201Created, createdResult.StatusCode);
+            _mockOrgService.Verify(o => o.UpdateAsync(org.Id, It.Is<Organisation>(x => x.RpUserId == newUser.Id)), Times.Once);
+        }
+        #endregion
+
+        #region CheckOrganisationExistence
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task CheckOrganisationExistence_ShouldReturnOk_WhenServiceReturnsResult(bool serviceResult)
+        {
+            // Arrange
+            string houseNumber = "12345678";
+            _mockOrgService.Setup(s => s.IsOrganizationExists(houseNumber))
+                .ReturnsAsync(serviceResult);
+
+            // Act
+            var result = await _controller.CheckOrganisationExistence(houseNumber);
+
+            // Assert
+            var okResult = Assert.IsType<OkObjectResult>(result.Result);
+            Assert.Equal(serviceResult, okResult.Value);
+        }
+
+        [Fact]
+        public async Task CheckOrganisationExistence_ShouldReturn500_WhenExceptionOccurs()
+        {
+            // Arrange
+            string houseNumber = "12345678";
+            _mockOrgService.Setup(s => s.IsOrganizationExists(houseNumber))
+                .ThrowsAsync(new System.Exception("Database connection failed"));
+
+            // Act
+            var result = await _controller.CheckOrganisationExistence(houseNumber);
+
+            // Assert
+            var objectResult = Assert.IsType<ObjectResult>(result.Result);
+            Assert.Equal(StatusCodes.Status500InternalServerError, objectResult.StatusCode);
+            Assert.Equal("An unexpected error occurred.", objectResult.Value);
+        }
+        #endregion
+
+        #region GetHeatNetworkUsersWithRoles
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData(" ")]
+        public async Task GetHeatNetworkUsersWithRoles_ShouldReturnBadRequest_WhenHnIdIsMissing(string invalidId)
+        {
+            // Act
+            var result = await _controller.GetHeatNetworkUsersWithRoles(invalidId);
+
+            // Assert
+            var badRequestResult = Assert.IsType<BadRequestObjectResult>(result.Result);
+            Assert.Equal("Heat Network ID must be provided.", badRequestResult.Value);
+        }
+
+        [Fact]
+        public async Task GetHeatNetworkUsersWithRoles_ShouldReturnOk_WithRpAtFirstPosition()
+        {
+            // Arrange
+            var hnId = "HN123";
+            var rpUser = new User { Id = "rp-user-id", EmailId = "rp@test.com" };
+            var otherUsers = new List<UserRoleDetailResponse>
+        {
+            new() { EmailId = "other@test.com" }
+        };
+            var mappedRp = new UserRoleDetailResponse { EmailId = "rp@test.com" };
+
+            _mockUserService.Setup(s => s.GetResponsiblePersonByHnIdAsync(hnId))
+                .ReturnsAsync(rpUser);
+            _mockUserService.Setup(s => s.GetHeatNetworkUsersWithRolesAsync(hnId))
+                .ReturnsAsync(otherUsers);
+            _mockMapper.Setup(m => m.Map<UserRoleDetailResponse>(rpUser))
+                .Returns(mappedRp);
+
+            // Act
+            var result = await _controller.GetHeatNetworkUsersWithRoles(hnId);
+
+            // Assert
+            var okResult = Assert.IsType<OkObjectResult>(result.Result);
+            var finalData = Assert.IsType<List<UserRoleDetailResponse>>(okResult.Value);
+
+            Assert.Equal(2, finalData.Count);
+            Assert.Equal("rp@test.com", finalData[0].EmailId); // Verify RP is at index 0
+        }
+
+        [Fact]
+        public async Task GetHeatNetworkUsersWithRoles_ShouldWork_WhenNoOtherUsersFound()
+        {
+            // Arrange
+            var hnId = "HN123";
+            _mockUserService.Setup(s => s.GetResponsiblePersonByHnIdAsync(hnId))
+                .ReturnsAsync(new User());
+            _mockUserService.Setup(s => s.GetHeatNetworkUsersWithRolesAsync(hnId))
+                .ReturnsAsync((List<UserRoleDetailResponse>)null); // Service returns null
+            _mockMapper.Setup(m => m.Map<UserRoleDetailResponse>(It.IsAny<User>()))
+                .Returns(new UserRoleDetailResponse());
+
+            // Act
+            var result = await _controller.GetHeatNetworkUsersWithRoles(hnId);
+
+            // Assert
+            var okResult = Assert.IsType<OkObjectResult>(result.Result);
+            var finalData = Assert.IsType<List<UserRoleDetailResponse>>(okResult.Value);
+            Assert.Single(finalData); // Only the RP should be present
+        }
+
+        [Fact]
+        public async Task GetHeatNetworkUsersWithRoles_ShouldReturnNotFound_WhenNoRpExists()
+        {
+            // Arrange
+            var hnId = "HN123";
+            _mockUserService.Setup(s => s.GetResponsiblePersonByHnIdAsync(hnId))
+                .ReturnsAsync((User)null);
+
+            // Act
+            var result = await _controller.GetHeatNetworkUsersWithRoles(hnId);
+
+            // Assert
+            var notFoundResult = Assert.IsType<NotFoundObjectResult>(result.Result);
+            Assert.Contains("No Responsible Person found", notFoundResult.Value.ToString());
+        }
+        #endregion
+
+        #region UpdateOrgId
+
+        [Fact]
+        public async Task UpdateOrgId_ShouldReturnBadRequest_WhenModelStateIsInvalid()
+        {
+            // Arrange
+            _controller.ModelState.AddModelError("UserId", "Required");
+            var request = new UpdateUserOrgIdRequest();
+
+            // Act
+            var result = await _controller.UpdateOrgId(request);
+
+            // Assert
+            Assert.IsType<BadRequestObjectResult>(result);
+        }
+
+        [Fact]
+        public async Task UpdateOrgId_ShouldReturnNoContent_WhenUpdateIsSuccessful()
+        {
+            // Arrange
+            var request = new UpdateUserOrgIdRequest { UserId = "user-123", OrgId = "org-456" };
+
+            // 1. Mock the UpdateResult
+            var mockUpdateResult = new Mock<UpdateResult>();
+            mockUpdateResult.Setup(r => r.IsAcknowledged).Returns(true);
+            mockUpdateResult.Setup(r => r.MatchedCount).Returns(1);
+
+            _mockUserService.Setup(s => s.UpdateOrgIdAsync(request.UserId, request.OrgId))
+                .ReturnsAsync(mockUpdateResult.Object);
+
+            // Act
+            var result = await _controller.UpdateOrgId(request);
+
+            // Assert
+            Assert.IsType<NoContentResult>(result);
+        }
+
+        [Fact]
+        public async Task UpdateOrgId_ShouldReturnNotFound_WhenNoUserMatches()
+        {
+            // Arrange
+            var request = new UpdateUserOrgIdRequest { UserId = "invalid-id", OrgId = "org-1" };
+
+            // Fix: Mock the abstract UpdateResult class
+            var mockUpdateResult = new Mock<UpdateResult>();
+            mockUpdateResult.Setup(r => r.IsAcknowledged).Returns(true);
+            mockUpdateResult.Setup(r => r.MatchedCount).Returns(0);
+
+            _mockUserService.Setup(s => s.UpdateOrgIdAsync(request.UserId, request.OrgId))
+                .ReturnsAsync(mockUpdateResult.Object);
+
+            // Act
+            var result = await _controller.UpdateOrgId(request);
+
+            // Assert
+            var notFoundResult = Assert.IsType<NotFoundObjectResult>(result);
+            Assert.Equal($"User with ID '{request.UserId}' not found.", notFoundResult.Value);
+        }
+
+        [Fact]
+        public async Task UpdateOrgId_ShouldReturn500_WhenDatabaseNotAcknowledged()
+        {
+            // Arrange
+            var request = new UpdateUserOrgIdRequest { UserId = "user-1", OrgId = "org-1" };
+
+            // Fix: Mock the abstract UpdateResult class
+            var mockUpdateResult = new Mock<UpdateResult>();
+            mockUpdateResult.Setup(r => r.IsAcknowledged).Returns(false);
+
+            _mockUserService.Setup(s => s.UpdateOrgIdAsync(request.UserId, request.OrgId))
+                .ReturnsAsync(mockUpdateResult.Object);
+
+            // Act
+            var result = await _controller.UpdateOrgId(request);
+
+            // Assert
+            var objectResult = Assert.IsType<ObjectResult>(result);
+            Assert.Equal(StatusCodes.Status500InternalServerError, objectResult.StatusCode);
+            Assert.Equal("Database update operation was not acknowledged.", objectResult.Value);
+        }
         #endregion
     }
 }

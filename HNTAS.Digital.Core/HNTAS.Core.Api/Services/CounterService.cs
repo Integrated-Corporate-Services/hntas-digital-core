@@ -2,7 +2,6 @@
 using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Interfaces;
 using Microsoft.Extensions.Options;
-using MongoDB.Bson;
 using MongoDB.Driver;
 
 namespace HNTAS.Core.Api.Services
@@ -11,11 +10,9 @@ namespace HNTAS.Core.Api.Services
     {
         private readonly IMongoCollection<Counter> _countersCollection;
         private readonly ILogger<CounterService> _logger;
-        private readonly IOptions<AWSDocDbSettings> _awsDocDbSettings;
 
         public CounterService(IOptions<AWSDocDbSettings> awsDocDbSettings, IMongoDatabase mongoDatabase, ILogger<CounterService> logger)
         {
-            _awsDocDbSettings = awsDocDbSettings;
             _countersCollection = mongoDatabase.GetCollection<Counter>(awsDocDbSettings.Value.CountersCollectionName);
             _logger = logger;
             _logger.LogInformation("CounterService initialized via Dependency Injection.");
@@ -31,30 +28,13 @@ namespace HNTAS.Core.Api.Services
         /// <exception cref="System.InvalidOperationException">Thrown if the counter cannot be retrieved or incremented.</exception>
         public async Task<long> GetNextSequenceValue(string sequenceName)
         {
-            // ... (Your startValue logic remains the same)
-            long startValue = 1;
-            if (string.Equals(sequenceName, "HEATNETWORKID_SEQUENCE", StringComparison.OrdinalIgnoreCase))
-                startValue = _awsDocDbSettings.Value.HNSequenceStartValue;
-            else if (string.Equals(sequenceName, "ORGID_SEQUENCE", StringComparison.OrdinalIgnoreCase))
-                startValue = _awsDocDbSettings.Value.OrgSequenceStartValue;
+            _logger.LogDebug("Attempting to get next sequence value for counter: '{SequenceName}'.", sequenceName);
 
+            // Filter to find the specific counter document by its _id
             var filter = Builders<Counter>.Filter.Eq(c => c.Id, sequenceName);
 
-            // 1. Define the stages as BsonDocuments
-            var stages = new BsonDocument[]
-            {
-                new BsonDocument("$set", new BsonDocument("sequenceValue",
-                    new BsonDocument("$add", new BsonArray
-                    {
-                        new BsonDocument("$ifNull", new BsonArray { "$sequenceValue", startValue - 1 }),
-                        1
-                    })
-                ))
-            };
-
-            // 2. Explicitly create the PipelineDefinition
-            // This ensures the driver knows exactly how to map it to the 'Counter' type.
-            PipelineDefinition<Counter, Counter> pipeline = stages;
+            // Update operation: increment the 'sequence_value' field by 1
+            var update = Builders<Counter>.Update.Inc(c => c.SequenceValue, 1);
 
             var options = new FindOneAndUpdateOptions<Counter, Counter>
             {
@@ -64,8 +44,8 @@ namespace HNTAS.Core.Api.Services
 
             try
             {
-                // 3. Use the wrapped 'update' variable
-                var counter = await _countersCollection.FindOneAndUpdateAsync(filter, pipeline, options);
+                // Execute the atomic findOneAndUpdate operation
+                var counter = await _countersCollection.FindOneAndUpdateAsync(filter, update, options);
 
                 if (counter == null) throw new InvalidOperationException("Counter result was null.");
 

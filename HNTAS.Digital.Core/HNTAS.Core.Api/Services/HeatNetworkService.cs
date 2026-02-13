@@ -30,7 +30,7 @@ namespace HNTAS.Core.Api.Services
         {
             await _hnCollection.InsertOneAsync(newHeatNetwork);
 
-            var isRegistrationEnabledString = Environment.GetEnvironmentVariable("IS_REGISTRATION_ENABLE");
+            var isRegistrationEnabledString = Environment.GetEnvironmentVariable("IS_REGISTRATION_ENABLED");
             if (!string.IsNullOrEmpty(isRegistrationEnabledString) &&
                 isRegistrationEnabledString.ToLower() == "true")
             {

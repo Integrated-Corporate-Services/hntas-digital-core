@@ -31,31 +31,18 @@ namespace HNTAS.Core.Api.Services
         /// <exception cref="System.InvalidOperationException">Thrown if the counter cannot be retrieved or incremented.</exception>
         public async Task<long> GetNextSequenceValue(string sequenceName)
         {
-            _logger.LogDebug("Attempting to get next sequence value for counter: '{SequenceName}'.", sequenceName);
-
-            if (string.IsNullOrEmpty(sequenceName))
-            {
-                _logger.LogWarning("GetNextSequenceValue called with null or empty sequence name.");
-                throw new ArgumentException("Sequence name must be provided.", nameof(sequenceName));
-            }
-
+            // ... (Your startValue logic remains the same)
             long startValue = 1;
-
-            if (sequenceName.ToUpper() == "HEATNETWORKID_SEQUENCE")
-            {
+            if (string.Equals(sequenceName, "HEATNETWORKID_SEQUENCE", StringComparison.OrdinalIgnoreCase))
                 startValue = _awsDocDbSettings.Value.HNSequenceStartValue;
-            }
-
-            if (sequenceName.ToUpper() == "ORGID_SEQUENCE")
-            {
+            else if (string.Equals(sequenceName, "ORGID_SEQUENCE", StringComparison.OrdinalIgnoreCase))
                 startValue = _awsDocDbSettings.Value.OrgSequenceStartValue;
-            }
-
 
             var filter = Builders<Counter>.Filter.Eq(c => c.Id, sequenceName);
 
-            var updatePipeline = new EmptyPipelineDefinition<Counter>()
-            .AppendStage<Counter, Counter, Counter>(
+            // 1. Define the stages as BsonDocuments
+            var stages = new BsonDocument[]
+            {
                 new BsonDocument("$set", new BsonDocument("sequenceValue",
                     new BsonDocument("$add", new BsonArray
                     {
@@ -63,40 +50,31 @@ namespace HNTAS.Core.Api.Services
                         1
                     })
                 ))
-            );
+            };
 
-            // Options for the findOneAndUpdate operation
+            // 2. Explicitly create the PipelineDefinition
+            // This ensures the driver knows exactly how to map it to the 'Counter' type.
+            PipelineDefinition<Counter, Counter> pipeline = stages;
+
             var options = new FindOneAndUpdateOptions<Counter, Counter>
             {
-                ReturnDocument = ReturnDocument.After, // Return the document *after* the update has been applied
-                IsUpsert = true // If a document matching the filter doesn't exist, create it.
-                                // For a new counter, SequenceValue will effectively start at 0, then become 1.
+                ReturnDocument = ReturnDocument.After,
+                IsUpsert = true
             };
 
             try
             {
-                // Execute the atomic findOneAndUpdate operation
-                var counter = await _countersCollection.FindOneAndUpdateAsync(filter, updatePipeline, options);
+                // 3. Use the wrapped 'update' variable
+                var counter = await _countersCollection.FindOneAndUpdateAsync(filter, pipeline, options);
 
-                // Defensive check: counter should never be null if IsUpsert is true and operation is successful
-                if (counter == null)
-                {
-                    _logger.LogError("Failed to retrieve or create counter document for sequence '{SequenceName}' despite upsert option. This is unexpected.", sequenceName);
-                    throw new InvalidOperationException($"Failed to get or create counter for sequence '{sequenceName}'. The database operation did not return a document.");
-                }
+                if (counter == null) throw new InvalidOperationException("Counter result was null.");
 
-                _logger.LogDebug("Next sequence value for '{SequenceName}' is {SequenceValue}.", sequenceName, counter.SequenceValue);
                 return counter.SequenceValue;
             }
-            catch (MongoException ex) // Catch specific MongoDB driver exceptions
+            catch (Exception ex)
             {
-                _logger.LogError(ex, "MongoDB error occurred while getting next sequence value for '{SequenceName}'.", sequenceName);
-                throw new InvalidOperationException($"Database error generating sequence '{sequenceName}'. See inner exception for details.", ex);
-            }
-            catch (Exception ex) // Catch any other unexpected exceptions
-            {
-                _logger.LogError(ex, "An unexpected error occurred while getting next sequence value for '{SequenceName}'.", sequenceName);
-                throw new InvalidOperationException($"Failed to generate sequence '{sequenceName}' due to an unexpected error. See inner exception for details.", ex);
+                _logger.LogError(ex, "Sequence generation failed for {Name}", sequenceName);
+                throw;
             }
         }
     }

@@ -194,7 +194,7 @@ namespace HNTAS.Core.Api.Controllers
                 existingHeatNetwork.NetworkCharacteristics = request;
                 await _hnService.UpdateAsync(hnId, existingHeatNetwork);
                 _logger.LogInformation("Updated NetworkCharacteristics for HnId: {HnId}", hnId);
-                var response = _mapper.Map<HeatNetworkResponse>(existingHeatNetwork);
+                var response = CreatedAtAction(nameof(UpdateNetworkCharacteristics), new { id = existingHeatNetwork.Id }, existingHeatNetwork);
                 return Ok(response);
             }
             catch (Exception ex)

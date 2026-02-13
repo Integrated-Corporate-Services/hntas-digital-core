@@ -48,8 +48,8 @@ namespace HNTAS.Core.Api.Services
         }
 
 
-        public async Task UpdateAsync(string id, HeatNetwork updatedHn) =>
-            await _hnCollection.ReplaceOneAsync(hn => hn.Id == id, updatedHn);
+        public async Task UpdateAsync(string hnId, HeatNetwork updatedHn) =>
+            await _hnCollection.ReplaceOneAsync(hn => hn.HnId == hnId, updatedHn);
 
         public async Task<List<HeatNetwork>> GetAsync()
         {

@@ -6,6 +6,10 @@ namespace HNTAS.Core.Api.Data.Models
 {
     public class NetworkCharacteristics : NetworkDetailBase
     {
+        [BsonElement("status")]
+        [BsonRepresentation(BsonType.String)]
+        public NetworkDetailsStatus Status { get; set; }
+
         [BsonElement("id")]
         [BsonRepresentation(BsonType.ObjectId)]
         public string? Id { get; set; }

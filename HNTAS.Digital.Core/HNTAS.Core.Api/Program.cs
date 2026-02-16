@@ -75,10 +75,10 @@ builder.Services.AddOpenApi("HNTAS.Core.Api");
 Console.WriteLine("***********************************");
 Console.WriteLine("Environment: " + builder.Environment.EnvironmentName);
 
-string? regEnabled = Environment.GetEnvironmentVariable("IS_REGISTRATION_ENABLE");
+string? regEnabled = Environment.GetEnvironmentVariable("IS_REGISTRATION_ENABLED");
 
 Console.WriteLine($"--- Startup Debug ---");
-Console.WriteLine($"Raw Env Var 'IS_REGISTRATION_ENABLE': {regEnabled ?? "NOT FOUND"}");
+Console.WriteLine($"Raw Env Var 'IS_REGISTRATION_ENABLED': {regEnabled ?? "NOT FOUND"}");
 Console.WriteLine($"---------------------");
 
 var app = builder.Build();

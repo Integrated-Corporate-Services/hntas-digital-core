@@ -36,12 +36,10 @@ namespace HNTAS.Core.Api.Services
             // Update operation: increment the 'sequence_value' field by 1
             var update = Builders<Counter>.Update.Inc(c => c.SequenceValue, 1);
 
-            // Options for the findOneAndUpdate operation
             var options = new FindOneAndUpdateOptions<Counter, Counter>
             {
-                ReturnDocument = ReturnDocument.After, // Return the document *after* the update has been applied
-                IsUpsert = true // If a document matching the filter doesn't exist, create it.
-                                // For a new counter, SequenceValue will effectively start at 0, then become 1.
+                ReturnDocument = ReturnDocument.After,
+                IsUpsert = true
             };
 
             try
@@ -49,25 +47,14 @@ namespace HNTAS.Core.Api.Services
                 // Execute the atomic findOneAndUpdate operation
                 var counter = await _countersCollection.FindOneAndUpdateAsync(filter, update, options);
 
-                // Defensive check: counter should never be null if IsUpsert is true and operation is successful
-                if (counter == null)
-                {
-                    _logger.LogError("Failed to retrieve or create counter document for sequence '{SequenceName}' despite upsert option. This is unexpected.", sequenceName);
-                    throw new InvalidOperationException($"Failed to get or create counter for sequence '{sequenceName}'. The database operation did not return a document.");
-                }
+                if (counter == null) throw new InvalidOperationException("Counter result was null.");
 
-                _logger.LogDebug("Next sequence value for '{SequenceName}' is {SequenceValue}.", sequenceName, counter.SequenceValue);
                 return counter.SequenceValue;
             }
-            catch (MongoException ex) // Catch specific MongoDB driver exceptions
+            catch (Exception ex)
             {
-                _logger.LogError(ex, "MongoDB error occurred while getting next sequence value for '{SequenceName}'.", sequenceName);
-                throw new InvalidOperationException($"Database error generating sequence '{sequenceName}'. See inner exception for details.", ex);
-            }
-            catch (Exception ex) // Catch any other unexpected exceptions
-            {
-                _logger.LogError(ex, "An unexpected error occurred while getting next sequence value for '{SequenceName}'.", sequenceName);
-                throw new InvalidOperationException($"Failed to generate sequence '{sequenceName}' due to an unexpected error. See inner exception for details.", ex);
+                _logger.LogError(ex, "Sequence generation failed for {Name}", sequenceName);
+                throw;
             }
         }
     }

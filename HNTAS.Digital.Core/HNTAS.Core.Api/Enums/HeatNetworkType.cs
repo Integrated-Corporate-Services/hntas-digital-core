@@ -21,7 +21,19 @@ namespace HNTAS.Core.Api.Enums
         [Description("Small communal heat network (c. 50 consumers) (SC)")]
         SmallCommunalHeatNetwork = 5,
 
+        [Description("Network-led District Heat Network")]
+        NetworkLedDistrictHeatNetwork = 6,
+
+        [Description("Developer-led District Heat Network (medium-large)")]
+        DeveloperLedDistrictHeatNetworkMorL = 7,
+
+        [Description("Developer-led District Heat Network (small)")]
+        DeveloperLedDistrictHeatNetworkSm = 8,
+
+        [Description("Communal Heat Network")]
+        CommunalHeatNetwork = 9,
+
         [Description("Other")]
-        Other = 6
+        Other = 10
     }
 }

@@ -205,5 +205,50 @@ namespace HNTAS.Core.Api.Controllers
             }
         }
 
+        /// <summary>
+        /// Updates the NetworkElements for a given heat network identified by HnId.
+        /// </summary>
+        [HttpPut("network-elements")]
+        [Consumes(MediaTypeNames.Application.Json)]
+        [ProducesResponseType(typeof(HeatNetworkResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<HeatNetworkResponse>> UpdateNetworkElements([FromBody] NetworkElements request, string hnId)
+        {
+            if (string.IsNullOrWhiteSpace(hnId))
+            {
+                _logger.LogWarning("UpdateNetworkElements called with empty HnId.");
+                return BadRequest("Please provide a valid heat network HnId.");
+            }
+
+            if (request == null)
+            {
+                _logger.LogWarning("UpdateNetworkElements called without NetworkElements payload for HnId: {HnId}", StringFormatter.Sanitize(hnId));
+                return BadRequest("Please provide NetworkElements to update.");
+            }
+
+            try
+            {
+                var existingHeatNetwork = await _hnService.GetByHnIdAsync(hnId);
+                if (existingHeatNetwork == null)
+                {
+                    _logger.LogInformation("No heat network found for HnId: {HnId}", StringFormatter.Sanitize(hnId));
+                    return NotFound($"No heat network found for HnId '{hnId}'.");
+                }
+
+                existingHeatNetwork.NetworkElements = request;
+                await _hnService.UpdateAsync(hnId, existingHeatNetwork);
+                _logger.LogInformation("Updated NetworkElements for HnId: {HnId}", StringFormatter.Sanitize(hnId));
+                var response = CreatedAtAction(nameof(UpdateNetworkElements), new { id = existingHeatNetwork.Id }, existingHeatNetwork);
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while updating NetworkElements for HnId: {HnId}", StringFormatter.Sanitize(hnId));
+                return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while updating the heat network.");
+            }
+        }
+
     }
 }

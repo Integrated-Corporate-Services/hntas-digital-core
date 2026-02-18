@@ -1,5 +1,6 @@
 ﻿using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Enums;
+using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
 namespace HNTAS.Core.Api.Models.Soa
@@ -96,9 +97,24 @@ namespace HNTAS.Core.Api.Models.Soa
 
     public class NetworkCharacteristicsResponse : NetworkDetailsResponseBase {
         public NetworkDetailsStatus Status { get; set; }
+        public string? Id { get; set; }
+        public HeatNetworkType HeatNetworkType { get; set; }
+        public string? HeatGenerationSourceFor { get; set; }
+        public int? NumberOfCommunalFloors { get; set; }
+
+        public bool? ContainsPressureBreak { get; set; }
+
+        public bool IsSupplyingOtherHeatNetworks { get; set; }
+
+        public bool HasCommercialConnections { get; set; }
+
+        public bool IsSuppliedByADistrictHeatNetwork { get; set; }
     }
     public class NetworkElementsResponse : NetworkDetailsResponseBase {
         public NetworkDetailsStatus Status { get; set; }
+        //public string? ElementId { get; set; }
+        public string? ElementType { get; set; }
+        public List<Element> Elements { get; set; } = [];
     }
     public class MeteringAndMonitoringStrategyResponse : NetworkDetailsResponseBase {
         public NetworkDetailsStatus Status { get; set; }

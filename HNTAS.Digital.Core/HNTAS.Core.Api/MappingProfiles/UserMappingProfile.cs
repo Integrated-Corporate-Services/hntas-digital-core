@@ -130,6 +130,17 @@ namespace HNTAS.Core.Api.MappingProfiles
              .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status))
              .ForMember(dest => dest.Roles, opt => opt.MapFrom(src =>
                  src.Roles != null ? src.Roles.Select(r => r.ToString()).ToList() : null));
+
+            CreateMap<NetworkCharacteristics, NetworkCharacteristicsResponse>()
+                .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
+                .ForMember(dest => dest.HeatNetworkType, opt => opt.MapFrom(src => src.HeatNetworkType))
+                .ForMember(dest => dest.HeatGenerationSourceFor, opt => opt.MapFrom(src => src.HeatGenerationSourceFor))
+                .ForMember(dest => dest.NumberOfCommunalFloors, opt => opt.MapFrom(src => src.NumberOfCommunalFloors))
+                .ForMember(dest => dest.ContainsPressureBreak, opt => opt.MapFrom(src => src.ContainsPressureBreak))
+                .ForMember(dest => dest.IsSupplyingOtherHeatNetworks, opt => opt.MapFrom(src => src.IsSupplyingOtherHeatNetworks))
+                .ForMember(dest => dest.HasCommercialConnections, opt => opt.MapFrom(src => src.HasCommercialConnections))
+                .ForMember(dest => dest.IsSuppliedByADistrictHeatNetwork, opt => opt.MapFrom(src => src.IsSuppliedByADistrictHeatNetwork))
+                .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status));
         }
 
     }

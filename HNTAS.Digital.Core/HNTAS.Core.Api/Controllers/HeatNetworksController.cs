@@ -94,7 +94,7 @@ namespace HNTAS.Core.Api.Controllers
         [ProducesResponseType(typeof(HeatNetworkResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        [ProducesResponseType(StatusCodes.Status500InternalServerError)]        
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<HeatNetworkResponse>> GetHeatNetworkByHnId(string hnId)
         {
             // Validate input ID

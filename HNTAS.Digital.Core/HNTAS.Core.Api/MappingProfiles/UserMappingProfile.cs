@@ -143,7 +143,6 @@ namespace HNTAS.Core.Api.MappingProfiles
                 .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status));
 
             CreateMap<NetworkElements, NetworkElementsResponse>()
-                //.ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
                 .ForMember(dest => dest.Elements, opt => opt.MapFrom(src => src.Elements))                
                 .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status));
         }

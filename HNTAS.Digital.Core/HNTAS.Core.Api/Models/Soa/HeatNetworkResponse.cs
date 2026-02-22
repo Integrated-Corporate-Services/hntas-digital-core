@@ -112,7 +112,6 @@ namespace HNTAS.Core.Api.Models.Soa
     }
     public class NetworkElementsResponse : NetworkDetailsResponseBase {
         public NetworkDetailsStatus Status { get; set; }
-        //public string? ElementId { get; set; }
         public string? ElementType { get; set; }
         public List<Element> Elements { get; set; } = [];
     }

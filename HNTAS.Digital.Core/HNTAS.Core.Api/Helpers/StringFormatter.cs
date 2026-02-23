@@ -46,7 +46,11 @@ namespace HNTAS.Core.Api.Helpers
             // Escape curly braces for logging frameworks that use them as format delimiters
             sanitized = sanitized.Replace("{", "{{").Replace("}", "}}");
 
-            return sanitized;
+            // Remove non-alphanumeric characters
+            sanitized = Regex.Replace(sanitized, @"[^A-Za-z0-9]", string.Empty);
+
+            // If input had content but sanitization removed everything, flag it
+            return sanitized.Length == 0 && input.Length > 0 ? "[INVALID_USER_INPUT]" : sanitized;
         }
     }
 }

@@ -141,6 +141,10 @@ namespace HNTAS.Core.Api.MappingProfiles
                 .ForMember(dest => dest.HasCommercialConnections, opt => opt.MapFrom(src => src.HasCommercialConnections))
                 .ForMember(dest => dest.IsSuppliedByADistrictHeatNetwork, opt => opt.MapFrom(src => src.IsSuppliedByADistrictHeatNetwork))
                 .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status));
+
+            CreateMap<NetworkElements, NetworkElementsResponse>()
+                .ForMember(dest => dest.Elements, opt => opt.MapFrom(src => src.Elements))                
+                .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status));
         }
 
     }

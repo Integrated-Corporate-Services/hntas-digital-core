@@ -1,5 +1,6 @@
 ﻿using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Enums;
+using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
 namespace HNTAS.Core.Api.Models.Soa
@@ -111,6 +112,8 @@ namespace HNTAS.Core.Api.Models.Soa
     }
     public class NetworkElementsResponse : NetworkDetailsResponseBase {
         public NetworkDetailsStatus Status { get; set; }
+        public string? ElementType { get; set; }
+        public List<Element> Elements { get; set; } = [];
     }
     public class MeteringAndMonitoringStrategyResponse : NetworkDetailsResponseBase {
         public NetworkDetailsStatus Status { get; set; }

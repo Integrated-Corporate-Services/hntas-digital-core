@@ -12,8 +12,8 @@ namespace HNTAS.Core.Api.Models.Soa
         public string UpdatedBy { get; set; } = null!;
 
         [Required(ErrorMessage = "Element type is required.")]
-        [EnumDataType(typeof(HeatNetworkElementType), ErrorMessage = "Invalid element type.")]
-        public HeatNetworkElementType ElementType { get; set; }
+        [EnumDataType(typeof(HeatNetworkElementDisplayType), ErrorMessage = "Invalid element type.")]
+        public HeatNetworkElementDisplayType ElementType { get; set; }
 
         [Required(ErrorMessage = "At least one location must be provided.")]
         [MinLength(1, ErrorMessage = "At least one location must be provided.")]

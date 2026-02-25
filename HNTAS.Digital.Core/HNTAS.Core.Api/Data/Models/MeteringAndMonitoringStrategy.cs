@@ -9,5 +9,7 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonElement("status")]
         [BsonRepresentation(BsonType.String)]
         public NetworkDetailsStatus Status { get; set; }
+        [BsonElement("documents")]
+        public List<NetworkDetailsUploadedDocument> Documents { get; set; } = [];
     }
 }

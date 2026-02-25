@@ -1,12 +1,15 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace HNTAS.Core.Api.Models.Soa
+namespace HNTAS.Core.Api.Models
 {
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public enum DocumentType
     {
         Assessment = 1,
         Assessor,
-        Certifier
+        Certifier,
+        MeteringAndMonitoringStrategy,
+        AssessmentPlan,
+        DesignConstructionLog
     }
 }

@@ -117,12 +117,15 @@ namespace HNTAS.Core.Api.Models.Soa
     }
     public class MeteringAndMonitoringStrategyResponse : NetworkDetailsResponseBase {
         public NetworkDetailsStatus Status { get; set; }
+        public List<NetworkDetailsUploadedDocument> Documents { get; set; } = [];
     }
     public class AssessmentPlanResponse : NetworkDetailsResponseBase {
         public NetworkDetailsStatus Status { get; set; }
+        public List<NetworkDetailsUploadedDocument> Documents { get; set; } = [];
     }
     public class DesignConstructionLogResponse : NetworkDetailsResponseBase {
         public NetworkDetailsStatus Status { get; set; }
+        public List<NetworkDetailsUploadedDocument> Documents { get; set; } = [];
     }
 
     public class NetworkDetailsResponseBase

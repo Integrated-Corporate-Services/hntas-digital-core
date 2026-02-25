@@ -16,6 +16,6 @@ namespace HNTAS.Core.Api.Interfaces
         Task UpdateElementDocumentsAsync(string hnId, HeatNetworkElementDisplayType elementType, List<UploadedDocument> documents, string updatedBy);
         Task UpdateAssessmentDocumentAsync(string hnId, Document document);
         Task UpdateAssessorDocumentAsync(string hnId, Document document);
-        Task UpdateCertifierDocumentAsync(string hnId, Document document);
+        Task UpdateCertifierDocumentAsync(string hnId, Document document);        
     }
 }

@@ -1,10 +1,13 @@
 ﻿using AutoMapper;
 using HNTAS.Core.Api.Data.Models;
+using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
+using HNTAS.Core.Api.Models;
+using HNTAS.Core.Api.Models.NetworkDetails;
 using HNTAS.Core.Api.Models.Soa;
+using HNTAS.Core.Api.Services;
 using Microsoft.AspNetCore.Mvc;
 using System.Net.Mime;
-using HNTAS.Core.Api.Helpers;
 
 namespace HNTAS.Core.Api.Controllers
 {
@@ -247,6 +250,63 @@ namespace HNTAS.Core.Api.Controllers
             {
                 _logger.LogError(ex, "An error occurred while updating NetworkElements for HnId: {HnId}", StringFormatter.Sanitize(hnId));
                 return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while updating the heat network.");
+            }
+        }
+
+        [HttpPatch("network-details-document-update")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> SaveDocument([FromBody] NetworkDetailsUploadDocumentRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                _logger.LogWarning("Invalid SaveDocument request: {@Errors}",
+                    ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage));
+                return BadRequest(ModelState);
+            }
+
+            _logger.LogInformation("Saving {DocumentType} document for HN ID: {HnId}, UploadedBy: {UploadedBy}",
+                request.DocumentType, request.HnId, request.UploadedBy);
+
+            
+
+            var document = new NetworkDetailsDocument
+            {
+                FileName = request.FileName,
+                S3Key = request.S3Key,                
+                UploadedAt = DateTime.UtcNow,
+                UploadedBy = request.UploadedBy
+            };
+
+            try
+            {
+                switch (request.DocumentType)
+                {                    
+                    case DocumentType.MeteringAndMonitoringStrategy:
+                        await _hnService.UpdateMeteringAndMonitoringStrategyAsync(request.HnId, document);
+                        break;
+                    case DocumentType.AssessmentPlan:
+                        await _hnService.UpdateAssessmentPlanAsync(request.HnId, document);
+                        break;
+                    case DocumentType.DesignConstructionLog:
+                        await _hnService.UpdateDesignConstructionLogAsync(request.HnId, document);
+                        break;
+                    default:
+                        _logger.LogWarning("Unsupported document type: {DocumentType}", request.DocumentType);
+                        return BadRequest($"Unsupported document type: {request.DocumentType}");
+                }
+
+                _logger.LogInformation("{DocumentType} document saved successfully for HN ID: {HnId}, UploadedBy: {UploadedBy}",
+                    request.DocumentType, request.HnId, request.UploadedBy);
+
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to save {DocumentType} document for HN ID: {HnId}, UploadedBy: {UploadedBy}",
+                    request.DocumentType, request.HnId, request.UploadedBy);
+                throw;
             }
         }
 

@@ -242,9 +242,7 @@ namespace HNTAS.Core.Api.Services
 
                 await _heatNetworkCollection.UpdateOneAsync(insertFilter, insertUpdate);
             }
-        }
-
-
+        } 
 
         public async Task DeleteByHeatNetworkIdAsync(string hnId)
         {

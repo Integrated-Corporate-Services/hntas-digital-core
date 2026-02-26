@@ -14,6 +14,7 @@ namespace HNTAS.Core.Api.Models.Soa
         public string Name { get; set; } = null!;
         public string Pathway { get; set; } = null!;
         public SoaResponse? Soa { get; set; }
+        public ElementSoaResponse? ElementSoa { get; set; }
         public string CreatedBy { get; set; } = null!;
         public DateTime CreatedAt { get; set; }
         public string? Phase { get; set; } = null;
@@ -29,6 +30,12 @@ namespace HNTAS.Core.Api.Models.Soa
     {
         public SoaStatus Status { get; set; }
         public JourneyDataResponse? JourneyData { get; set; }
+    }
+
+    public class ElementSoaResponse : NetworkDetailsResponseBase
+    {
+        public NetworkDetailsStatus Status { get; set; }
+        public List<SoaStages> Stages { get; set; } = [];
     }
 
     public class JourneyDataResponse

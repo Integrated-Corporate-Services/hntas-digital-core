@@ -5,6 +5,7 @@ using HNTAS.Core.Api.Models;
 using HNTAS.Core.Api.Models.Soa;
 using Microsoft.AspNetCore.Mvc;
 using System.ComponentModel.DataAnnotations;
+using DocumentType = HNTAS.Core.Api.Models.DocumentType;
 
 namespace HNTAS.Core.Api.Controllers
 {

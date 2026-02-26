@@ -8,6 +8,8 @@ using HNTAS.Core.Api.Models.Soa;
 using HNTAS.Core.Api.Services;
 using Microsoft.AspNetCore.Mvc;
 using System.Net.Mime;
+using HNTAS.Core.Api.Helpers;
+using DocumentType = HNTAS.Core.Api.Models.DocumentType;
 
 namespace HNTAS.Core.Api.Controllers
 {

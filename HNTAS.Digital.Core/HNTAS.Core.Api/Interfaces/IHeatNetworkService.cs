@@ -17,5 +17,8 @@ namespace HNTAS.Core.Api.Interfaces
         Task<HeatNetworkExternalResponse> GetDetailsByHnIdAsync(string hnId);
         Task<List<HeatNetworkExternalResponse>> GetDetailsAsync();
         Task<List<HeatNetworkExternalResponse>> GetDetailsByDateRangeAsync(DateTime fromDate, DateTime toDate);
+        Task UpdateMeteringAndMonitoringStrategyAsync(string hnId, NetworkDetailsDocument document);
+        Task UpdateAssessmentPlanAsync(string hnId, NetworkDetailsDocument document);
+        Task UpdateDesignConstructionLogAsync(string hnId, NetworkDetailsDocument document);
     }
 }

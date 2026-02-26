@@ -8,7 +8,7 @@ namespace HNTAS.Core.Api.Data.Models
     {
         [BsonElement("name")]
         [BsonRepresentation(BsonType.String)]
-        public HeatNetworkElementType Name { get; set; }
+        public HeatNetworkElementDisplayType Name { get; set; }
 
         [BsonElement("count")]
         public int Count { get; set; }

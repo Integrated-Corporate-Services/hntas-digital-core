@@ -1,9 +1,11 @@
 ﻿using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Interfaces;
+using HNTAS.Core.Api.Models;
 using HNTAS.Core.Api.Models.Soa;
 using Microsoft.AspNetCore.Mvc;
 using System.ComponentModel.DataAnnotations;
+using DocumentType = HNTAS.Core.Api.Models.DocumentType;
 
 namespace HNTAS.Core.Api.Controllers
 {
@@ -300,7 +302,7 @@ namespace HNTAS.Core.Api.Controllers
                         break;
                     case DocumentType.Certifier:
                         await _soaService.UpdateCertifierDocumentAsync(request.HnId, document);
-                        break;
+                        break;                    
                     default:
                         _logger.LogWarning("Unsupported document type: {DocumentType}", request.DocumentType);
                         return BadRequest($"Unsupported document type: {request.DocumentType}");

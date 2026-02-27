@@ -33,6 +33,6 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonElement("elementId")]
         public string? ElementId { get; set; }
         [BsonElement("documents")]
-        public List<NetworkDetailsUploadedDocument> Documents { get; set; } = [];
+        public List<Document> Documents { get; set; } = [];
     }
 }

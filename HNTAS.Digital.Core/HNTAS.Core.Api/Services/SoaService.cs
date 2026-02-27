@@ -256,5 +256,84 @@ namespace HNTAS.Core.Api.Services
                 throw new InvalidOperationException($"No embedded SOA data found to delete for HN ID: {hnId}");
             }
         }
+
+
+        public async Task UpdateSoaDocumentAsync(string hnId, Document document, string elementId)
+        {
+            // First, ensure ElementSoa is initialized
+            var initFilter = Builders<HeatNetwork>.Filter.And(
+                Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
+                Builders<HeatNetwork>.Filter.Eq(hn => hn.ElementSoa, null)
+            );
+
+            var initUpdate = Builders<HeatNetwork>.Update.Set(
+                hn => hn.ElementSoa,
+                new ElementSoa
+                {
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedBy = document.UploadedBy,
+                    Status = NetworkDetailsStatus.Complete,
+                    Stages = new List<SoaStages>()
+                }
+            );
+
+            await _heatNetworkCollection.UpdateOneAsync(initFilter, initUpdate);
+
+            // Try to update existing document for the specific stage and element
+            var updateFilter = Builders<HeatNetwork>.Filter.And(
+                Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
+                Builders<HeatNetwork>.Filter.ElemMatch<SoaStages>("elementSoa.stages",
+                    new MongoDB.Bson.BsonDocument
+                    {
+                        { "stage", document.Stage },
+                        { "elements.elementId", elementId }
+                    })
+            );
+
+            var update = Builders<HeatNetwork>.Update
+                .Set("elementSoa.stages.$[stage].elements.$[element].documents", new[] { document })
+                .Set(hn => hn.ElementSoa!.UpdatedAt, DateTime.UtcNow)
+                .Set(hn => hn.ElementSoa.UpdatedBy, document.UploadedBy)
+                .Set(hn => hn.ElementSoa.Status, NetworkDetailsStatus.Complete);
+
+            var arrayFilters = new[]
+            {
+                new MongoDB.Driver.BsonDocumentArrayFilterDefinition<MongoDB.Bson.BsonDocument>(
+                    new MongoDB.Bson.BsonDocument("stage", document.Stage)),
+                new MongoDB.Driver.BsonDocumentArrayFilterDefinition<MongoDB.Bson.BsonDocument>(
+                    new MongoDB.Bson.BsonDocument("element.elementId", elementId))
+            };
+
+            var updateOptions = new UpdateOptions { ArrayFilters = arrayFilters };
+            var result = await _heatNetworkCollection.UpdateOneAsync(updateFilter, update, updateOptions);
+
+            if (result.ModifiedCount == 0)
+            {
+                // If no existing document was updated, we need to ensure the stage and element structure exists
+                var insertFilter = Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId);
+
+                // Check if stage exists, if not create it with the element and document
+                var insertUpdate = Builders<HeatNetwork>.Update
+                    .Push("elementSoa.stages", new SoaStages
+                    {
+                        Stage = document.Stage ?? throw new InvalidOperationException("Document.Stage cannot be null."),
+                        Elements = new List<Elements>
+                        {
+                            new Elements
+                            {
+                                ElementId = elementId,
+                                Documents = new List<Document> { document }
+                            }
+                        }
+                    })
+                    .Set(hn => hn.ElementSoa!.UpdatedAt, DateTime.UtcNow)
+                    .Set(hn => hn.ElementSoa.UpdatedBy, document.UploadedBy)
+                    .Set(hn => hn.ElementSoa.Status, NetworkDetailsStatus.Complete);
+
+                await _heatNetworkCollection.UpdateOneAsync(insertFilter, insertUpdate);
+            }
+
+            _logger.LogInformation("Updated ElementSoa document for HN ID: {HnId}, Stage: {Stage}, Element: {Element}", hnId, document.Stage, elementId);
+        }
     }
 }

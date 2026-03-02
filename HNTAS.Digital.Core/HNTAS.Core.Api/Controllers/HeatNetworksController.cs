@@ -91,6 +91,11 @@ namespace HNTAS.Core.Api.Controllers
                 return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while retrieving heat networks.");
             }
         }
+        /// <summary>
+        /// Get GetHeatNetworkByHnId
+        /// </summary>
+        /// <param name="hnId"></param>
+        /// <returns></returns>
 
         [HttpGet("{hnId}")]
         [Consumes(MediaTypeNames.Application.Json)]

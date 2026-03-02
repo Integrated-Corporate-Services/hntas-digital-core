@@ -25,14 +25,14 @@ namespace HNTAS.Core.Api.Data.Models
 
     public class Elements
     {
-        [BsonElement("networkElementDisplayType")]
-        [BsonRepresentation(BsonType.String)]
-        public HeatNetworkElementDisplayType Type { get; set; }
-        [BsonElement("elementType")]
-        public string? ElementType { get; set; }
+        //[BsonElement("networkElementDisplayType")]
+        //[BsonRepresentation(BsonType.String)]
+        //public HeatNetworkElementDisplayType Type { get; set; }
+        //[BsonElement("elementType")]
+        //public string? ElementType { get; set; }
         [BsonElement("elementId")]
         public string? ElementId { get; set; }
         [BsonElement("documents")]
-        public List<Document> Documents { get; set; } = [];
+        public List<NetworkDetailsUploadedDocument> Documents { get; set; } = [];
     }
 }

@@ -257,8 +257,7 @@ namespace HNTAS.Core.Api.Services
             }
         }
 
-
-        public async Task UpdateSoaDocumentAsync(string hnId, Document document, string elementId)
+        public async Task UpdateSoaDocumentAsync(string hnId, NetworkDetailsUploadedDocument document, string elementId, SoaStage stage)
         {
             // First, ensure ElementSoa is initialized
             var initFilter = Builders<HeatNetwork>.Filter.And(
@@ -285,7 +284,7 @@ namespace HNTAS.Core.Api.Services
                 Builders<HeatNetwork>.Filter.ElemMatch<SoaStages>("elementSoa.stages",
                     new MongoDB.Bson.BsonDocument
                     {
-                        { "stage", document.Stage },
+                        { "stage", stage },
                         { "elements.elementId", elementId }
                     })
             );
@@ -299,7 +298,7 @@ namespace HNTAS.Core.Api.Services
             var arrayFilters = new[]
             {
                 new MongoDB.Driver.BsonDocumentArrayFilterDefinition<MongoDB.Bson.BsonDocument>(
-                    new MongoDB.Bson.BsonDocument("stage", document.Stage)),
+                    new MongoDB.Bson.BsonDocument("stage", stage)),
                 new MongoDB.Driver.BsonDocumentArrayFilterDefinition<MongoDB.Bson.BsonDocument>(
                     new MongoDB.Bson.BsonDocument("element.elementId", elementId))
             };
@@ -316,13 +315,13 @@ namespace HNTAS.Core.Api.Services
                 var insertUpdate = Builders<HeatNetwork>.Update
                     .Push("elementSoa.stages", new SoaStages
                     {
-                        Stage = document.Stage ?? throw new InvalidOperationException("Document.Stage cannot be null."),
+                        Stage = stage,
                         Elements = new List<Elements>
                         {
                             new Elements
                             {
                                 ElementId = elementId,
-                                Documents = new List<Document> { document }
+                                Documents = new List<NetworkDetailsUploadedDocument> { document }
                             }
                         }
                     })
@@ -333,7 +332,224 @@ namespace HNTAS.Core.Api.Services
                 await _heatNetworkCollection.UpdateOneAsync(insertFilter, insertUpdate);
             }
 
-            _logger.LogInformation("Updated ElementSoa document for HN ID: {HnId}, Stage: {Stage}, Element: {Element}", hnId, document.Stage, elementId);
+            _logger.LogInformation("Updated ElementSoa document for HN ID: {HnId}, Stage: {Stage}, Element: {Element}", hnId, stage, elementId);
         }
+
+        //public async Task UpdateSoaDocumentAsync(string hnId, NetworkDetailsUploadedDocument document, string elementId, SoaStage stage)
+        //{
+        //    try
+        //    {
+        //        // Step 1: Ensure ElementSoa is initialized
+        //        var initFilter = Builders<HeatNetwork>.Filter.And(
+        //            Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
+        //            Builders<HeatNetwork>.Filter.Eq(hn => hn.ElementSoa, null)
+        //        );
+
+        //        var initUpdate = Builders<HeatNetwork>.Update.Set(
+        //            hn => hn.ElementSoa,
+        //            new ElementSoa
+        //            {
+        //                CreatedAt = DateTime.UtcNow,
+        //                CreatedBy = document.UploadedBy,
+        //                Status = NetworkDetailsStatus.Complete,
+        //                Stages = new List<SoaStages>()
+        //            }
+        //        );
+
+        //        await _heatNetworkCollection.UpdateOneAsync(initFilter, initUpdate);
+
+        //        // Step 2: Try to push document to existing stage and element
+        //        var pushDocumentFilter = Builders<HeatNetwork>.Filter.And(
+        //            Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
+        //            Builders<HeatNetwork>.Filter.ElemMatch<SoaStages>("elementSoa.stages",
+        //                new MongoDB.Bson.BsonDocument
+        //                {
+        //                    { "stage", new MongoDB.Bson.BsonInt32((int)stage) },
+        //                    { "elements", new MongoDB.Bson.BsonDocument
+        //                        {
+        //                            { "$elemMatch", new MongoDB.Bson.BsonDocument("elementId", elementId) }
+        //                        }
+        //                    }
+        //                })
+        //        );
+
+        //        var pushDocumentUpdate = Builders<HeatNetwork>.Update
+        //            .Push("elementSoa.stages.$[stage].elements.$[element].documents", document)
+        //            .Set(hn => hn.ElementSoa!.UpdatedAt, DateTime.UtcNow)
+        //            .Set(hn => hn.ElementSoa.UpdatedBy, document.UploadedBy)
+        //            .Set(hn => hn.ElementSoa.Status, NetworkDetailsStatus.Complete);
+
+        //        //var arrayFilters = new[]
+        //        //{
+        //        //    new MongoDB.Bson.BsonDocumentArrayFilterDefinition<MongoDB.Bson.BsonDocument>(
+        //        //        new MongoDB.Bson.BsonDocument("stage", new MongoDB.Bson.BsonInt32((int)stage))),
+        //        //    new MongoDB.Bson.BsonDocumentArrayFilterDefinition<MongoDB.Bson.BsonDocument>(
+        //        //        new MongoDB.Bson.BsonDocument("element.elementId", elementId))
+        //        //};
+
+        //        var arrayFilters = new[]
+        //    {
+        //        new BsonDocumentArrayFilterDefinition<MongoDB.Bson.BsonDocument>(
+        //            new MongoDB.Bson.BsonDocument("stage", stage)),
+        //        new BsonDocumentArrayFilterDefinition<MongoDB.Bson.BsonDocument>(
+        //            new MongoDB.Bson.BsonDocument("element.elementId", elementId))
+        //    };
+
+        //        var updateOptions = new UpdateOptions { ArrayFilters = arrayFilters };
+        //        var result = await _heatNetworkCollection.UpdateOneAsync(pushDocumentFilter, pushDocumentUpdate, updateOptions);
+
+        //        if (result.ModifiedCount > 0)
+        //        {
+        //            _logger.LogInformation("Added document to existing ElementSoa stage and element for HN ID: {HnId}, Stage: {Stage}, Element: {Element}", hnId, stage, elementId);
+        //            return;
+        //        }
+
+        //        // Step 3: Check if stage exists but element doesn't - push element to existing stage
+        //        var stageExistsFilter = Builders<HeatNetwork>.Filter.And(
+        //            Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
+        //            Builders<HeatNetwork>.Filter.ElemMatch(hn => hn.ElementSoa!.Stages, s => s.Stage == stage)
+        //        );
+
+        //        var pushElementUpdate = Builders<HeatNetwork>.Update
+        //            .Push("elementSoa.stages.$[stage].elements", new Elements
+        //            {
+        //                ElementId = elementId,
+        //                Documents = new List<NetworkDetailsUploadedDocument> { document }
+        //            })
+        //            .Set(hn => hn.ElementSoa!.UpdatedAt, DateTime.UtcNow)
+        //            .Set(hn => hn.ElementSoa.UpdatedBy, document.UploadedBy)
+        //            .Set(hn => hn.ElementSoa.Status, NetworkDetailsStatus.Complete);
+
+        //        var stageArrayFilters = new[]
+        //        {
+        //            new BsonDocumentArrayFilterDefinition<MongoDB.Bson.BsonDocument>(
+        //                new MongoDB.Bson.BsonDocument("stage", stage))
+        //        };
+
+        //        var stageUpdateOptions = new UpdateOptions { ArrayFilters = stageArrayFilters };
+        //        result = await _heatNetworkCollection.UpdateOneAsync(stageExistsFilter, pushElementUpdate, stageUpdateOptions);
+
+        //        if (result.ModifiedCount > 0)
+        //        {
+        //            _logger.LogInformation("Added element to existing ElementSoa stage for HN ID: {HnId}, Stage: {Stage}, Element: {Element}", hnId, stage, elementId);
+        //            return;
+        //        }
+
+        //        // Step 4: Stage doesn't exist - create new stage with element and document
+        //        var pushStageFilter = Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId);
+
+        //        var pushStageUpdate = Builders<HeatNetwork>.Update
+        //            .Push(hn => hn.ElementSoa!.Stages, new SoaStages
+        //            {
+        //                Stage = stage,
+        //                Elements = new List<Elements>
+        //                {
+        //                    new Elements
+        //                    {
+        //                        ElementId = elementId,
+        //                        Documents = new List<NetworkDetailsUploadedDocument> { document }
+        //                    }
+        //                }
+        //            })
+        //            .Set(hn => hn.ElementSoa!.UpdatedAt, DateTime.UtcNow)
+        //            .Set(hn => hn.ElementSoa.UpdatedBy, document.UploadedBy)
+        //            .Set(hn => hn.ElementSoa.Status, NetworkDetailsStatus.Complete);
+
+        //        await _heatNetworkCollection.UpdateOneAsync(pushStageFilter, pushStageUpdate);
+
+        //        _logger.LogInformation("Created new ElementSoa stage with element for HN ID: {HnId}, Stage: {Stage}, Element: {Element}", hnId, stage, elementId);
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        _logger.LogError(ex, "Error updating SOA document for HN ID: {HnId}, Element: {Element}, Stage: {Stage}", hnId, elementId, stage);
+        //        throw;
+        //    }
+        //}
+
+        //public async Task UpdateSoaDocumentAsync(string hnId, NetworkDetailsUploadedDocument document, string elementId, SoaStage stage)
+        //{
+        //    try
+        //    {
+        //        var initFilter = Builders<HeatNetwork>.Filter.And(
+        //        Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
+        //        Builders<HeatNetwork>.Filter.Eq(hn => hn.ElementSoa, null)
+        //    );
+
+        //        var initUpdate = Builders<HeatNetwork>.Update.Set(
+        //            hn => hn.ElementSoa,
+        //            new ElementSoa
+        //            {
+        //                CreatedAt = DateTime.UtcNow,
+        //                CreatedBy = document.UploadedBy,
+        //                Status = NetworkDetailsStatus.Complete,
+        //                Stages = new List<SoaStages>()
+        //            }
+        //        );
+
+        //        await _heatNetworkCollection.UpdateOneAsync(initFilter, initUpdate);
+
+        //        // Try to update existing document for the specific stage and element
+        //        var updateFilter = Builders<HeatNetwork>.Filter.And(
+        //            Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
+        //            Builders<HeatNetwork>.Filter.ElemMatch<SoaStages>("elementSoa.stages",
+        //                new MongoDB.Bson.BsonDocument
+        //                {
+        //                    {  "stage", stage.ToString()  },
+        //                { "elements.elementId", elementId }
+        //                })
+        //        );
+
+        //        var update = Builders<HeatNetwork>.Update
+        //            .Set("elementSoa.stages.$[stage].elements.$[element].documents", new[] { document })
+        //            .Set(hn => hn.ElementSoa!.UpdatedAt, DateTime.UtcNow)
+        //            .Set(hn => hn.ElementSoa.UpdatedBy, document.UploadedBy)
+        //            .Set(hn => hn.ElementSoa.Status, NetworkDetailsStatus.Complete);
+
+        //        var arrayFilters = new[]
+        //        {
+        //        new BsonDocumentArrayFilterDefinition<MongoDB.Bson.BsonDocument>(
+        //            new MongoDB.Bson.BsonDocument("element.elementId", elementId))
+        //    };
+
+        //        var updateOptions = new UpdateOptions { ArrayFilters = arrayFilters };
+        //        var result = await _heatNetworkCollection.UpdateOneAsync(updateFilter, update, updateOptions);
+
+        //        if (result.ModifiedCount == 0)
+        //        {
+        //            // If no existing document was updated, we need to ensure the stage and element structure exists
+        //            var insertFilter = Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId);
+
+        //            // Check if stage exists, if not create it with the element and document
+        //            var insertUpdate = Builders<HeatNetwork>.Update
+        //                .Push("elementSoa.stages", new SoaStages
+        //                {
+        //                    Stage = stage,
+        //                    //Stage = document.Stage ?? throw new InvalidOperationException("Document.Stage cannot be null."),
+        //                    Elements = new List<Elements>
+        //                    {
+        //                    new Elements
+        //                    {
+        //                        ElementId = elementId,
+        //                        Documents = new List<NetworkDetailsUploadedDocument> { document }
+        //                    }
+        //                    }
+        //                })
+        //                .Set(hn => hn.ElementSoa!.UpdatedAt, DateTime.UtcNow)
+        //                .Set(hn => hn.ElementSoa.UpdatedBy, document.UploadedBy)
+        //                .Set(hn => hn.ElementSoa.Status, NetworkDetailsStatus.Complete);
+
+        //            await _heatNetworkCollection.UpdateOneAsync(insertFilter, insertUpdate);
+        //        }
+
+        //        _logger.LogInformation("Updated ElementSoa document for HN ID: {HnId}, Element: {Element}", hnId, elementId);
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        _logger.LogError(ex, "Error updating SOA document for HN ID: {HnId}, Element: {Element}, Stage: {Stage}", hnId, elementId, stage);
+        //        throw;
+        //    }
+        //    // First, ensure ElementSoa is initialized
+
+        //}
     }
 }

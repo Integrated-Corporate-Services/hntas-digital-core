@@ -334,27 +334,19 @@ namespace HNTAS.Core.Api.Controllers
             }
 
             _logger.LogInformation("Saving {DocumentType} document for HN ID: {HnId}, Stage: {Stage}, UploadedBy: {UploadedBy}",
-                request.DocumentType, request.HnId, request.Stage, request.UploadedBy);
+                request.DocumentType, request.HnId, request.Stage, request.UploadedBy);            
 
-            var project = await _soaService.GetByHeatNetworkIdAsync(request.HnId);
-            if (project == null)
-            {
-                _logger.LogWarning("SOA not found for {DocumentType} document save: {HnId}", request.DocumentType, request.HnId);
-                return NotFound();
-            }
-
-            var document = new Document
+            var document = new NetworkDetailsUploadedDocument
             {
                 FileName = request.FileName,
                 S3Key = request.S3Key,                
-                Stage = request.Stage,
                 UploadedAt = DateTime.UtcNow,
                 UploadedBy = request.UploadedBy
             };
 
             try
             {
-                await _soaService.UpdateSoaDocumentAsync(request.HnId, document, request.ElementId!);
+                await _soaService.UpdateSoaDocumentAsync(request.HnId, document, request.ElementId!, request.Stage);
 
                 _logger.LogInformation("{DocumentType} document saved successfully for HN ID: {HnId}, Stage: {Stage}, UploadedBy: {UploadedBy}",
                     request.DocumentType, request.HnId, request.Stage, request.UploadedBy);

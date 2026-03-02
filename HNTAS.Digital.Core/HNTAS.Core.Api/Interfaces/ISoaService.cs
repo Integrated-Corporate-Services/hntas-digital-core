@@ -17,6 +17,6 @@ namespace HNTAS.Core.Api.Interfaces
         Task UpdateAssessmentDocumentAsync(string hnId, Document document);
         Task UpdateAssessorDocumentAsync(string hnId, Document document);
         Task UpdateCertifierDocumentAsync(string hnId, Document document);
-        Task UpdateSoaDocumentAsync(string hnId, Document document, string elementId);
+        Task UpdateSoaDocumentAsync(string hnId, NetworkDetailsUploadedDocument document, string elementId, SoaStage stage);
     }
 }

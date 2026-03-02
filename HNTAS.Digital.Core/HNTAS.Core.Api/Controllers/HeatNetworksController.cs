@@ -258,6 +258,12 @@ namespace HNTAS.Core.Api.Controllers
             }
         }
 
+        /// <summary>
+        /// Patch SaveDocument
+        /// </summary>
+        /// <param name="request"></param>
+        /// <returns></returns>
+
         [HttpPatch("network-details-document-update")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]

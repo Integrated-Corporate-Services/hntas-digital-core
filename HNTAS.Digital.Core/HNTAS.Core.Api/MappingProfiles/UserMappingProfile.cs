@@ -180,7 +180,7 @@ namespace HNTAS.Core.Api.MappingProfiles
             .ForMember(dest => dest.CreatedBy, opt => opt.MapFrom(src => src.CreatedBy))
             .ForMember(dest => dest.UpdatedAt, opt => opt.MapFrom(src => src.UpdatedAt))
             .ForMember(dest => dest.UpdatedBy, opt => opt.MapFrom(src => src.UpdatedBy))
-            .ForMember(dest => dest.Stages, opt => opt.MapFrom(src => src.Stages));
+            .ForMember(dest => dest.Elements, opt => opt.MapFrom(src => src.Elements));
         }
 
     }

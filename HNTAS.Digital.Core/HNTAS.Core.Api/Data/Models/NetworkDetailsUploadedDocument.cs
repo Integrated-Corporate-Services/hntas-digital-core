@@ -17,7 +17,7 @@ namespace HNTAS.Core.Api.Data.Models
         public DateTime UploadedAt { get; set; } = DateTime.UtcNow;
 
         [BsonElement("uploadedBy")]
-        [BsonRepresentation(BsonType.ObjectId)]
+        //[BsonRepresentation(BsonType.ObjectId)]
         public string UploadedBy { get; set; } = null!;
     }
 }

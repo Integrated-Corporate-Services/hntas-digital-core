@@ -10,29 +10,27 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonRepresentation(BsonType.String)]
         public NetworkDetailsStatus Status { get; set; }
 
+        [BsonElement("elements")]
+        public List<Elements> Elements { get; set; } = [];
+        
+    }    
+
+    public class Elements
+    {
+        [BsonElement("elementId")]
+        public string? ElementId { get; set; }
+
         [BsonElement("stages")]
-        public List<SoaStages> Stages { get; set; } = [];
+        public List<SoaStages> Stages { get; set; } = [];        
     }
 
     public class SoaStages
     {
-        [BsonElement("stage")]
+        [BsonElement("stageId")]
         [BsonRepresentation(BsonType.String)]
-        public SoaStage Stage { get; set; }
-        [BsonElement("elements")]
-        public List<Elements> Elements { get; set; } = [];
-    }
+        public SoaStage StageId { get; set; }
+        [BsonElement("document")]
+        public NetworkDetailsUploadedDocument Document { get; set; }
 
-    public class Elements
-    {
-        //[BsonElement("networkElementDisplayType")]
-        //[BsonRepresentation(BsonType.String)]
-        //public HeatNetworkElementDisplayType Type { get; set; }
-        //[BsonElement("elementType")]
-        //public string? ElementType { get; set; }
-        [BsonElement("elementId")]
-        public string? ElementId { get; set; }
-        [BsonElement("documents")]
-        public List<NetworkDetailsUploadedDocument> Documents { get; set; } = [];
     }
 }

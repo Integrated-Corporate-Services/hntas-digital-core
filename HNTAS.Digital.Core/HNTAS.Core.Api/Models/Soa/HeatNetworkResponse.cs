@@ -35,7 +35,7 @@ namespace HNTAS.Core.Api.Models.Soa
     public class ElementSoaResponse : NetworkDetailsResponseBase
     {
         public NetworkDetailsStatus Status { get; set; }
-        public List<SoaStages> Stages { get; set; } = [];
+        public List<Elements> Elements { get; set; } = [];
     }
 
     public class JourneyDataResponse

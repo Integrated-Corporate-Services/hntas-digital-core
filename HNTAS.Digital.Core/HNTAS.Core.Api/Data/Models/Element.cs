@@ -20,5 +20,7 @@ namespace HNTAS.Core.Api.Data.Models
         public string? ElementType { get; set; }
         [BsonElement("elementId")]
         public string? ElementId { get; set; }
+        [BsonElement("soaStages")]
+        public List<SoaStages>? SoaStages { get; set; } = [];
     }
 }

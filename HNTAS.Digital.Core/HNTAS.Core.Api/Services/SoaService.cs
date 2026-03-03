@@ -261,109 +261,73 @@ namespace HNTAS.Core.Api.Services
         {
             try
             {
-                // First, ensure ElementSoa is initialized
+                // Set timestamp before using document
+                document.UploadedAt = DateTime.UtcNow;
+
+                // First, ensure SoaStages is initialized
                 var initFilter = Builders<HeatNetwork>.Filter.And(
                     Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
-                    Builders<HeatNetwork>.Filter.Eq(hn => hn.ElementSoa, null)
+                    Builders<HeatNetwork>.Filter.ElemMatch(hn => hn.NetworkElements!.Elements,
+                        e => e.ElementId == elementId && e.SoaStages == null)
                 );
 
-                var initUpdate = Builders<HeatNetwork>.Update.Set(
-                    hn => hn.ElementSoa,
-                    new ElementSoa
-                    {
-                        CreatedAt = DateTime.UtcNow,
-                        CreatedBy = document.UploadedBy,
-                        Status = NetworkDetailsStatus.InProgress,
-                        Elements = new List<Elements>()
-                    }
-                );
+                var initUpdate = Builders<HeatNetwork>.Update.Set("networkElements.elements.$.soaStages", new List<SoaStages>());
 
                 await _heatNetworkCollection.UpdateOneAsync(initFilter, initUpdate);
 
                 // Try to update existing document for the specific stage and element
                 var updateFilter = Builders<HeatNetwork>.Filter.And(
                     Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
-                    Builders<HeatNetwork>.Filter.ElemMatch<Elements>("elementSoa.elements",
+                    Builders<HeatNetwork>.Filter.ElemMatch<Element>("networkElements.elements",
                         new MongoDB.Bson.BsonDocument
                         {
-                        { "elementId", elementId },
-                        { "stages.stageId", stage.ToString() }
+                            { "elementId", elementId },
+                            { "soaStages.stageId", stage.ToString() }
                         })
                 );
 
                 var update = Builders<HeatNetwork>.Update
-                    .Set("elementSoa.elements.$[element].stages.$[stage].document", document)
-                    .Set(hn => hn.ElementSoa!.UpdatedAt, DateTime.UtcNow)
-                    .Set(hn => hn.ElementSoa.UpdatedBy, document.UploadedBy)
-                    .Set(hn => hn.ElementSoa.Status, NetworkDetailsStatus.InProgress);
+                    .Set("networkElements.elements.$[element].soaStages.$[stage].document", document)
+                    .Set(hn => hn.NetworkElements!.ElementSoaStatus, NetworkDetailsStatus.InProgress);
 
                 var arrayFilters = new[]
                 {
-                new BsonDocumentArrayFilterDefinition<MongoDB.Bson.BsonDocument>(
-                    new MongoDB.Bson.BsonDocument("element.elementId", elementId)),
-                new BsonDocumentArrayFilterDefinition<MongoDB.Bson.BsonDocument>(
-                    new MongoDB.Bson.BsonDocument("stage.stageId", stage.ToString()))
-            };
+                    new BsonDocumentArrayFilterDefinition<MongoDB.Bson.BsonDocument>(
+                        new MongoDB.Bson.BsonDocument("element.elementId", elementId)),
+                    new BsonDocumentArrayFilterDefinition<MongoDB.Bson.BsonDocument>(
+                        new MongoDB.Bson.BsonDocument("stage.stageId", stage.ToString()))
+                };
 
                 var updateOptions = new UpdateOptions { ArrayFilters = arrayFilters };
                 var result = await _heatNetworkCollection.UpdateOneAsync(updateFilter, update, updateOptions);
 
                 if (result.ModifiedCount == 0)
                 {
-                    // check if the stage exists for the existing element, if not, push the stage and document to the existing element
-                    var stageExistsFilter = Builders<HeatNetwork>.Filter.And(
-                        Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
-                        Builders<HeatNetwork>.Filter.ElemMatch(hn => hn.ElementSoa!.Elements, e => e.ElementId == elementId && e.Stages.Any(s => s.StageId != stage))
-                    );
+                    // Stage doesn't exist - add it using array filter
+                    var pushFilter = Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId);
 
-                    var stageExistsUpdate = Builders<HeatNetwork>.Update
-                        .Push("elementSoa.elements.$[element].stages", new SoaStages
+                    var pushUpdate = Builders<HeatNetwork>.Update
+                        .Push("networkElements.elements.$[element].soaStages", new SoaStages
                         {
                             StageId = stage,
                             Document = document
                         })
-                        .Set(hn => hn.ElementSoa!.UpdatedAt, DateTime.UtcNow)
-                        .Set(hn => hn.ElementSoa.UpdatedBy, document.UploadedBy)
-                        .Set(hn => hn.ElementSoa.Status, NetworkDetailsStatus.InProgress);
+                        .Set(hn => hn.NetworkElements!.ElementSoaStatus, NetworkDetailsStatus.InProgress);
 
-                    var stageExistsArrayFilters = new[] 
+                    var pushArrayFilters = new[]
                     {
                         new BsonDocumentArrayFilterDefinition<MongoDB.Bson.BsonDocument>(
                             new MongoDB.Bson.BsonDocument("element.elementId", elementId))
                     };
 
-                    var stageExistsUpdateOptions = new UpdateOptions { ArrayFilters = stageExistsArrayFilters };
-                    result = await _heatNetworkCollection.UpdateOneAsync(stageExistsFilter, stageExistsUpdate, stageExistsUpdateOptions);
-
+                    var pushOptions = new UpdateOptions { ArrayFilters = pushArrayFilters };
+                    result = await _heatNetworkCollection.UpdateOneAsync(pushFilter, pushUpdate, pushOptions);
 
                     if (result.ModifiedCount > 0)
                     {
                         _logger.LogInformation("Added document to existing element for HN ID: {HnId}, Stage: {Stage}, Element: {Element}", hnId, stage, elementId);
                         return;
                     }
-
-                    var insertFilter = Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId);
-
-
-                    // Check if element exists, if not create it with the element and document
-                    var insertUpdate = Builders<HeatNetwork>.Update
-                        .Push("elementSoa.elements", new Elements
-                        {
-                            ElementId = elementId,
-                            Stages = new List<SoaStages>
-                            {
-                            new SoaStages
-                            {
-                                StageId = stage,
-                                Document = document
-                            }
-                            }
-                        })
-                        .Set(hn => hn.ElementSoa!.UpdatedAt, DateTime.UtcNow)
-                        .Set(hn => hn.ElementSoa.UpdatedBy, document.UploadedBy)
-                        .Set(hn => hn.ElementSoa.Status, NetworkDetailsStatus.InProgress);
-
-                    await _heatNetworkCollection.UpdateOneAsync(insertFilter, insertUpdate);
                 }
 
                 _logger.LogInformation("Updated ElementSoa document for HN ID: {HnId}, Stage: {Stage}, Element: {Element}", hnId, stage, elementId);
@@ -373,131 +337,7 @@ namespace HNTAS.Core.Api.Services
                 _logger.LogError(ex, "Error updating SOA document for HN ID: {HnId}, Element: {Element}, Stage: {Stage}", hnId, elementId, stage);
                 throw;
             }
-            
-        }
 
-
-        //public async Task UpdateSoaDocumentAsync(string hnId, NetworkDetailsUploadedDocument document, string elementId, SoaStage stage)
-        //{
-        //    try
-        //    {
-        //        // Step 1: Ensure ElementSoa is initialized
-        //        var initFilter = Builders<HeatNetwork>.Filter.And(
-        //            Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
-        //            Builders<HeatNetwork>.Filter.Eq(hn => hn.ElementSoa, null)
-        //        );
-
-        //        var initUpdate = Builders<HeatNetwork>.Update.Set(
-        //            hn => hn.ElementSoa,
-        //            new ElementSoa
-        //            {
-        //                CreatedAt = DateTime.UtcNow,
-        //                CreatedBy = document.UploadedBy,
-        //                Status = NetworkDetailsStatus.Complete,
-        //                Stages = new List<SoaStages>()
-        //            }
-        //        );
-
-        //        await _heatNetworkCollection.UpdateOneAsync(initFilter, initUpdate);
-
-        //        // Step 2: Try to push document to existing stage and element
-        //        var pushDocumentFilter = Builders<HeatNetwork>.Filter.And(
-        //            Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
-        //            Builders<HeatNetwork>.Filter.ElemMatch<SoaStages>("elementSoa.stages",
-        //                new MongoDB.Bson.BsonDocument
-        //                {
-        //                    { "stage", stage },
-        //                    { "elements", new MongoDB.Bson.BsonDocument
-        //                        {
-        //                            { "$elemMatch", new MongoDB.Bson.BsonDocument("elementId", elementId) }
-        //                        }
-        //                    }
-        //                })
-        //        );
-
-        //        var pushDocumentUpdate = Builders<HeatNetwork>.Update
-        //            .Push("elementSoa.stages.$[stage].elements.$[element].documents", document)
-        //            .Set(hn => hn.ElementSoa!.UpdatedAt, DateTime.UtcNow)
-        //            .Set(hn => hn.ElementSoa.UpdatedBy, document.UploadedBy)
-        //            .Set(hn => hn.ElementSoa.Status, NetworkDetailsStatus.Complete);
-
-        //        var arrayFilters = new[]
-        //        {
-        //            new BsonDocumentArrayFilterDefinition<MongoDB.Bson.BsonDocument>(
-        //                new MongoDB.Bson.BsonDocument("stage.stage", stage)),
-        //            new BsonDocumentArrayFilterDefinition<MongoDB.Bson.BsonDocument>(
-        //                new MongoDB.Bson.BsonDocument("element.elementId", elementId))
-        //        };
-
-        //        var updateOptions = new UpdateOptions { ArrayFilters = arrayFilters };
-        //        var result = await _heatNetworkCollection.UpdateOneAsync(pushDocumentFilter, pushDocumentUpdate, updateOptions);
-
-        //        if (result.ModifiedCount > 0)
-        //        {
-        //            _logger.LogInformation("Added document to existing ElementSoa stage and element for HN ID: {HnId}, Stage: {Stage}, Element: {Element}", hnId, stage, elementId);
-        //            return;
-        //        }
-
-        //        // Step 3: Check if stage exists but element doesn't - push element to existing stage
-        //        var stageExistsFilter = Builders<HeatNetwork>.Filter.And(
-        //            Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
-        //            Builders<HeatNetwork>.Filter.ElemMatch(hn => hn.ElementSoa!.Stages, s => s.Stage == stage)
-        //        );
-
-        //        var pushElementUpdate = Builders<HeatNetwork>.Update
-        //            .Push("elementSoa.stages.$[stage].elements", new Elements
-        //            {
-        //                ElementId = elementId,
-        //                Documents = new List<NetworkDetailsUploadedDocument> { document }
-        //            })
-        //            .Set(hn => hn.ElementSoa!.UpdatedAt, DateTime.UtcNow)
-        //            .Set(hn => hn.ElementSoa.UpdatedBy, document.UploadedBy)
-        //            .Set(hn => hn.ElementSoa.Status, NetworkDetailsStatus.Complete);
-
-        //        var stageArrayFilters = new[]
-        //        {
-        //            new BsonDocumentArrayFilterDefinition<MongoDB.Bson.BsonDocument>(
-        //                new MongoDB.Bson.BsonDocument("stage.stage", stage))
-        //        };
-
-        //        var stageUpdateOptions = new UpdateOptions { ArrayFilters = stageArrayFilters };
-        //        result = await _heatNetworkCollection.UpdateOneAsync(stageExistsFilter, pushElementUpdate, stageUpdateOptions);
-
-        //        if (result.ModifiedCount > 0)
-        //        {
-        //            _logger.LogInformation("Added element to existing ElementSoa stage for HN ID: {HnId}, Stage: {Stage}, Element: {Element}", hnId, stage, elementId);
-        //            return;
-        //        }
-
-        //        // Step 4: Stage doesn't exist - create new stage with element and document
-        //        var pushStageFilter = Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId);
-
-        //        var pushStageUpdate = Builders<HeatNetwork>.Update
-        //            .Push(hn => hn.ElementSoa!.Stages, new SoaStages
-        //            {
-        //                Stage = stage,
-        //                Elements = new List<Elements>
-        //                {
-        //                    new Elements
-        //                    {
-        //                        ElementId = elementId,
-        //                        Documents = new List<NetworkDetailsUploadedDocument> { document }
-        //                    }
-        //                }
-        //            })
-        //            .Set(hn => hn.ElementSoa!.UpdatedAt, DateTime.UtcNow)
-        //            .Set(hn => hn.ElementSoa.UpdatedBy, document.UploadedBy)
-        //            .Set(hn => hn.ElementSoa.Status, NetworkDetailsStatus.Complete);
-
-        //        await _heatNetworkCollection.UpdateOneAsync(pushStageFilter, pushStageUpdate);
-
-        //        _logger.LogInformation("Created new ElementSoa stage with element for HN ID: {HnId}, Stage: {Stage}, Element: {Element}", hnId, stage, elementId);
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        _logger.LogError(ex, "Error updating SOA document for HN ID: {HnId}, Element: {Element}, Stage: {Stage}", hnId, elementId, stage);
-        //        throw;
-        //    }
-        //}
+        }        
     }
 }

@@ -310,8 +310,40 @@ namespace HNTAS.Core.Api.Services
 
                 if (result.ModifiedCount == 0)
                 {
-                    // If no existing document was updated, we need to check if the stage exists for the element
+                    // check if the stage exists for the existing element, if not, push the stage and document to the existing element
+                    var stageExistsFilter = Builders<HeatNetwork>.Filter.And(
+                        Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
+                        Builders<HeatNetwork>.Filter.ElemMatch(hn => hn.ElementSoa!.Elements, e => e.ElementId == elementId && e.Stages.Any(s => s.StageId != stage))
+                    );
+
+                    var stageExistsUpdate = Builders<HeatNetwork>.Update
+                        .Push("elementSoa.elements.$[element].stages", new SoaStages
+                        {
+                            StageId = stage,
+                            Document = document
+                        })
+                        .Set(hn => hn.ElementSoa!.UpdatedAt, DateTime.UtcNow)
+                        .Set(hn => hn.ElementSoa.UpdatedBy, document.UploadedBy)
+                        .Set(hn => hn.ElementSoa.Status, NetworkDetailsStatus.InProgress);
+
+                    var stageExistsArrayFilters = new[] 
+                    {
+                        new BsonDocumentArrayFilterDefinition<MongoDB.Bson.BsonDocument>(
+                            new MongoDB.Bson.BsonDocument("element.elementId", elementId))
+                    };
+
+                    var stageExistsUpdateOptions = new UpdateOptions { ArrayFilters = stageExistsArrayFilters };
+                    result = await _heatNetworkCollection.UpdateOneAsync(stageExistsFilter, stageExistsUpdate, stageExistsUpdateOptions);
+
+
+                    if (result.ModifiedCount > 0)
+                    {
+                        _logger.LogInformation("Added document to existing element for HN ID: {HnId}, Stage: {Stage}, Element: {Element}", hnId, stage, elementId);
+                        return;
+                    }
+
                     var insertFilter = Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId);
+
 
                     // Check if element exists, if not create it with the element and document
                     var insertUpdate = Builders<HeatNetwork>.Update

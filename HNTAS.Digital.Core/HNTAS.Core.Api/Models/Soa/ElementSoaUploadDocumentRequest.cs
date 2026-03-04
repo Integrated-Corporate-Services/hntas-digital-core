@@ -7,5 +7,7 @@ namespace HNTAS.Core.Api.Models.Soa
     {
         public SoaStage Stage { get; set; }
         public string? ElementId { get; set; }
+
+        public NetworkDetailsStatus ElementSoaStatus { get; set; }
     }
 }

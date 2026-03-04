@@ -257,7 +257,7 @@ namespace HNTAS.Core.Api.Services
             }
         }
 
-        public async Task UpdateSoaDocumentAsync(string hnId, NetworkDetailsUploadedDocument document, string elementId, SoaStage stage)
+        public async Task UpdateSoaDocumentAsync(string hnId, NetworkDetailsUploadedDocument document, string elementId, SoaStage stage, NetworkDetailsStatus soaStatus = NetworkDetailsStatus.InProgress)
         {
             try
             {
@@ -288,7 +288,7 @@ namespace HNTAS.Core.Api.Services
 
                 var update = Builders<HeatNetwork>.Update
                     .Set("networkElements.elements.$[element].soaStages.$[stage].document", document)
-                    .Set(hn => hn.NetworkElements!.ElementSoaStatus, NetworkDetailsStatus.InProgress);
+                    .Set(hn => hn.NetworkElements!.ElementSoaStatus, soaStatus);
 
                 var arrayFilters = new[]
                 {
@@ -312,7 +312,7 @@ namespace HNTAS.Core.Api.Services
                             StageId = stage,
                             Document = document
                         })
-                        .Set(hn => hn.NetworkElements!.ElementSoaStatus, NetworkDetailsStatus.InProgress);
+                        .Set(hn => hn.NetworkElements!.ElementSoaStatus, soaStatus);
 
                     var pushArrayFilters = new[]
                     {

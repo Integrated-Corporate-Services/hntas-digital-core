@@ -346,7 +346,7 @@ namespace HNTAS.Core.Api.Controllers
 
             try
             {
-                await _soaService.UpdateSoaDocumentAsync(request.HnId, document, request.ElementId!, request.Stage);
+                await _soaService.UpdateSoaDocumentAsync(request.HnId, document, request.ElementId!, request.Stage, request.ElementSoaStatus);
 
                 _logger.LogInformation("{DocumentType} document saved successfully for HN ID: {HnId}, Stage: {Stage}, UploadedBy: {UploadedBy}",
                     request.DocumentType, request.HnId, request.Stage, request.UploadedBy);

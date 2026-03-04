@@ -57,7 +57,6 @@ namespace HNTAS.Core.Api.Controllers
                 _logger.LogError(ex, "Unexpected error while importing CSV.");
                 return StatusCode(StatusCodes.Status500InternalServerError, new { error = ex.Message });
             }
-
         }        
     }
 }

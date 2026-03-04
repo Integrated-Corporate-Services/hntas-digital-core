@@ -64,7 +64,6 @@ namespace HNTAS.Core.Api.MappingProfiles
             .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name))
             .ForMember(dest => dest.Pathway, opt => opt.MapFrom(src => src.Pathway))
             .ForMember(dest => dest.Soa, opt => opt.MapFrom(src => src.Soa))
-            //.ForMember(dest => dest.ElementSoa, opt => opt.MapFrom(src => src.ElementSoa))
             .ForMember(dest => dest.CreatedBy, opt => opt.MapFrom(src => src.CreatedBy))
             .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => src.CreatedAt))
             .ForMember(dest => dest.MeteringAndMonitoringStrategy, opt => opt.MapFrom(src => src.MeteringAndMonitoringStrategy))
@@ -174,14 +173,6 @@ namespace HNTAS.Core.Api.MappingProfiles
             .ForMember(dest => dest.UpdatedAt, opt => opt.MapFrom(src => src.UpdatedAt))
             .ForMember(dest => dest.UpdatedBy, opt => opt.MapFrom(src => src.UpdatedBy))
             .ForMember(dest => dest.Documents, opt => opt.MapFrom(src => src.Documents));
-
-            //CreateMap<ElementSoa, ElementSoaResponse>()
-            //.ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status.ToString()))
-            //.ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => src.CreatedAt))
-            //.ForMember(dest => dest.CreatedBy, opt => opt.MapFrom(src => src.CreatedBy))
-            //.ForMember(dest => dest.UpdatedAt, opt => opt.MapFrom(src => src.UpdatedAt))
-            //.ForMember(dest => dest.UpdatedBy, opt => opt.MapFrom(src => src.UpdatedBy))
-            //.ForMember(dest => dest.Elements, opt => opt.MapFrom(src => src.Elements));
         }
 
     }

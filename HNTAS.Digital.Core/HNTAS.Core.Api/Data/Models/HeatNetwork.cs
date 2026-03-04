@@ -37,8 +37,6 @@ namespace HNTAS.Core.Api.Data.Models
 
         [BsonElement("soa")]
         public Soa? Soa { get; set; }
-        //[BsonElement("elementSoa")]
-        //public ElementSoa? ElementSoa { get; set; }
 
         [BsonElement("meteringAndMonitoringStrategy")]
         public MeteringAndMonitoringStrategy? MeteringAndMonitoringStrategy { get; set; }

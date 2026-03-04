@@ -7,9 +7,9 @@ namespace HNTAS.Core.Api.Data.Models
 {
     public class NetworkElements : NetworkDetailBase
     {
-        [BsonElement("status")]
+        [BsonElement("networkElementStatus")]
         [BsonRepresentation(BsonType.String)]
-        public NetworkDetailsStatus Status { get; set; }
+        public NetworkDetailsStatus NetworkElementStatus { get; set; }
         [BsonElement("elementSoaStatus")]
         [BsonRepresentation(BsonType.String)]
         public NetworkDetailsStatus ElementSoaStatus { get; set; }

@@ -10,6 +10,7 @@ namespace HNTAS.Core.Api.Models
         Certifier,
         MeteringAndMonitoringStrategy,
         AssessmentPlan,
-        DesignConstructionLog
+        DesignConstructionLog,
+        Soa
     }
 }

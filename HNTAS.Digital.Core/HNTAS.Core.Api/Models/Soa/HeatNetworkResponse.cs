@@ -14,6 +14,7 @@ namespace HNTAS.Core.Api.Models.Soa
         public string Name { get; set; } = null!;
         public string Pathway { get; set; } = null!;
         public SoaResponse? Soa { get; set; }
+        //public ElementSoaResponse? ElementSoa { get; set; }
         public string CreatedBy { get; set; } = null!;
         public DateTime CreatedAt { get; set; }
         public string? Phase { get; set; } = null;
@@ -30,6 +31,12 @@ namespace HNTAS.Core.Api.Models.Soa
         public SoaStatus Status { get; set; }
         public JourneyDataResponse? JourneyData { get; set; }
     }
+
+    //public class ElementSoaResponse : NetworkDetailsResponseBase
+    //{
+    //    public NetworkDetailsStatus Status { get; set; }
+    //    public List<Elements> Elements { get; set; } = [];
+    //}
 
     public class JourneyDataResponse
     {
@@ -111,8 +118,9 @@ namespace HNTAS.Core.Api.Models.Soa
         public bool IsSuppliedByADistrictHeatNetwork { get; set; }
     }
     public class NetworkElementsResponse : NetworkDetailsResponseBase {
-        public NetworkDetailsStatus Status { get; set; }
-        public string? ElementType { get; set; }
+        public NetworkDetailsStatus NetworkElementStatus { get; set; }
+        public NetworkDetailsStatus ElementSoaStatus { get; set; }
+        //public string? ElementType { get; set; }
         public List<Element> Elements { get; set; } = [];
     }
     public class MeteringAndMonitoringStrategyResponse : NetworkDetailsResponseBase {

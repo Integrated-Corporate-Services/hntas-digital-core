@@ -5,7 +5,6 @@ using HNTAS.Core.Api.Models;
 using HNTAS.Core.Api.Models.Soa;
 using Microsoft.AspNetCore.Mvc;
 using System.ComponentModel.DataAnnotations;
-using DocumentType = HNTAS.Core.Api.Models.DocumentType;
 
 namespace HNTAS.Core.Api.Controllers
 {
@@ -302,7 +301,7 @@ namespace HNTAS.Core.Api.Controllers
                         break;
                     case DocumentType.Certifier:
                         await _soaService.UpdateCertifierDocumentAsync(request.HnId, document);
-                        break;                    
+                        break;                     
                     default:
                         _logger.LogWarning("Unsupported document type: {DocumentType}", request.DocumentType);
                         return BadRequest($"Unsupported document type: {request.DocumentType}");
@@ -317,6 +316,47 @@ namespace HNTAS.Core.Api.Controllers
             {
                 _logger.LogError(ex, "Failed to save {DocumentType} document for HN ID: {HnId}, Phase: {Phase}, Stage: {Stage}, UploadedBy: {UploadedBy}",
                     request.DocumentType, request.HnId, request.Phase, request.Stage, request.UploadedBy);
+                throw;
+            }
+        }
+
+        [HttpPatch("document-update-soa")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> SaveSoaDocument([FromBody] ElementSoaUploadDocumentRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                _logger.LogWarning("Invalid SaveDocument request: {@Errors}",
+                    ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage));
+                return BadRequest(ModelState);
+            }
+
+            _logger.LogInformation("Saving {DocumentType} document for HN ID: {HnId}, Stage: {Stage}, UploadedBy: {UploadedBy}",
+                request.DocumentType, request.HnId, request.Stage, request.UploadedBy);            
+
+            var document = new NetworkDetailsUploadedDocument
+            {
+                FileName = request.FileName,
+                S3Key = request.S3Key,                
+                UploadedAt = DateTime.UtcNow,
+                UploadedBy = request.UploadedBy
+            };
+
+            try
+            {
+                await _soaService.UpdateSoaDocumentAsync(request.HnId, document, request.ElementId!, request.Stage, request.ElementSoaStatus);
+
+                _logger.LogInformation("{DocumentType} document saved successfully for HN ID: {HnId}, Stage: {Stage}, UploadedBy: {UploadedBy}",
+                    request.DocumentType, request.HnId, request.Stage, request.UploadedBy);
+
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to save {DocumentType} document for HN ID: {HnId}, Stage: {Stage}, UploadedBy: {UploadedBy}",
+                    request.DocumentType, request.HnId, request.Stage, request.UploadedBy);
                 throw;
             }
         }

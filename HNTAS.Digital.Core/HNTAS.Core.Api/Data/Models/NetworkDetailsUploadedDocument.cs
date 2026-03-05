@@ -13,11 +13,10 @@ namespace HNTAS.Core.Api.Data.Models
         public string S3Key { get; set; } = null!;        
 
         [BsonElement("uploadedAt")]
-        [BsonRepresentation(BsonType.DateTime)]
-        public DateTime UploadedAt { get; set; } = DateTime.UtcNow;
+        [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
+        public DateTime UploadedAt { get; set; }
 
         [BsonElement("uploadedBy")]
-        [BsonRepresentation(BsonType.ObjectId)]
         public string UploadedBy { get; set; } = null!;
     }
 }

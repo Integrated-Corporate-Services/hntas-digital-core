@@ -11,6 +11,7 @@ namespace HNTAS.Core.Api.Data.Models
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         [BsonElement("createdBy")]
+        //[BsonRepresentation(BsonType.ObjectId)]
         public string CreatedBy { get; set; } = null!;
 
         [BsonElement("updatedAt")]
@@ -18,6 +19,7 @@ namespace HNTAS.Core.Api.Data.Models
         public DateTime? UpdatedAt { get; set; }
 
         [BsonElement("updatedBy")]
+        //[BsonRepresentation(BsonType.ObjectId)]
         public string? UpdatedBy { get; set; }        
     }
 }

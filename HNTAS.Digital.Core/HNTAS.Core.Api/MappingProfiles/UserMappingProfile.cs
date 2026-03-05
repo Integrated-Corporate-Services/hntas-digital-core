@@ -147,7 +147,8 @@ namespace HNTAS.Core.Api.MappingProfiles
 
             CreateMap<NetworkElements, NetworkElementsResponse>()
                 .ForMember(dest => dest.Elements, opt => opt.MapFrom(src => src.Elements))                
-                .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status));
+                .ForMember(dest => dest.NetworkElementStatus, opt => opt.MapFrom(src => src.NetworkElementStatus))
+                .ForMember(dest => dest.ElementSoaStatus, opt => opt.MapFrom(src => src.ElementSoaStatus));
 
             CreateMap<MeteringAndMonitoringStrategy, MeteringAndMonitoringStrategyResponse>()
             .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status.ToString()))

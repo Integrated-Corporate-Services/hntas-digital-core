@@ -1,6 +1,7 @@
 ﻿using HNTAS.Core.Api.Configuration;
 using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Enums;
+using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
@@ -325,16 +326,16 @@ namespace HNTAS.Core.Api.Services
 
                     if (result.ModifiedCount > 0)
                     {
-                        _logger.LogInformation("Added document to existing element for HN ID: {HnId}, Stage: {Stage}, Element: {Element}", hnId, stage, elementId);
+                        _logger.LogInformation("Added document to existing element for HN ID: {HnId}, Stage: {Stage}, Element: {Element}", StringFormatter.Sanitize(hnId), stage, StringFormatter.Sanitize(elementId));
                         return;
                     }
                 }
 
-                _logger.LogInformation("Updated ElementSoa document for HN ID: {HnId}, Stage: {Stage}, Element: {Element}", hnId, stage, elementId);
+                _logger.LogInformation("Updated ElementSoa document for HN ID: {HnId}, Stage: {Stage}, Element: {Element}", StringFormatter.Sanitize(hnId), stage, StringFormatter.Sanitize(elementId));
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error updating SOA document for HN ID: {HnId}, Element: {Element}, Stage: {Stage}", hnId, elementId, stage);
+                _logger.LogError(ex, "Error updating SOA document for HN ID: {HnId}, Element: {Element}, Stage: {Stage}", StringFormatter.Sanitize(hnId), StringFormatter.Sanitize(elementId), stage);
                 throw;
             }
 

@@ -58,6 +58,7 @@ namespace HNTAS.Core.Api.MappingProfiles
 
             CreateMap<HeatNetwork, HeatNetworkResponse>()
             .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
+            .ForMember(dest => dest.UHnId, opt => opt.MapFrom(src => src.UHnId))
             .ForMember(dest => dest.HnId, opt => opt.MapFrom(src => src.HnId))
             .ForMember(dest => dest.ECDetails, opt => opt.MapFrom(src => src.ECDetails))
             .ForMember(dest => dest.Address, opt => opt.MapFrom(src => src.Address))

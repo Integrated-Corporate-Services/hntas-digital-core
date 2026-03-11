@@ -146,6 +146,7 @@ namespace HNTAS.Core.Api.Controllers
                     var sequenceID = await _counterService.GetNextSequenceValue("heatNetworkId_sequence");
                     var heatNetworkId = $"HN{sequenceID:D7}";
                     heatNetworkDetails.HnId = heatNetworkId;
+                    heatNetworkDetails.UHnId = sequenceID.ToString();
                     _logger.LogInformation("Generated new heat network ID: {HeatNetworkId}", heatNetworkDetails.HnId);
                 }
 

@@ -16,11 +16,6 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonElement("count")]
         [BsonRepresentation(BsonType.Int32)]
         public int? Count { get; set; }
-        [BsonElement("address")]
-        public RegisteredAddress? Address { get; set; }
-        [BsonElement("ecDetails")]
-        public ECDetails? ECDetails { get; set; }
-        
         
         [BsonElement("soaStages")]
         public List<SoaStages>? SoaStages { get; set; } = [];

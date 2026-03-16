@@ -31,34 +31,35 @@ namespace HNTAS.Digital.Core.Tests.Controllers
         }
 
         [Fact]
-        public async Task SaveSoaDocument_WithValidRequest_ReturnsOk()
+        public async Task UpdateSoaStatus_WithValidRequest_ReturnsOk()
         {
             // Arrange
-            var request = new ElementSoaUploadDocumentRequest
+            var request = new ElementSoaStatusUpdateRequest
             {
                 HnId = "HN0000001",
                 ElementId = "00001",
-                Stage = SoaStage.Stage1, 
-                FileName = "test.pdf",
-                S3Key = "key/test.pdf",
-                UploadedBy = "user123"
+                Stage = SoaStage.Stage1,
+                ElementSoaStatus = NetworkDetailsStatus.InProgress,
+                SoaStatusUpdatedBy = "testuser",
+                SoaStatus = "In Progress"
             };
 
             _mockSoaService
-                .Setup(s => s.UpdateSoaDocumentAsync(
+                .Setup(s => s.UpdateSoaStatus(
                     It.IsAny<string>(),
-                    It.IsAny<NetworkDetailsUploadedDocument>(),
-                    It.IsAny<string>(),
+                    It.IsAny<string>(),                    
                     It.IsAny<SoaStage>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
                     It.IsAny<NetworkDetailsStatus>()))
                 .Returns(Task.CompletedTask);
 
             // Act
-            var result = await _controller.SaveSoaDocument(request);
+            var result = await _controller.UpdateSoaStatus(request);
 
             // Assert
             var okResult = Assert.IsType<OkResult>(result);
             Assert.NotNull(okResult);
-        }                     
+        }
     }
 }

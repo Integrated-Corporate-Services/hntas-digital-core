@@ -1,5 +1,6 @@
 ﻿using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Enums;
+using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
 using HNTAS.Core.Api.Models.Soa;
@@ -318,13 +319,13 @@ namespace HNTAS.Core.Api.Controllers
                     request.DocumentType, request.HnId, request.Phase, request.Stage, request.UploadedBy);
                 throw;
             }
-        }
+        }        
 
-        [HttpPatch("document-update-soa")]
+        [HttpPatch("update-soa-status")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> SaveSoaDocument([FromBody] ElementSoaUploadDocumentRequest request)
+        public async Task<IActionResult> UpdateSoaStatus([FromBody] ElementSoaStatusUpdateRequest request)
         {
             if (!ModelState.IsValid)
             {
@@ -333,30 +334,22 @@ namespace HNTAS.Core.Api.Controllers
                 return BadRequest(ModelState);
             }
 
-            _logger.LogInformation("Saving {DocumentType} document for HN ID: {HnId}, Stage: {Stage}, UploadedBy: {UploadedBy}",
-                request.DocumentType, request.HnId, request.Stage, request.UploadedBy);            
-
-            var document = new NetworkDetailsUploadedDocument
-            {
-                FileName = request.FileName,
-                S3Key = request.S3Key,                
-                UploadedAt = DateTime.UtcNow,
-                UploadedBy = request.UploadedBy
-            };
+            _logger.LogInformation("Saving status - {SoaStatus} for HN ID: {HnId}, Element:{ElementId}, Stage: {Stage}, UpdatedBy: {UpdatedBy}",
+                request.SoaStatus, StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(request.ElementId!), request.Stage, StringFormatter.Sanitize(request.SoaStatusUpdatedBy!));
 
             try
             {
-                await _soaService.UpdateSoaDocumentAsync(request.HnId, document, request.ElementId!, request.Stage, request.ElementSoaStatus);
+                await _soaService.UpdateSoaStatus(request.HnId, request.ElementId!, request.Stage, request.SoaStatus!, request.SoaStatusUpdatedBy!, request.ElementSoaStatus);
 
-                _logger.LogInformation("{DocumentType} document saved successfully for HN ID: {HnId}, Stage: {Stage}, UploadedBy: {UploadedBy}",
-                    request.DocumentType, request.HnId, request.Stage, request.UploadedBy);
+                _logger.LogInformation("Updated status - {SoaStatus} successfully for HN ID: {HnId}, Element:{ElementId}, Stage: {Stage}, UpdatedBy: {UpdatedBy}",
+                request.SoaStatus, StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(request.ElementId!), request.Stage, StringFormatter.Sanitize(request.SoaStatusUpdatedBy!));
 
                 return Ok();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to save {DocumentType} document for HN ID: {HnId}, Stage: {Stage}, UploadedBy: {UploadedBy}",
-                    request.DocumentType, request.HnId, request.Stage, request.UploadedBy);
+                _logger.LogError(ex, "Failed to update status - {SoaStatus} for HN ID: {HnId}, Element:{ElementId}, Stage: {Stage}, UpdatedBy: {UpdatedBy}",
+                request.SoaStatus, StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(request.ElementId!), request.Stage, StringFormatter.Sanitize(request.SoaStatusUpdatedBy!));
                 throw;
             }
         }

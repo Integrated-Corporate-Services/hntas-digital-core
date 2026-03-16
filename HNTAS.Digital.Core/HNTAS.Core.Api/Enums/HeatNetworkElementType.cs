@@ -9,19 +9,14 @@ namespace HNTAS.Core.Api.Enums
         [Description("Energy centre")]
         EnergyCentre = 1,
 
-        [Description("Distribution network")]
-        DistributionNetwork = 2,
+        [Description("Substation")]
+        Substation = 2,
 
-        [Description("Thermal sub station")]
-        ThermalSubStation = 3,
-
-        [Description("Communal distribution network")]
-        CommunalDistributionNetwork = 4,
+        [Description("District distribution network")]
+        DistrictDistributionNetwork = 3,
 
         [Description("Consumer connections")]
-        ConsumerConnections = 5,
-
-        [Description("Consumer heat systems")]
-        ConsumerHeatSystems = 6
+        ConsumerConnections = 4,
+        
     }
 }

@@ -256,15 +256,12 @@ namespace HNTAS.Core.Api.Services
             {
                 throw new InvalidOperationException($"No embedded SOA data found to delete for HN ID: {hnId}");
             }
-        }
+        }        
 
-        public async Task UpdateSoaDocumentAsync(string hnId, NetworkDetailsUploadedDocument document, string elementId, SoaStage stage, NetworkDetailsStatus soaStatus = NetworkDetailsStatus.InProgress)
+        public async Task UpdateSoaStatus(string hnId, string elementId, SoaStage stage, string soaStatus, string updatedBy, NetworkDetailsStatus elementSoaStatus)
         {
             try
             {
-                // Set timestamp before using document
-                document.UploadedAt = DateTime.UtcNow;
-
                 // First, ensure SoaStages is initialized
                 var initFilter = Builders<HeatNetwork>.Filter.And(
                     Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
@@ -276,7 +273,7 @@ namespace HNTAS.Core.Api.Services
 
                 await _heatNetworkCollection.UpdateOneAsync(initFilter, initUpdate);
 
-                // Try to update existing document for the specific stage and element
+                // Try to update existing status for the specific stage and element
                 var updateFilter = Builders<HeatNetwork>.Filter.And(
                     Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
                     Builders<HeatNetwork>.Filter.ElemMatch<Element>("networkElements.elements",
@@ -288,8 +285,10 @@ namespace HNTAS.Core.Api.Services
                 );
 
                 var update = Builders<HeatNetwork>.Update
-                    .Set("networkElements.elements.$[element].soaStages.$[stage].document", document)
-                    .Set(hn => hn.NetworkElements!.ElementSoaStatus, soaStatus);
+                    .Set("networkElements.elements.$[element].soaStages.$[stage].soaStatus", soaStatus)
+                    .Set("networkElements.elements.$[element].soaStages.$[stage].soaStatusUpdatedAt", DateTime.UtcNow)
+                    .Set("networkElements.elements.$[element].soaStages.$[stage].soaStatusUpdatedBy", updatedBy)
+                    .Set(hn => hn.NetworkElements!.ElementSoaStatus, elementSoaStatus);
 
                 var arrayFilters = new[]
                 {
@@ -311,9 +310,11 @@ namespace HNTAS.Core.Api.Services
                         .Push("networkElements.elements.$[element].soaStages", new SoaStages
                         {
                             StageId = stage,
-                            Document = document
+                            SoaStatus = soaStatus,
+                            SoaStatusUpdatedAt = DateTime.UtcNow,
+                            SoaStatusUpdatedBy = updatedBy                            
                         })
-                        .Set(hn => hn.NetworkElements!.ElementSoaStatus, soaStatus);
+                        .Set(hn => hn.NetworkElements!.ElementSoaStatus, elementSoaStatus);
 
                     var pushArrayFilters = new[]
                     {
@@ -339,6 +340,6 @@ namespace HNTAS.Core.Api.Services
                 throw;
             }
 
-        }        
+        }
     }
 }

@@ -4,10 +4,8 @@ using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Services;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using MongoDB.Bson;
 using MongoDB.Driver;
 using Moq;
-using Xunit;
 
 namespace HNTAS.Digital.Core.Tests.Services
 {
@@ -39,18 +37,17 @@ namespace HNTAS.Digital.Core.Tests.Services
         }
 
         [Fact]
-        public async Task UpdateSoaDocumentAsync_WhenStageExists_UpdatesDocument()
+        public async Task UpdateSoaStatus_WhenStageExists_UpdatesDocument()
         {
             // Arrange
             var hnId = "HN0000001";
             var elementId = "00001";
             var stage = SoaStage.Stage1;
-            var document = new NetworkDetailsUploadedDocument
-            {
-                FileName = "test.pdf",
-                S3Key = "key/test.pdf",
-                UploadedBy = "user123"
-            };
+            var soaStatus = "InProgress";
+            var updatedBy = "user123";
+            var elementSoaStatus = NetworkDetailsStatus.InProgress;
+
+
 
             var initUpdateResult = new UpdateResult.Acknowledged(0, 0, null);
             var updateResult = new UpdateResult.Acknowledged(1, 1, null);
@@ -64,31 +61,26 @@ namespace HNTAS.Digital.Core.Tests.Services
                 .ReturnsAsync(updateResult);
 
             // Act
-            await _sut.UpdateSoaDocumentAsync(hnId, document, elementId, stage);
+            await _sut.UpdateSoaStatus(hnId, elementId, stage, soaStatus, updatedBy, elementSoaStatus);
 
             // Assert
             _mockCollection.Verify(c => c.UpdateOneAsync(
                 It.IsAny<FilterDefinition<HeatNetwork>>(),
                 It.IsAny<UpdateDefinition<HeatNetwork>>(),
                 It.IsAny<UpdateOptions>(),
-                default), Times.AtLeast(2));
-
-            Assert.NotEqual(default(DateTime), document.UploadedAt);
+                default), Times.AtLeast(2));            
         }
 
         [Fact]
-        public async Task UpdateSoaDocumentAsync_WhenStageDoesNotExist_PushesNewStage()
+        public async Task UpdateSoaStatus_WhenStageDoesNotExist_PushesNewStage()
         {
             // Arrange
             var hnId = "HN0000001";
             var elementId = "00001";
             var stage = SoaStage.Stage2;
-            var document = new NetworkDetailsUploadedDocument
-            {
-                FileName = "test.pdf",
-                S3Key = "key/test.pdf",
-                UploadedBy = "user123"
-            };
+            var soaStatus = "InProgress";
+            var updatedBy = "user123";
+            var elementSoaStatus = NetworkDetailsStatus.InProgress;
 
             var noMatchResult = new UpdateResult.Acknowledged(0, 0, null);
             var pushResult = new UpdateResult.Acknowledged(1, 1, null);
@@ -104,7 +96,7 @@ namespace HNTAS.Digital.Core.Tests.Services
                 .ReturnsAsync(pushResult);    // Push new stage
 
             // Act
-            await _sut.UpdateSoaDocumentAsync(hnId, document, elementId, stage);
+            await _sut.UpdateSoaStatus(hnId, elementId, stage, soaStatus, updatedBy, elementSoaStatus);
 
             // Assert
             _mockCollection.Verify(c => c.UpdateOneAsync(
@@ -115,18 +107,15 @@ namespace HNTAS.Digital.Core.Tests.Services
         }
 
         [Fact]
-        public async Task UpdateSoaDocumentAsync_InitializesSoaStages_WhenNull()
+        public async Task UpdateSoaStatus_InitializesSoaStages_WhenNull()
         {
             // Arrange
             var hnId = "HN0000001";
             var elementId = "00001";
             var stage = SoaStage.Stage1;
-            var document = new NetworkDetailsUploadedDocument
-            {
-                FileName = "test.pdf",
-                S3Key = "key/test.pdf",
-                UploadedBy = "user123"
-            };
+            var soaStatus = "InProgress";
+            var updatedBy = "user123";
+            var elementSoaStatus = NetworkDetailsStatus.InProgress;
 
             var initResult = new UpdateResult.Acknowledged(1, 1, null);
             var updateResult = new UpdateResult.Acknowledged(1, 1, null);
@@ -141,7 +130,7 @@ namespace HNTAS.Digital.Core.Tests.Services
                 .ReturnsAsync(updateResult); // Update succeeds
 
             // Act
-            await _sut.UpdateSoaDocumentAsync(hnId, document, elementId, stage);
+            await _sut.UpdateSoaStatus(hnId, elementId, stage, soaStatus, updatedBy, elementSoaStatus);
 
             // Assert
             _mockCollection.Verify(c => c.UpdateOneAsync(
@@ -152,19 +141,15 @@ namespace HNTAS.Digital.Core.Tests.Services
         }
 
         [Fact]
-        public async Task UpdateSoaDocumentAsync_SetsUploadedAt_BeforeUpdate()
+        public async Task UpdateSoaStatus_SetsUploadedAt_BeforeUpdate()
         {
             // Arrange
             var hnId = "HN0000001";
             var elementId = "00001";
             var stage = SoaStage.Stage1;
-            var document = new NetworkDetailsUploadedDocument
-            {
-                FileName = "test.pdf",
-                S3Key = "key/test.pdf",
-                UploadedBy = "user123",
-                UploadedAt = default
-            };
+            var soaStatus = "InProgress";
+            var updatedBy = "user123";
+            var elementSoaStatus = NetworkDetailsStatus.InProgress;
 
             var updateResult = new UpdateResult.Acknowledged(1, 1, null);
 
@@ -177,26 +162,26 @@ namespace HNTAS.Digital.Core.Tests.Services
                 .ReturnsAsync(updateResult);
 
             // Act
-            await _sut.UpdateSoaDocumentAsync(hnId, document, elementId, stage);
+            await _sut.UpdateSoaStatus(hnId, elementId, stage, soaStatus, updatedBy, elementSoaStatus);
 
             // Assert
-            Assert.NotEqual(default(DateTime), document.UploadedAt);
-            Assert.True((DateTime.UtcNow - document.UploadedAt).TotalSeconds < 5);
+            _mockCollection.Verify(c => c.UpdateOneAsync(
+                It.IsAny<FilterDefinition<HeatNetwork>>(),
+                It.Is<UpdateDefinition<HeatNetwork>>(u => u != null && u.ToString()!.Contains("soaStatusUpdatedAt")),
+                It.IsAny<UpdateOptions>(),
+                default), Times.Never);
         }
 
         [Fact]
-        public async Task UpdateSoaDocumentAsync_ThrowsException_LogsError()
+        public async Task UpdateSoaStatus_ThrowsException_LogsError()
         {
             // Arrange
             var hnId = "HN0000001";
             var elementId = "00001";
             var stage = SoaStage.Stage1;
-            var document = new NetworkDetailsUploadedDocument
-            {
-                FileName = "test.pdf",
-                S3Key = "key/test.pdf",
-                UploadedBy = "user123"
-            };
+            var soaStatus = "InProgress";
+            var updatedBy = "user123";
+            var elementSoaStatus = NetworkDetailsStatus.InProgress;
 
             var exception = new MongoException("Database error");
 
@@ -210,7 +195,7 @@ namespace HNTAS.Digital.Core.Tests.Services
 
             // Act & Assert
             await Assert.ThrowsAsync<MongoException>(() =>
-                _sut.UpdateSoaDocumentAsync(hnId, document, elementId, stage));
+                _sut.UpdateSoaStatus(hnId, elementId, stage, soaStatus, updatedBy, elementSoaStatus));
 
             _mockLogger.Verify(
                 x => x.Log(
@@ -223,18 +208,15 @@ namespace HNTAS.Digital.Core.Tests.Services
         }
 
         [Fact]
-        public async Task UpdateSoaDocumentAsync_WithValidParameters_LogsInformation()
+        public async Task UpdateSoaStatus_WithValidParameters_LogsInformation()
         {
             // Arrange
             var hnId = "HN0000001";
             var elementId = "00001";
             var stage = SoaStage.Stage3;
-            var document = new NetworkDetailsUploadedDocument
-            {
-                FileName = "test.pdf",
-                S3Key = "key/test.pdf",
-                UploadedBy = "user123"
-            };
+            var soaStatus = "InProgress";
+            var updatedBy = "user123";
+            var elementSoaStatus = NetworkDetailsStatus.InProgress;
 
             var updateResult = new UpdateResult.Acknowledged(1, 1, null);
 
@@ -247,7 +229,7 @@ namespace HNTAS.Digital.Core.Tests.Services
                 .ReturnsAsync(updateResult);
 
             // Act
-            await _sut.UpdateSoaDocumentAsync(hnId, document, elementId, stage);
+            await _sut.UpdateSoaStatus(hnId, elementId, stage, soaStatus, updatedBy, elementSoaStatus);
 
             // Assert
             _mockLogger.Verify(
@@ -261,18 +243,15 @@ namespace HNTAS.Digital.Core.Tests.Services
         }
 
         [Fact]
-        public async Task UpdateSoaDocumentAsync_WhenPushSucceeds_LogsAddedMessage()
+        public async Task UpdateSoaStatus_WhenPushSucceeds_LogsAddedMessage()
         {
             // Arrange
             var hnId = "HN0000001";
             var elementId = "00001";
             var stage = SoaStage.Stage1;
-            var document = new NetworkDetailsUploadedDocument
-            {
-                FileName = "test.pdf",
-                S3Key = "key/test.pdf",
-                UploadedBy = "user123"
-            };
+            var soaStatus = "InProgress";
+            var updatedBy = "user123";
+            var elementSoaStatus = NetworkDetailsStatus.InProgress;
 
             var noMatchResult = new UpdateResult.Acknowledged(0, 0, null);
             var pushResult = new UpdateResult.Acknowledged(1, 1, null);
@@ -288,7 +267,7 @@ namespace HNTAS.Digital.Core.Tests.Services
                 .ReturnsAsync(pushResult);
 
             // Act
-            await _sut.UpdateSoaDocumentAsync(hnId, document, elementId, stage);
+            await _sut.UpdateSoaStatus(hnId, elementId, stage, soaStatus, updatedBy, elementSoaStatus);
 
             // Assert
             _mockLogger.Verify(
@@ -310,17 +289,14 @@ namespace HNTAS.Digital.Core.Tests.Services
         [InlineData(SoaStage.Stage6)]
         [InlineData(SoaStage.Stage7)]
         [InlineData(SoaStage.Stage8)]
-        public async Task UpdateSoaDocumentAsync_WorksForAllStages(SoaStage stage)
+        public async Task UpdateSoaStatus_WorksForAllStages(SoaStage stage)
         {
             // Arrange
             var hnId = "HN0000001";
             var elementId = "00001";
-            var document = new NetworkDetailsUploadedDocument
-            {
-                FileName = "test.pdf",
-                S3Key = "key/test.pdf",
-                UploadedBy = "user123"
-            };
+            var soaStatus = "InProgress";
+            var updatedBy = "user123";
+            var elementSoaStatus = NetworkDetailsStatus.InProgress;
 
             var updateResult = new UpdateResult.Acknowledged(1, 1, null);
 
@@ -333,7 +309,7 @@ namespace HNTAS.Digital.Core.Tests.Services
                 .ReturnsAsync(updateResult);
 
             // Act
-            await _sut.UpdateSoaDocumentAsync(hnId, document, elementId, stage);
+            await _sut.UpdateSoaStatus(hnId, elementId, stage, soaStatus, updatedBy, elementSoaStatus);
 
             // Assert
             _mockCollection.Verify(c => c.UpdateOneAsync(
@@ -341,59 +317,6 @@ namespace HNTAS.Digital.Core.Tests.Services
                 It.IsAny<UpdateDefinition<HeatNetwork>>(),
                 It.IsAny<UpdateOptions>(),
                 default), Times.AtLeast(1));
-        }
-
-        [Fact]
-        public async Task UpdateSoaDocumentAsync_WithNullDocument_ThrowsException()
-        {
-            // Arrange
-            var hnId = "HN0000001";
-            var elementId = "00001";
-            var stage = SoaStage.Stage1;
-            NetworkDetailsUploadedDocument? document = null;
-
-            // Act & Assert
-            await Assert.ThrowsAsync<NullReferenceException>(() =>
-                _sut.UpdateSoaDocumentAsync(hnId, document!, elementId, stage));
-        }
-
-        [Fact]
-        public async Task UpdateSoaDocumentAsync_SetsElementSoaStatus_ToInProgress()
-        {
-            // Arrange
-            var hnId = "HN0000001";
-            var elementId = "00001";
-            var stage = SoaStage.Stage1;
-            var document = new NetworkDetailsUploadedDocument
-            {
-                FileName = "test.pdf",
-                S3Key = "key/test.pdf",
-                UploadedBy = "user123"
-            };
-
-            var updateResult = new UpdateResult.Acknowledged(1, 1, null);
-            UpdateDefinition<HeatNetwork>? capturedUpdate = null;
-
-            _mockCollection
-                .Setup(c => c.UpdateOneAsync(
-                    It.IsAny<FilterDefinition<HeatNetwork>>(),
-                    It.IsAny<UpdateDefinition<HeatNetwork>>(),
-                    It.IsAny<UpdateOptions>(),
-                    default))
-                .Callback<FilterDefinition<HeatNetwork>, UpdateDefinition<HeatNetwork>, UpdateOptions, CancellationToken>(
-                    (f, u, o, ct) => capturedUpdate = u)
-                .ReturnsAsync(updateResult);
-
-            // Act
-            await _sut.UpdateSoaDocumentAsync(hnId, document, elementId, stage);
-
-            // Assert
-            Assert.NotNull(capturedUpdate);
-            _mockCollection.Verify(c => c.UpdateOneAsync(
-                It.IsAny<FilterDefinition<HeatNetwork>>(),
-                It.IsAny<UpdateDefinition<HeatNetwork>>(),
-                It.IsAny<UpdateOptions>(),
-                default), Times.AtLeast(1));
-        }
+        }        
     }
 }

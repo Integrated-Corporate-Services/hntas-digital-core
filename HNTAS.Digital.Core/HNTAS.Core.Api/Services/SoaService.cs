@@ -312,8 +312,7 @@ namespace HNTAS.Core.Api.Services
                             StageId = stage,
                             SoaStatus = soaStatus,
                             SoaStatusUpdatedAt = DateTime.UtcNow,
-                            SoaStatusUpdatedBy = updatedBy
-                            //Document = document
+                            SoaStatusUpdatedBy = updatedBy                            
                         })
                         .Set(hn => hn.NetworkElements!.ElementSoaStatus, elementSoaStatus);
 

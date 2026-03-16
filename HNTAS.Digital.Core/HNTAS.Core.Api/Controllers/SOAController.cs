@@ -1,5 +1,6 @@
 ﻿using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Enums;
+using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
 using HNTAS.Core.Api.Models.Soa;
@@ -334,21 +335,21 @@ namespace HNTAS.Core.Api.Controllers
             }
 
             _logger.LogInformation("Saving status - {SoaStatus} for HN ID: {HnId}, Element:{ElementId}, Stage: {Stage}, UpdatedBy: {UpdatedBy}",
-                request.SoaStatus, request.HnId, request.ElementId, request.Stage, request.SoaStatusUpdatedBy);
+                request.SoaStatus, StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(request.ElementId!), request.Stage, StringFormatter.Sanitize(request.SoaStatusUpdatedBy!));
 
             try
             {
                 await _soaService.UpdateSoaStatus(request.HnId, request.ElementId!, request.Stage, request.SoaStatus!, request.SoaStatusUpdatedBy!, request.ElementSoaStatus);
 
                 _logger.LogInformation("Updated status - {SoaStatus} successfully for HN ID: {HnId}, Element:{ElementId}, Stage: {Stage}, UpdatedBy: {UpdatedBy}",
-                request.SoaStatus, request.HnId, request.ElementId, request.Stage, request.SoaStatusUpdatedBy);
+                request.SoaStatus, StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(request.ElementId!), request.Stage, StringFormatter.Sanitize(request.SoaStatusUpdatedBy!));
 
                 return Ok();
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to update status - {SoaStatus} for HN ID: {HnId}, Element:{ElementId}, Stage: {Stage}, UpdatedBy: {UpdatedBy}",
-                request.SoaStatus, request.HnId, request.ElementId, request.Stage, request.SoaStatusUpdatedBy);
+                request.SoaStatus, StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(request.ElementId!), request.Stage, StringFormatter.Sanitize(request.SoaStatusUpdatedBy!));
                 throw;
             }
         }

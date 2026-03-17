@@ -9,8 +9,14 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonElement("stageId")]
         [BsonRepresentation(BsonType.String)]
         public SoaStage? StageId { get; set; }
-        [BsonElement("document")]
-        public NetworkDetailsUploadedDocument? Document { get; set; }
+
+        [BsonElement("soaStatus")]
+        public string? SoaStatus { get; set; }
+        [BsonElement("soaStatusUpdatedAt")]
+        [BsonRepresentation(BsonType.DateTime)]
+        public DateTime? SoaStatusUpdatedAt { get; set; }
+        [BsonElement("soaStatusUpdatedBy")]
+        public string? SoaStatusUpdatedBy { get; set; }
 
     }
 }

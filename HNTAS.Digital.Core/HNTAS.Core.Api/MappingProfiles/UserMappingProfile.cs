@@ -63,6 +63,7 @@ namespace HNTAS.Core.Api.MappingProfiles
             .ForMember(dest => dest.ECDetails, opt => opt.MapFrom(src => src.ECDetails))
             .ForMember(dest => dest.Address, opt => opt.MapFrom(src => src.Address))
             .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name))
+            .ForMember(dest => dest.HnDescription, opt => opt.MapFrom(src => src.HnDescription))
             .ForMember(dest => dest.Pathway, opt => opt.MapFrom(src => src.Pathway))
             .ForMember(dest => dest.Soa, opt => opt.MapFrom(src => src.Soa))
             .ForMember(dest => dest.CreatedBy, opt => opt.MapFrom(src => src.CreatedBy))
@@ -110,8 +111,6 @@ namespace HNTAS.Core.Api.MappingProfiles
             CreateMap<UploadedDocument, UploadedAssessorDocumentResponse>();
             CreateMap<UploadedDocument, UploadedCertifierDocumentResponse>();
 
-
-
             // Map from HeatNetworkUserResponse to HeatNetworkInfo
             CreateMap<HeatNetworkUserResponse, HeatNetworkInfo>()
                 .ForMember(dest => dest.HnId, opt => opt.MapFrom(src => src.HnId))
@@ -133,18 +132,7 @@ namespace HNTAS.Core.Api.MappingProfiles
              .ForMember(dest => dest.EmailId, opt => opt.MapFrom(src => src.EmailId))
              .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status))
              .ForMember(dest => dest.Roles, opt => opt.MapFrom(src =>
-                 src.Roles != null ? src.Roles.Select(r => r.ToString()).ToList() : null));
-
-            CreateMap<NetworkCharacteristics, NetworkCharacteristicsResponse>()
-                .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
-                .ForMember(dest => dest.HeatNetworkType, opt => opt.MapFrom(src => src.HeatNetworkType))
-                .ForMember(dest => dest.HeatGenerationSourceFor, opt => opt.MapFrom(src => src.HeatGenerationSourceFor))
-                .ForMember(dest => dest.NumberOfCommunalFloors, opt => opt.MapFrom(src => src.NumberOfCommunalFloors))
-                .ForMember(dest => dest.ContainsPressureBreak, opt => opt.MapFrom(src => src.ContainsPressureBreak))
-                .ForMember(dest => dest.IsSupplyingOtherHeatNetworks, opt => opt.MapFrom(src => src.IsSupplyingOtherHeatNetworks))
-                .ForMember(dest => dest.HasCommercialConnections, opt => opt.MapFrom(src => src.HasCommercialConnections))
-                .ForMember(dest => dest.IsSuppliedByADistrictHeatNetwork, opt => opt.MapFrom(src => src.IsSuppliedByADistrictHeatNetwork))
-                .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status));
+                 src.Roles != null ? src.Roles.Select(r => r.ToString()).ToList() : null));            
 
             CreateMap<NetworkElements, NetworkElementsResponse>()
                 .ForMember(dest => dest.Elements, opt => opt.MapFrom(src => src.Elements))                

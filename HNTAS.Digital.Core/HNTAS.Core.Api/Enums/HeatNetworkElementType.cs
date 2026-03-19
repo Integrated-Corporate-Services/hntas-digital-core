@@ -15,8 +15,11 @@ namespace HNTAS.Core.Api.Enums
         [Description("District distribution network")]
         DistrictDistributionNetwork = 3,
 
+        [Description("Communal distribution network")]
+        CommunalDistributionNetwork = 4,
+
         [Description("Consumer connections")]
-        ConsumerConnections = 4,
+        ConsumerConnections = 5,
         
     }
 }

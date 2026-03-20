@@ -16,7 +16,6 @@ namespace HNTAS.Core.Api.Models.Soa
         public string? HnDescription { get; set; } = null!;
         public string Pathway { get; set; } = null!;
         public SoaResponse? Soa { get; set; }
-        //public ElementSoaResponse? ElementSoa { get; set; }
         public string CreatedBy { get; set; } = null!;
         public DateTime CreatedAt { get; set; }
         public string? Phase { get; set; } = null;

@@ -39,7 +39,7 @@ namespace HNTAS.Core.Api.Data.Models
         public HeatNetworkType HeatNetworkType { get; set; }
 
         [BsonElement("heatNetworkConnections")]
-        public HeatNetworkConnections HeatNetworkConnections { get; set; } = new();
+        public HeatNetworkConnections? HeatNetworkConnections { get; set; }
 
         [BsonElement("networkElements")]
         public NetworkElements? NetworkElements { get; set; }

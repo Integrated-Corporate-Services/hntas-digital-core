@@ -9,8 +9,8 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonRepresentation(BsonType.ObjectId)]
         public string? Id { get; set; }
 
-        [BsonElement("eventName")]
-        public string EventName { get; set; } // e.g., "HeatNetworkCharacteristicsUpdated"
+        [BsonElement("entryType")]
+        public string EntryType { get; set; } // e.g., "HeatNetworkCharacteristicsUpdated"
 
         [BsonElement("entityId")]
         public string EntityId { get; set; } // The HnId
@@ -31,6 +31,15 @@ namespace HNTAS.Core.Api.Data.Models
         public T? After { get; set; } // Full snapshot of HeatNetwork after change
 
         [BsonElement("changeNote")]
-        public string? ChangeNote { get; set; }
+        public string? ChangeNote { get; set; }        
+
+        [BsonElement("elementName")]
+        public string? ElementName { get; set; }
+
+        [BsonElement("phase")]
+        public string? Phase { get; set; }
+
+        [BsonElement("stage")]
+        public string? Stage { get; set; }
     }
 }

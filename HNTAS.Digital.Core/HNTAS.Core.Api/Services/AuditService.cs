@@ -21,12 +21,16 @@ namespace HNTAS.Core.Api.Services
         }
 
         public async Task SaveAuditAsync<T>(
-            string eventName,
+            string entryType,
             string actorId,
             string entityId,
             T? oldState,
-            T? newState,
-            string? changeNote = null)
+            T? newState,            
+            string elementName,
+            string phase,
+            string stage,
+            string? changeNote = null
+            )
         {
             try
             {
@@ -36,21 +40,24 @@ namespace HNTAS.Core.Api.Services
 
                 var entry = new AuditEntry<T>
                 {
-                    EventName = eventName,
+                    EntryType = entryType,
                     EntityId = entityId,
                     UserId = actorId,
                     Before = oldState,
                     After = newState,
                     ChangeNote = changeNote,
-                    Timestamp = DateTime.UtcNow
+                    Timestamp = DateTime.UtcNow,                    
+                    ElementName = elementName,
+                    Phase = phase,
+                    Stage = stage
                 };
 
                 await collection.InsertOneAsync(entry);
-                _logger.LogInformation("Audit event {EventName} recorded in {Collection}", eventName, collectionName);
+                _logger.LogInformation("Audit event {EntryType} recorded in {Collection}", entryType, collectionName);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to record audit event {EventName} for entity {EntityId}", eventName, entityId);
+                _logger.LogError(ex, "Failed to record audit event {EntryType} for entity {EntityId}", entryType, entityId);
                 // In a POC, we usually don't want an audit failure to crash the main business flow,
                 // but you may choose to re-throw based on compliance needs.
             }

@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using HNTAS.Core.Api.Constants;
 using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
@@ -19,13 +20,15 @@ namespace HNTAS.Core.Api.Controllers
         private readonly ILogger<HeatNetworksController> _logger;
         private readonly ICounterService _counterService;
         private readonly IMapper _mapper;
+        private readonly IAuditService _auditService;
 
-        public HeatNetworksController(IHeatNetworkService hnService, ILogger<HeatNetworksController> logger, ICounterService counterService, IMapper mapper)
+        public HeatNetworksController(IHeatNetworkService hnService, ILogger<HeatNetworksController> logger, ICounterService counterService, IMapper mapper, IAuditService auditService)
         {
             _hnService = hnService;
             _logger = logger;
             _counterService = counterService;
             _mapper = mapper;
+            _auditService = auditService;
         }
 
         /// <summary>
@@ -189,17 +192,30 @@ namespace HNTAS.Core.Api.Controllers
 
             try
             {
-                var existingHeatNetwork = await _hnService.GetByHnIdAsync(hnId);
+                var existingHeatNetwork = await _hnService.GetByHnIdAsync(hnId);                
                 if (existingHeatNetwork == null)
                 {
                     _logger.LogInformation("No heat network found for HnId: {HnId}", StringFormatter.Sanitize(hnId));
                     return NotFound($"No heat network found for HnId '{hnId}'.");
                 }
 
-                existingHeatNetwork.NetworkElements = request;
-                await _hnService.UpdateAsync(hnId, existingHeatNetwork);
+                var updatedHeatNetwork = existingHeatNetwork;
+
+                updatedHeatNetwork.NetworkElements = request;
+                await _hnService.UpdateAsync(hnId, updatedHeatNetwork);
+
+                await _auditService.SaveAuditAsync<HeatNetwork>(
+                    entryType: HeatNetworkEvents.NetworkElementsAdded,
+                    actorId: existingHeatNetwork.CreatedBy,
+                    entityId: existingHeatNetwork.HnId!,
+                    oldState: existingHeatNetwork,
+                    newState: updatedHeatNetwork,                    
+                    elementName: "All Elements",
+                    phase: existingHeatNetwork.Phase,
+                    stage: HeatNetworkHelper.GetStageFromPhase(existingHeatNetwork.Phase)
+                );
                 _logger.LogInformation("Updated NetworkElements for HnId: {HnId}", StringFormatter.Sanitize(hnId));
-                var response = CreatedAtAction(nameof(UpdateNetworkElements), new { id = existingHeatNetwork.Id }, existingHeatNetwork);
+                var response = CreatedAtAction(nameof(UpdateNetworkElements), new { id = updatedHeatNetwork.Id }, updatedHeatNetwork);
                 return Ok(response);
             }
             catch (Exception ex)

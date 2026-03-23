@@ -3,6 +3,7 @@ using HNTAS.Core.Api.Constants;
 using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Data.Models.External;
 using HNTAS.Core.Api.Enums;
+using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
 using Microsoft.Extensions.Options;
 using MongoDB.Bson;
@@ -32,19 +33,22 @@ namespace HNTAS.Core.Api.Services
         {
             await _hnCollection.InsertOneAsync(newHeatNetwork);
 
-            var isRegistrationEnabledString = Environment.GetEnvironmentVariable("IS_REGISTRATION_ENABLED");
-            if (!string.IsNullOrEmpty(isRegistrationEnabledString) &&
-                isRegistrationEnabledString.ToLower() == "true")
-            {
+            //var isRegistrationEnabledString = Environment.GetEnvironmentVariable("IS_REGISTRATION_ENABLED");
+            //if (!string.IsNullOrEmpty(isRegistrationEnabledString) &&
+            //    isRegistrationEnabledString.ToLower() == "true")
+            //{
                 // Audit Code Here
                 await _auditService.SaveAuditAsync<HeatNetwork>(
-                    eventName: HeatNetworkEvents.Registered,
+                    entryType: HeatNetworkEvents.Registered,
                     actorId: newHeatNetwork.CreatedBy,
-                    entityId: newHeatNetwork.HnId,
+                    entityId: newHeatNetwork.HnId!,
                     oldState: null,
-                    newState: newHeatNetwork
+                    newState: newHeatNetwork,
+                    elementName: "All Elements",
+                    phase: newHeatNetwork.Phase,
+                    stage: HeatNetworkHelper.GetStageFromPhase(newHeatNetwork.Phase)
                 );
-            }
+            //}
 
             _logger.LogInformation("New heat network initially registered...");
         }

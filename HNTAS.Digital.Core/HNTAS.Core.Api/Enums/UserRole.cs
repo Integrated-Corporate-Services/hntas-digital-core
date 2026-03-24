@@ -19,40 +19,27 @@ namespace HNTAS.Core.Api.Enums
         Coordinator = 2,
 
         /// <summary>
+        /// Represents a Designated Duty Holder user role.
+        /// </summary>
+        [Description("Designated Duty Holder")]
+        DesignatedDutyHolder = 3,
+
+        /// <summary>
         /// Represents a contributor user role.
         /// </summary>
         [Description("Contributor")]
-        Contributor = 3,
-
-        /// <summary>
-        /// Represents a designer user role.
-        /// </summary>
-        [Description("Designer")]
-        Designer = 4,
-
-        /// <summary>
-        /// Represents a contractor user role.
-        /// </summary>
-        [Description("Contractor")]
-        Contractor = 5,
-
-        /// <summary>
-        /// Represents a operator user role.
-        /// </summary>
-        [Description("Operator")]
-        Operator = 6,
+        Contributor = 4,
 
         /// <summary>
         /// Represents a assessor user role.
         /// </summary>
         [Description("Assessor")]
-        Assessor = 7,
+        Assessor = 5,
 
         /// <summary>
         /// Represents a certifier user role.
         /// </summary>
         [Description("Certifier")]
-        Certifier = 8,
-
+        Certifier = 6
     }
 }

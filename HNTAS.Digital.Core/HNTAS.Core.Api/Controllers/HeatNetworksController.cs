@@ -175,8 +175,6 @@ namespace HNTAS.Core.Api.Controllers
             }
         }
 
-        // add send email controller
-
         /// <summary>
         /// Updates the NetworkElements for a given heat network identified by HnId.
         /// </summary>

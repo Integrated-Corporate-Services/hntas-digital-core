@@ -13,14 +13,14 @@ namespace HNTAS.Core.Api.Models.Soa
         public ECDetails ECDetails { get; set; } = null!;
         public RegisteredAddress? Address { get; set; }
         public string Name { get; set; } = null!;
-        public string? HnDescription { get; set; } = null!;
+        public string? HnDescription { get; set; }
         public string Pathway { get; set; } = null!;
         public SoaResponse? Soa { get; set; }
         public string CreatedBy { get; set; } = null!;
         public DateTime CreatedAt { get; set; }
         public string? Phase { get; set; } = null;
         public HeatNetworkType HeatNetworkType { get; set; }
-        public HeatNetworkConnections? HeatNetworkConnections { get; set; } = new();
+        public HeatNetworkConnections? HeatNetworkConnections { get; set; }
         public NetworkElementsResponse? NetworkElements { get; set; }
         public MeteringAndMonitoringStrategyResponse? MeteringAndMonitoringStrategy { get; set; }
         public AssessmentPlanResponse? AssessmentPlan { get; set; }

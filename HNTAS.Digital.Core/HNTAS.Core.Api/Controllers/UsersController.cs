@@ -949,12 +949,12 @@ public class UsersController : ControllerBase
     private static readonly Dictionary<ContributorRole, UserRole> RoleMapping =
         new Dictionary<ContributorRole, UserRole>
     {
-            { ContributorRole.DesignatedDesigner, UserRole.Designer },
-            { ContributorRole.ContributingDesigner, UserRole.Designer },
-            { ContributorRole.DesignatedContractor, UserRole.Contractor },
-            { ContributorRole.ContributingContractor, UserRole.Contractor },
-            { ContributorRole.DesignatedOperator, UserRole.Operator },
-            { ContributorRole.ContributingOperator, UserRole.Operator },
+            { ContributorRole.DesignatedDesigner, UserRole.DesignatedDutyHolder },
+            { ContributorRole.DesignatedContractor, UserRole.DesignatedDutyHolder },
+            { ContributorRole.DesignatedOperator, UserRole.DesignatedDutyHolder },
+            { ContributorRole.ContributingDesigner, UserRole.Contributor },
+            { ContributorRole.ContributingContractor, UserRole.Contributor },
+            { ContributorRole.ContributingOperator, UserRole.Contributor },
             { ContributorRole.Assessor, UserRole.Assessor },
             { ContributorRole.Certifier, UserRole.Certifier },
             { ContributorRole.Coordinator, UserRole.Coordinator },

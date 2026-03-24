@@ -141,13 +141,16 @@ namespace HNTAS.Core.Api.Services
 
                 return new AuditLogResponse
                 {
-                    Event = doc.Contains("eventName") ? doc["eventName"].AsString : "Unknown",
+                    EntryType = doc.Contains("entryType") ? doc["entryType"].AsString : "Unknown",
                     UserName = userDoc != null
                         ? $"{userDoc.GetValue("firstName", string.Empty)} {userDoc.GetValue("lastName", string.Empty)}".Trim()
                         : "System Process",
                     Role = roleDescription,
                     Timestamp = TimeZoneInfo.ConvertTimeFromUtc(doc["timestamp"].ToUniversalTime(), londonTimeZone)
-                                            .ToString("dd MMM yyyy HH:mm:ss")
+                                            .ToString("dd MMM yyyy HH:mm:ss"),
+                    ElementName = doc.Contains("elementName") ? doc["elementName"].AsString : "Unknown",
+                    Phase = doc.Contains("phase") ? doc["phase"].AsString : "Unknown",
+                    Stage = doc.Contains("stage") ? doc["stage"].AsString : "Unknown"
                 };
             }).ToList();
         }

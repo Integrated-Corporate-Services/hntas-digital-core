@@ -1,9 +1,11 @@
-﻿using HNTAS.Core.Api.Data.Models;
+﻿using HNTAS.Core.Api.Constants;
+using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
 using HNTAS.Core.Api.Models.Soa;
+using HNTAS.Core.Api.Services;
 using Microsoft.AspNetCore.Mvc;
 using System.ComponentModel.DataAnnotations;
 
@@ -18,13 +20,15 @@ namespace HNTAS.Core.Api.Controllers
         private readonly IEmailService _emailService;
         private readonly IHeatNetworkService _heatNetworkService;
         private readonly IUserService _userService;
-        public SOAController(ISoaService soaProjectService, ILogger<SOAController> logger, IEmailService emailService, IHeatNetworkService heatNetworkService, IUserService userService)
+        private readonly IAuditService _auditService;
+        public SOAController(ISoaService soaProjectService, ILogger<SOAController> logger, IEmailService emailService, IHeatNetworkService heatNetworkService, IUserService userService, IAuditService auditService)
         {
             _soaService = soaProjectService;
             _logger = logger;
             _emailService = emailService;
             _heatNetworkService = heatNetworkService;
             _userService = userService;
+            _auditService = auditService;
         }
 
 
@@ -339,10 +343,36 @@ namespace HNTAS.Core.Api.Controllers
 
             try
             {
+                var existingHeatNetwork = await _heatNetworkService.GetByHnIdAsync(request.HnId);
+                if (existingHeatNetwork == null)
+                {
+                    _logger.LogInformation("No heat network found for HnId: {HnId}", StringFormatter.Sanitize(request.HnId));
+                    return NotFound($"No heat network found for HnId '{request.HnId}'.");
+                }
+
                 await _soaService.UpdateSoaStatus(request.HnId, request.ElementId!, request.Stage, request.SoaStatus!, request.SoaStatusUpdatedBy!, request.ElementSoaStatus);
 
                 _logger.LogInformation("Updated status - {SoaStatus} successfully for HN ID: {HnId}, Element:{ElementId}, Stage: {Stage}, UpdatedBy: {UpdatedBy}",
                 request.SoaStatus, StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(request.ElementId!), request.Stage, StringFormatter.Sanitize(request.SoaStatusUpdatedBy!));
+
+                var isRegistrationEnabledString = Environment.GetEnvironmentVariable("IS_REGISTRATION_ENABLED");
+                if (!string.IsNullOrEmpty(isRegistrationEnabledString) &&
+                    isRegistrationEnabledString.ToLower() == "true")
+                {
+                    var updatedHeatNetwork = await _heatNetworkService.GetByHnIdAsync(request.HnId);
+
+                    await _auditService.SaveAuditAsync<HeatNetwork>(
+                        entryType: "SOA - " + request.SoaStatus,
+                        actorId: existingHeatNetwork.CreatedBy,
+                        entityId: existingHeatNetwork.HnId!,
+                        oldState: existingHeatNetwork,
+                        newState: updatedHeatNetwork,
+                        elementName: request.ElementDisplayName!,
+                        phase: request.SoaPhase!,
+                        stage: request.Stage.ToString()
+                    );
+                }
+                    
 
                 return Ok();
             }

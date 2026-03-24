@@ -17,6 +17,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
         private readonly Mock<ICounterService> _mockCounterService;
         private readonly Mock<IMapper> _mockMapper;
         private readonly Mock<ILogger<HeatNetworksController>> _mockLogger;
+        private readonly Mock<IAuditService> _mockAuditService;
         private readonly HeatNetworksController _controller;
 
         public HeatNetworksControllerTests()
@@ -25,9 +26,10 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             _mockCounterService = new Mock<ICounterService>();
             _mockMapper = new Mock<IMapper>();
             _mockLogger = new Mock<ILogger<HeatNetworksController>>();
+            _mockAuditService = new Mock<IAuditService>();
 
             // Assuming these dependencies are injected via the constructor in your partial class
-            _controller = new HeatNetworksController(_mockHnService.Object, _mockLogger.Object, _mockCounterService.Object, _mockMapper.Object);
+            _controller = new HeatNetworksController(_mockHnService.Object, _mockLogger.Object, _mockCounterService.Object, _mockMapper.Object, _mockAuditService.Object);
         }
 
         private HeatNetwork SampleHeatNetwork(string id = "1", string hnId = null)
@@ -176,7 +178,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             // Arrange
             var input = SampleHeatNetwork("1", hnId: null); // no HnId set
             _mockCounterService.Setup(c => c.GetNextSequenceValue("heatNetworkId_sequence")).ReturnsAsync(1L);
-            _mockHnService.Setup(s => s.CreateAsync(It.IsAny<HeatNetwork>())).Returns(Task.CompletedTask);
+            _mockHnService.Setup(s => s.CreateAsync(It.IsAny<HeatNetwork>(), It.IsAny<bool>())).Returns(Task.CompletedTask);
 
             // Act
             var result = await _controller.AddHeatNetwork(input);
@@ -194,7 +196,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
         {
             // Arrange
             var input = SampleHeatNetwork("1", "HN0000001");
-            _mockHnService.Setup(s => s.CreateAsync(It.IsAny<HeatNetwork>())).ThrowsAsync(new Exception("write failed"));
+            _mockHnService.Setup(s => s.CreateAsync(It.IsAny<HeatNetwork>(), It.IsAny<bool>())).ThrowsAsync(new Exception("write failed"));
 
             // Act
             var result = await _controller.AddHeatNetwork(input);

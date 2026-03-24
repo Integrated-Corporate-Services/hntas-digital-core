@@ -29,15 +29,15 @@ namespace HNTAS.Core.Api.Services
             _logger.LogInformation("HeatNetworkService initialized via Dependency Injection.");
         }
 
-        public async Task CreateAsync(HeatNetwork newHeatNetwork)
+        public async Task CreateAsync(HeatNetwork newHeatNetwork, bool isNewHeatNetwork = false)
         {
             await _hnCollection.InsertOneAsync(newHeatNetwork);
 
-            //var isRegistrationEnabledString = Environment.GetEnvironmentVariable("IS_REGISTRATION_ENABLED");
-            //if (!string.IsNullOrEmpty(isRegistrationEnabledString) &&
-            //    isRegistrationEnabledString.ToLower() == "true")
-            //{
-                // Audit Code Here
+            var isRegistrationEnabledString = Environment.GetEnvironmentVariable("IS_REGISTRATION_ENABLED");
+            if (!string.IsNullOrEmpty(isRegistrationEnabledString) &&
+                isRegistrationEnabledString.ToLower() == "true" && isNewHeatNetwork)
+            {
+                // Audit Code Here               
                 await _auditService.SaveAuditAsync<HeatNetwork>(
                     entryType: HeatNetworkEvents.Registered,
                     actorId: newHeatNetwork.CreatedBy,
@@ -47,8 +47,8 @@ namespace HNTAS.Core.Api.Services
                     elementName: "All Elements",
                     phase: newHeatNetwork.Phase,
                     stage: HeatNetworkHelper.GetStageFromPhase(newHeatNetwork.Phase)
-                );
-            //}
+                );                
+            }
 
             _logger.LogInformation("New heat network initially registered...");
         }

@@ -151,7 +151,7 @@ namespace HNTAS.Core.Api.Controllers
                     _logger.LogInformation("Generated new heat network ID: {HeatNetworkId}", heatNetworkDetails.HnId);
                 }
 
-                await _hnService.CreateAsync(heatNetworkDetails);
+                await _hnService.CreateAsync(heatNetworkDetails, true);
                 _logger.LogInformation("New heat network initially registered: {HNID} (DB Id: {Id})", heatNetworkDetails.HnId, heatNetworkDetails.Id);
 
                 return CreatedAtAction(nameof(AddHeatNetwork), new { id = heatNetworkDetails.Id }, heatNetworkDetails);
@@ -165,7 +165,7 @@ namespace HNTAS.Core.Api.Controllers
                     Detail = "An unexpected error occurred during initial user registration."
                 });
             }
-        }        
+        }
 
         /// <summary>
         /// Updates the NetworkElements for a given heat network identified by HnId.
@@ -192,30 +192,39 @@ namespace HNTAS.Core.Api.Controllers
 
             try
             {
-                var existingHeatNetwork = await _hnService.GetByHnIdAsync(hnId);                
+                var existingHeatNetwork = await _hnService.GetByHnIdAsync(hnId);
                 if (existingHeatNetwork == null)
                 {
                     _logger.LogInformation("No heat network found for HnId: {HnId}", StringFormatter.Sanitize(hnId));
                     return NotFound($"No heat network found for HnId '{hnId}'.");
                 }
+                
+                var existingHeatNetworkSnapshot = System.Text.Json.JsonSerializer.Deserialize<HeatNetwork>(
+                    System.Text.Json.JsonSerializer.Serialize(existingHeatNetwork)
+                )!;
 
-                var updatedHeatNetwork = existingHeatNetwork;
+                existingHeatNetwork.NetworkElements = request;
+                await _hnService.UpdateAsync(hnId, existingHeatNetwork);
 
-                updatedHeatNetwork.NetworkElements = request;
-                await _hnService.UpdateAsync(hnId, updatedHeatNetwork);
-
-                await _auditService.SaveAuditAsync<HeatNetwork>(
-                    entryType: HeatNetworkEvents.NetworkElementsAdded,
-                    actorId: existingHeatNetwork.CreatedBy,
-                    entityId: existingHeatNetwork.HnId!,
-                    oldState: existingHeatNetwork,
-                    newState: updatedHeatNetwork,                    
-                    elementName: "All Elements",
-                    phase: existingHeatNetwork.Phase,
-                    stage: HeatNetworkHelper.GetStageFromPhase(existingHeatNetwork.Phase)
-                );
+                // Only log an audit event if NetworkElements were previously null, to capture the addition of elements rather than updates to existing elements
+                var isRegistrationEnabledString = Environment.GetEnvironmentVariable("IS_REGISTRATION_ENABLED");
+                if (!string.IsNullOrEmpty(isRegistrationEnabledString) &&
+                    isRegistrationEnabledString.ToLower() == "true" && existingHeatNetworkSnapshot.NetworkElements == null)
+                {
+                    await _auditService.SaveAuditAsync<HeatNetwork>(
+                        entryType: HeatNetworkEvents.NetworkElementsAdded,
+                        actorId: existingHeatNetwork.CreatedBy,
+                        entityId: existingHeatNetwork.HnId!,
+                        oldState: existingHeatNetworkSnapshot,
+                        newState: existingHeatNetwork,
+                        elementName: "All Elements",
+                        phase: existingHeatNetwork.Phase,
+                        stage: HeatNetworkHelper.GetStageFromPhase(existingHeatNetwork.Phase)
+                        );
+                }                    
+                
                 _logger.LogInformation("Updated NetworkElements for HnId: {HnId}", StringFormatter.Sanitize(hnId));
-                var response = CreatedAtAction(nameof(UpdateNetworkElements), new { id = updatedHeatNetwork.Id }, updatedHeatNetwork);
+                var response = CreatedAtAction(nameof(UpdateNetworkElements), new { id = existingHeatNetwork.Id }, existingHeatNetwork);
                 return Ok(response);
             }
             catch (Exception ex)

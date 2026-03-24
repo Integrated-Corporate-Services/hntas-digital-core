@@ -19,6 +19,9 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonElement("name")]
         public string Name { get; set; } = string.Empty;
 
+        [BsonElement("hnDescription")]
+        public string? HnDescription { get; set; }
+
         [BsonElement("address")]
         public RegisteredAddress? Address { get; set; }
 
@@ -32,8 +35,12 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonRepresentation(BsonType.String)]
         public RegistrationSource RegistrationSource { get; set; }
 
-        [BsonElement("networkCharacteristics")]
-        public NetworkCharacteristics? NetworkCharacteristics { get; set; }
+        [BsonElement("heatNetworkType")]
+        [BsonRepresentation(BsonType.String)]
+        public HeatNetworkType HeatNetworkType { get; set; }
+
+        [BsonElement("heatNetworkConnections")]
+        public HeatNetworkConnections? HeatNetworkConnections { get; set; }
 
         [BsonElement("networkElements")]
         public NetworkElements? NetworkElements { get; set; }

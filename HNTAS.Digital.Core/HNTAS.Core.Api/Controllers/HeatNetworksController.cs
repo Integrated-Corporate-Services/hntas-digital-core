@@ -162,7 +162,9 @@ namespace HNTAS.Core.Api.Controllers
                     Detail = "An unexpected error occurred during initial user registration."
                 });
             }
-        }        
+        }
+
+        // add send email controller
 
         /// <summary>
         /// Updates the NetworkElements for a given heat network identified by HnId.

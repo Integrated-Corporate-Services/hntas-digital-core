@@ -1,30 +1,56 @@
-﻿namespace HNTAS.Core.Api.Data.Models
+﻿using MongoDB.Bson.Serialization.Attributes;
+
+namespace HNTAS.Core.Api.Data.Models
 {
     public class HeatNetworkConnections
     {
+        [BsonElement("isCommunalBuilding")]
         public bool IsCommunalBuilding { get; set; }
-        public int? NoOfCommunalBuilding { get; set; }
+
+        [BsonElement("numberOfCommunalBuildings")]
+        [BsonIgnoreIfNull]
+        public int? NumberOfCommunalBuildings { get; set; }
+
+        [BsonElement("isDomesticConsumer")]
         public bool IsDomesticConsumer { get; set; }
-        public int? NoOfDomesticConsumer { get; set; }
+
+        [BsonElement("numberOfDomesticConsumers")]
+        [BsonIgnoreIfNull]
+        public int? NumberOfDomesticConsumers { get; set; }
+
+        [BsonElement("isNonDomesticConsumer")]
         public bool IsNonDomesticConsumer { get; set; }
-        public int? NoOfNonDomesticConsumer { get; set; }
+
+        [BsonElement("numberOfNonDomesticConsumers")]
+        [BsonIgnoreIfNull]
+        public int? NumberOfNonDomesticConsumers { get; set; }
+
+        [BsonElement("isDownstreamDistrictHeatNetworkConnections")]
         public bool IsDownstreamDistrictHeatNetworkConnections { get; set; }
-        public int? NoOfDownstreamDistrictHeatNetworkConnections { get; set; }
+
+        [BsonElement("numberOfDownstreamDistrictHeatNetworkConnections")]
+        [BsonIgnoreIfNull]
+        public int? NumberOfDownstreamDistrictHeatNetworkConnections { get; set; }
+
+        [BsonElement("isUpstreamDistrictHeatNetworkConnections")]
         public bool IsUpstreamDistrictHeatNetworkConnections { get; set; }
-        public int? NoOfUpstreamDistrictHeatNetworkConnections { get; set; }
+
+        [BsonElement("numberOfUpstreamDistrictHeatNetworkConnections")]
+        [BsonIgnoreIfNull]
+        public int? NumberOfUpstreamDistrictHeatNetworkConnections { get; set; }
 
         public HeatNetworkConnections()
         {
             IsCommunalBuilding = false;
-            NoOfCommunalBuilding = null;
+            NumberOfCommunalBuildings = null;
             IsDomesticConsumer = false;
-            NoOfDomesticConsumer = null;
+            NumberOfDomesticConsumers = null;
             IsNonDomesticConsumer = false;
-            NoOfNonDomesticConsumer = null;
+            NumberOfNonDomesticConsumers = null;
             IsDownstreamDistrictHeatNetworkConnections = false;
-            NoOfDownstreamDistrictHeatNetworkConnections = null;
+            NumberOfDownstreamDistrictHeatNetworkConnections = null;
             IsUpstreamDistrictHeatNetworkConnections = false;
-            NoOfUpstreamDistrictHeatNetworkConnections = null;
+            NumberOfUpstreamDistrictHeatNetworkConnections = null;
         }
     }
 }

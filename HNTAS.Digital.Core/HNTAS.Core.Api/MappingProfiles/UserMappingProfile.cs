@@ -66,7 +66,11 @@ namespace HNTAS.Core.Api.MappingProfiles
             .ForMember(dest => dest.HnDescription, opt => opt.MapFrom(src => src.HnDescription))
             .ForMember(dest => dest.Pathway, opt => opt.MapFrom(src => src.Pathway))
             .ForMember(dest => dest.HeatNetworkType, opt => opt.MapFrom(src => src.HeatNetworkType))
-            .ForMember(dest => dest.HeatNetworkConnections, opt => opt.MapFrom(src => src.HeatNetworkConnections))
+            .ForMember(dest => dest.HeatNetworkConnections, opt =>
+                {
+                    opt.PreCondition(src => src.HeatNetworkConnections != null);
+                    opt.MapFrom(src => src.HeatNetworkConnections);
+                })
             .ForMember(dest => dest.Soa, opt => opt.MapFrom(src => src.Soa))
             .ForMember(dest => dest.CreatedBy, opt => opt.MapFrom(src => src.CreatedBy))
             .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => src.CreatedAt))

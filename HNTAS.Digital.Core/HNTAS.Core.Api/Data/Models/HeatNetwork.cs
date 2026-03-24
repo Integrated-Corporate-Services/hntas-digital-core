@@ -36,6 +36,7 @@ namespace HNTAS.Core.Api.Data.Models
         public RegistrationSource RegistrationSource { get; set; }
 
         [BsonElement("heatNetworkType")]
+        [BsonRepresentation(BsonType.String)]
         public HeatNetworkType HeatNetworkType { get; set; }
 
         [BsonElement("heatNetworkConnections")]

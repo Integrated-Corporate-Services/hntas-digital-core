@@ -13,13 +13,14 @@ namespace HNTAS.Core.Api.Models.Soa
         public ECDetails ECDetails { get; set; } = null!;
         public RegisteredAddress? Address { get; set; }
         public string Name { get; set; } = null!;
+        public string? HnDescription { get; set; } = null!;
         public string Pathway { get; set; } = null!;
         public SoaResponse? Soa { get; set; }
-        //public ElementSoaResponse? ElementSoa { get; set; }
         public string CreatedBy { get; set; } = null!;
         public DateTime CreatedAt { get; set; }
         public string? Phase { get; set; } = null;
-        public NetworkCharacteristicsResponse? NetworkCharacteristics { get; set; }
+        public HeatNetworkType HeatNetworkType { get; set; }
+        public HeatNetworkConnections? HeatNetworkConnections { get; set; } = new();
         public NetworkElementsResponse? NetworkElements { get; set; }
         public MeteringAndMonitoringStrategyResponse? MeteringAndMonitoringStrategy { get; set; }
         public AssessmentPlanResponse? AssessmentPlan { get; set; }
@@ -102,22 +103,7 @@ namespace HNTAS.Core.Api.Models.Soa
         public DateTime UploadedAt { get; set; }
         public string UploadedBy { get; set; } = null!;
     }
-
-    public class NetworkCharacteristicsResponse : NetworkDetailsResponseBase {
-        public NetworkDetailsStatus Status { get; set; }        
-        public string? Id { get; set; }       
-        public HeatNetworkType HeatNetworkType { get; set; }        
-        public string? HeatGenerationSourceFor { get; set; }
-        public int? NumberOfCommunalFloors { get; set; }
-
-        public bool? ContainsPressureBreak { get; set; }
-
-        public bool IsSupplyingOtherHeatNetworks { get; set; }
-
-        public bool HasCommercialConnections { get; set; }
-
-        public bool IsSuppliedByADistrictHeatNetwork { get; set; }
-    }
+    
     public class NetworkElementsResponse : NetworkDetailsResponseBase {
         public NetworkDetailsStatus NetworkElementStatus { get; set; }
         public NetworkDetailsStatus ElementSoaStatus { get; set; }

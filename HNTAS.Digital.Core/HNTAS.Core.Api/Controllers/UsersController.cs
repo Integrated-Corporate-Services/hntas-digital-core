@@ -1097,7 +1097,7 @@ public class UsersController : ControllerBase
                     entryType: entryType,
                     actorId: userId,
                     entityId: existingHeatNetwork.HnId!,
-                    oldState: null,
+                    oldState: existingHeatNetwork,
                     newState: existingHeatNetwork,
                     elementName: "NA",
                     phase: phase,

@@ -224,7 +224,7 @@ namespace HNTAS.Core.Api.Controllers
                 {
                     await _auditService.SaveAuditAsync<HeatNetwork>(
                         entryType: HeatNetworkEvents.NetworkElementsAdded,
-                        actorId: existingHeatNetwork.CreatedBy,
+                        actorId: existingHeatNetwork.NetworkElements.CreatedBy,
                         entityId: existingHeatNetwork.HnId!,
                         oldState: existingHeatNetworkSnapshot,
                         newState: existingHeatNetwork,

@@ -22,6 +22,8 @@ public class UsersController : ControllerBase
     private readonly ICounterService _orgCounterService;
     private readonly IMapper _mapper;
     private readonly IEmailService _emailService;
+    private readonly IHeatNetworkService _heatNetworkService;
+    private readonly IAuditService _auditService;
 
 
     public UsersController(IUserService userService,
@@ -30,7 +32,9 @@ public class UsersController : ControllerBase
                            ILogger<UsersController> logger,
                            ICounterService orgCounterService,
                            IMapper mapper,
-                           IEmailService emailService)
+                           IEmailService emailService,
+                           IHeatNetworkService heatNetworkService,
+                           IAuditService auditService)
     {
         _userService = userService;
         _organisationService = organizationService;
@@ -39,6 +43,8 @@ public class UsersController : ControllerBase
         _emailService = emailService;
         _orgCounterService = orgCounterService;
         _mapper = mapper;
+        _heatNetworkService = heatNetworkService;
+        _auditService = auditService;
     }
 
     /// <summary>
@@ -585,7 +591,7 @@ public class UsersController : ControllerBase
                     Title = "Invitation Not Found",
                     Detail = $"No invitation found for email ({request.InvitedEmail})."
                 });
-            }
+            }            
 
             // Mark invitation as accepted
             invitation.Status = InvitationStatus.Accepted;
@@ -627,6 +633,8 @@ public class UsersController : ControllerBase
 
                 _logger.LogInformation("Existing invited user updated: {UserId})", invitedUser.Id);
 
+                await AuditLogs(invitation, invitedUser.Id!);
+
                 return Ok(invitedUser.Id);
             }
             if (invitedUser != null && invitation.InvitedOrgId != null)
@@ -649,7 +657,7 @@ public class UsersController : ControllerBase
                 organisation.RpUserId = invitedUser.Id;
 
                 await _organisationService.UpdateAsync(organisation.Id, organisation);
-
+                await AuditLogs(invitation, invitedUser.Id!);
                 return StatusCode(StatusCodes.Status201Created, invitedUser.Id);
             }
             else
@@ -658,6 +666,8 @@ public class UsersController : ControllerBase
                 var newUser = await BuildUserFromInvitation(request, invitation);
                 await _invitationService.ExecuteRoleSwapAsync(newUser, null, invitation);
                 _logger.LogInformation("New invited user registered: {UserId} (DB Id: {Id})", newUser.OneLoginId, newUser.Id);
+
+                await AuditLogs(invitation, newUser.Id!);
                 return StatusCode(StatusCodes.Status201Created, newUser.Id);
             }
         }
@@ -1043,6 +1053,58 @@ public class UsersController : ControllerBase
         user.Roles = MapAndFilterRoles(invitation.InvitedRoles);
 
         return user;
+    }
+
+    private async Task AuditLogs(Invitation invitation, string userId)
+    {
+        // Log for Audit history
+        var isRegistrationEnabledString = Environment.GetEnvironmentVariable("IS_REGISTRATION_ENABLED");
+        if (!string.IsNullOrEmpty(isRegistrationEnabledString) &&
+                isRegistrationEnabledString.ToLower() == "true")
+
+        {
+            var existingHeatNetwork = await _heatNetworkService.GetByHnIdAsync(invitation.InvitedHnId!);
+            if (existingHeatNetwork != null)
+            {
+                var phase = existingHeatNetwork.Phase;
+                var stage = HeatNetworkHelper.GetStageFromPhase(phase);
+                var invitedRole = invitation.InvitedRoles.FirstOrDefault();
+                var entryType = "";
+                switch (invitedRole)
+                {
+                    case ContributorRole.DesignatedDesigner:
+                        entryType = "Designated designer assigned";
+                        break;
+                    case ContributorRole.DesignatedContractor:
+                        entryType = "Designated contractor assigned";
+                        break;
+                    case ContributorRole.DesignatedOperator:
+                        entryType = "Designated operator assigned";
+                        break;
+                    case ContributorRole.ContributingContractor:
+                        entryType = "Contributor contractor assigned";
+                        break;
+                    case ContributorRole.ContributingDesigner:
+                        entryType = "Contributor designer assigned";
+                        break;
+                    case ContributorRole.ContributingOperator:
+                        entryType = "Contributor operator assigned";
+                        break;
+                    default:
+                        break;
+                }
+                await _auditService.SaveAuditAsync<HeatNetwork>(
+                    entryType: entryType,
+                    actorId: userId,
+                    entityId: existingHeatNetwork.HnId!,
+                    oldState: null,
+                    newState: existingHeatNetwork,
+                    elementName: "NA",
+                    phase: phase,
+                    stage: stage
+                );
+            }
+        }        
     }
 
 }

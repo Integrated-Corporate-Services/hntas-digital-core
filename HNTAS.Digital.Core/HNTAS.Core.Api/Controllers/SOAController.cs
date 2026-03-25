@@ -363,7 +363,7 @@ namespace HNTAS.Core.Api.Controllers
 
                     await _auditService.SaveAuditAsync<HeatNetwork>(
                         entryType: "SOA - " + request.SoaStatus,
-                        actorId: existingHeatNetwork.CreatedBy,
+                        actorId: request.SoaStatusUpdatedBy!,
                         entityId: existingHeatNetwork.HnId!,
                         oldState: existingHeatNetwork,
                         newState: updatedHeatNetwork,

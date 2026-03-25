@@ -20,15 +20,19 @@ namespace HNTAS.Core.Api.Controllers
         private readonly ILogger<HeatNetworksController> _logger;
         private readonly ICounterService _counterService;
         private readonly IMapper _mapper;
-        private readonly IAuditService _auditService;
+        private readonly IAuditService _auditService;        
+        private readonly IUserService _userService;
+        private readonly IEmailService _emailService;
 
-        public HeatNetworksController(IHeatNetworkService hnService, ILogger<HeatNetworksController> logger, ICounterService counterService, IMapper mapper, IAuditService auditService)
+        public HeatNetworksController(IHeatNetworkService hnService, ILogger<HeatNetworksController> logger, ICounterService counterService, IMapper mapper, IUserService userService, IEmailService emailService, IAuditService auditService)
         {
             _hnService = hnService;
             _logger = logger;
             _counterService = counterService;
             _mapper = mapper;
             _auditService = auditService;
+            _userService = userService;
+            _emailService = emailService;
         }
 
         /// <summary>
@@ -153,6 +157,13 @@ namespace HNTAS.Core.Api.Controllers
 
                 await _hnService.CreateAsync(heatNetworkDetails, true);
                 _logger.LogInformation("New heat network initially registered: {HNID} (DB Id: {Id})", heatNetworkDetails.HnId, heatNetworkDetails.Id);
+
+                UserDetailsResult user = await _userService.GetUserWithDetailsAsync(heatNetworkDetails.CreatedBy);
+                string userEmail = user.EmailId;
+                string fullName = user.FullName;
+                string hnId = heatNetworkDetails.HnId;
+                string hnName = heatNetworkDetails.Name;
+                await _emailService.TrySendHeatNetworkRegistrationEmailAsync(userEmail, fullName, hnId, hnName);
 
                 return CreatedAtAction(nameof(AddHeatNetwork), new { id = heatNetworkDetails.Id }, heatNetworkDetails);
             }

@@ -3,6 +3,7 @@ using HNTAS.Core.Api.Controllers;
 using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Data.Models.External;
 using HNTAS.Core.Api.Interfaces;
+using HNTAS.Core.Api.Models;
 using HNTAS.Core.Api.Models.Soa;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -18,6 +19,8 @@ namespace HNTAS.Digital.Core.Tests.Controllers
         private readonly Mock<IMapper> _mockMapper;
         private readonly Mock<ILogger<HeatNetworksController>> _mockLogger;
         private readonly Mock<IAuditService> _mockAuditService;
+        private readonly Mock<IUserService> _mockUserService;
+        private readonly Mock<IEmailService> _mockEmailService;
         private readonly HeatNetworksController _controller;
 
         public HeatNetworksControllerTests()
@@ -26,13 +29,15 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             _mockCounterService = new Mock<ICounterService>();
             _mockMapper = new Mock<IMapper>();
             _mockLogger = new Mock<ILogger<HeatNetworksController>>();
-            _mockAuditService = new Mock<IAuditService>();
+            _mockAuditService = new Mock<IAuditService>();            
+            _mockUserService = new Mock<IUserService>();
+            _mockEmailService = new Mock<IEmailService>();
 
             // Assuming these dependencies are injected via the constructor in your partial class
-            _controller = new HeatNetworksController(_mockHnService.Object, _mockLogger.Object, _mockCounterService.Object, _mockMapper.Object, _mockAuditService.Object);
+            _controller = new HeatNetworksController(_mockHnService.Object, _mockLogger.Object, _mockCounterService.Object, _mockMapper.Object, _mockUserService.Object, _mockEmailService.Object, _mockAuditService.Object);
         }
 
-        private HeatNetwork SampleHeatNetwork(string id = "1", string hnId = null)
+        private HeatNetwork SampleHeatNetwork(string id = "1", string? hnId = null)
         {
             return new HeatNetwork
             {
@@ -179,6 +184,13 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             var input = SampleHeatNetwork("1", hnId: null); // no HnId set
             _mockCounterService.Setup(c => c.GetNextSequenceValue("heatNetworkId_sequence")).ReturnsAsync(1L);
             _mockHnService.Setup(s => s.CreateAsync(It.IsAny<HeatNetwork>(), It.IsAny<bool>())).Returns(Task.CompletedTask);
+            _mockUserService.Setup(s => s.GetUserWithDetailsAsync("tester")).ReturnsAsync(new UserDetailsResult
+            {
+                Id = "tester",
+                EmailId = "user@example.com",                
+                FirstName = "Test",
+                LastName = "User"
+            });
 
             // Act
             var result = await _controller.AddHeatNetwork(input);

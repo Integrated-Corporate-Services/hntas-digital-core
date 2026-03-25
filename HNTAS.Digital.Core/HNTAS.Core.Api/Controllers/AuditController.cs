@@ -22,7 +22,7 @@ namespace HNTAS.Core.Api.Controllers
         /// <param name="hnId">The Heat Network ID (EntityId)</param>
         /// <returns>A list of formatted audit logs for the UK UI</returns>
         [HttpGet("heat-network/{hnId}")]
-        [ProducesResponseType(typeof(List<AuditLogResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(AuditLogResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetHeatNetworkHistory(string hnId)
         {
@@ -34,7 +34,7 @@ namespace HNTAS.Core.Api.Controllers
             // We pass <HeatNetwork> so the service targets "Audit_HeatNetworks"
             var history = await _auditService.GetAuditHistoryAsync<HeatNetwork>(hnId);
 
-            if (history == null || !history.Any())
+            if (history == null)
             {
                 return NotFound(new { message = $"No audit history found for Heat Network: {hnId}" });
             }

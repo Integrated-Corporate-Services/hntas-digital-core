@@ -35,6 +35,6 @@ namespace HNTAS.Core.Api.Interfaces
         Task<List<AuditEntry<T>>> GetHistoryAsync<T>(string entityId);
 
 
-        Task<List<AuditLogResponse>> GetAuditHistoryAsync<T>(string entityId);
+        Task<AuditLogResponse> GetAuditHistoryAsync<T>(string entityId, int pageNumber = 1, int pageSize = 2, string sortBy = "timestamp");
     }
 }

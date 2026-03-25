@@ -76,8 +76,13 @@ namespace HNTAS.Core.Api.Services
         }
 
 
-        public async Task<List<AuditLogResponse>> GetAuditHistoryAsync<T>(string entityId)
+        public async Task<AuditLogResponse> GetAuditHistoryAsync<T>(string entityId, int pageNumber = 1, int pageSize = 2, string sortBy = "timestamp")
         {
+            // Validate pagination parameters
+            if (pageNumber < 1) pageNumber = 1;
+            if (pageSize < 1) pageSize = 2;
+            if (pageSize > 100) pageSize = 100; // Max page size to prevent abuse
+
             // 1. Determine collection names
             var collectionName = $"Audit_{typeof(T).Name}s";
             var auditCollection = _mongoDatabase.GetCollection<BsonDocument>(collectionName);
@@ -85,19 +90,24 @@ namespace HNTAS.Core.Api.Services
             // London Time Zone for UK compliance
             var londonTimeZone = TimeZoneInfo.FindSystemTimeZoneById("GMT Standard Time");
 
-            // 2. Build Aggregation Pipeline
+            // 2. Get total count for pagination metadata
+            var totalCount = await auditCollection.CountDocumentsAsync(new BsonDocument("entityId", entityId));
+
+            // 3. Build Aggregation Pipeline with pagination
             var pipeline = auditCollection.Aggregate()
                 .Match(new BsonDocument("entityId", entityId))
                 // Join with Users collection
                 .Lookup("Users", "userId", "_id", "joinedUser")
                 // Flatten the joinedUser array (left outer join)
                 .Unwind("joinedUser", new AggregateUnwindOptions<BsonDocument> { PreserveNullAndEmptyArrays = true })
-                .Sort(Builders<BsonDocument>.Sort.Descending("timestamp"));
+                .Sort(Builders<BsonDocument>.Sort.Descending(sortBy))
+                .Skip((pageNumber - 1) * pageSize)
+                .Limit(pageSize);
 
             var results = await pipeline.ToListAsync();
 
-            // 3. Map to DTO
-            return results.Select(doc =>
+            // 4. Map to DTO
+            var auditLogs = results.Select(doc =>
             {
                 var userDoc = doc.Contains("joinedUser") && !doc["joinedUser"].IsBsonNull
                               ? doc["joinedUser"].AsBsonDocument
@@ -139,7 +149,7 @@ namespace HNTAS.Core.Api.Services
                     }
                 }
 
-                return new AuditLogResponse
+                return new AuditLog
                 {
                     EntryType = doc.Contains("entryType") ? doc["entryType"].AsString : "Unknown",
                     UserName = userDoc != null
@@ -153,6 +163,17 @@ namespace HNTAS.Core.Api.Services
                     Stage = doc.Contains("stage") ? doc["stage"].AsString : "Unknown"
                 };
             }).ToList();
+
+            // 5. Return paginated response
+            return new AuditLogResponse
+            {
+                Items = auditLogs,
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                TotalCount = (int)totalCount,
+                TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize)
+            };
         }
     }
+    
 }

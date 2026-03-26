@@ -13,6 +13,10 @@ namespace HNTAS.Core.Api.Services
         private readonly ILogger<AuditService> _logger;
         private readonly IMongoDatabase _mongoDatabase;
 
+        private const int DefaultPageNumber = 1;
+        private const int DefaultPageSize = 6;
+        private const string DefaultSortBy = "timestamp";
+
         public AuditService(ILogger<AuditService> logger, IMongoDatabase mongoDatabase)
         {
             _logger = logger;
@@ -79,9 +83,8 @@ namespace HNTAS.Core.Api.Services
         public async Task<AuditLogResponse> GetAuditHistoryAsync<T>(AuditLogRequest auditLogRequest)
         {
             // Validate pagination parameters
-            if (auditLogRequest.Page < 1) auditLogRequest.Page = 1;
-            if (auditLogRequest.PageSize < 1) auditLogRequest.PageSize = 2;
-            if (auditLogRequest.PageSize > 100) auditLogRequest.PageSize = 100; // Max page size to prevent abuse
+            if (auditLogRequest.Page < 1) auditLogRequest.Page = DefaultPageNumber;
+            if (auditLogRequest.PageSize < 1) auditLogRequest.PageSize = DefaultPageSize;
 
             // 1. Determine collection names
             var collectionName = $"Audit_{typeof(T).Name}s";
@@ -94,7 +97,7 @@ namespace HNTAS.Core.Api.Services
             var totalCount = await auditCollection.CountDocumentsAsync(new BsonDocument("entityId", auditLogRequest.HnId));
 
             // 3. Build Aggregation Pipeline with pagination
-            var sortBy = ColumnNameForSorting(auditLogRequest.SortBy!) ?? "timestamp";
+            var sortBy = ColumnNameForSorting(auditLogRequest.SortBy!) ?? DefaultSortBy;
             var sortDirection = auditLogRequest.SortDirection?.ToLowerInvariant() ?? "desc";
             var sortDefinition = sortDirection == "asc"
                 ? Builders<BsonDocument>.Sort.Ascending(sortBy)

@@ -1,6 +1,7 @@
 ﻿using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Extensions;
+using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
 using MongoDB.Bson;
@@ -57,11 +58,11 @@ namespace HNTAS.Core.Api.Services
                 };
 
                 await collection.InsertOneAsync(entry);
-                _logger.LogInformation("Audit event {EntryType} recorded in {Collection}", entryType, collectionName);
+                _logger.LogInformation("Audit event {EntryType} recorded in {Collection}", StringFormatter.Sanitize(entryType), StringFormatter.Sanitize(collectionName));
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to record audit event {EntryType} for entity {EntityId}", entryType, entityId);
+                _logger.LogError(ex, "Failed to record audit event {EntryType} for entity {EntityId}", StringFormatter.Sanitize(entryType), StringFormatter.Sanitize(entityId));
                 // In a POC, we usually don't want an audit failure to crash the main business flow,
                 // but you may choose to re-throw based on compliance needs.
             }

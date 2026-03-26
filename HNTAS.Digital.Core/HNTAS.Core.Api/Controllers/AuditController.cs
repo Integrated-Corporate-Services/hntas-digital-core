@@ -19,24 +19,24 @@ namespace HNTAS.Core.Api.Controllers
         /// <summary>
         /// Gets the audit history for a specific Heat Network.
         /// </summary>
-        /// <param name="hnId">The Heat Network ID (EntityId)</param>
+        /// <param name="auditLogRequest">Audit Log Request</param>
         /// <returns>A list of formatted audit logs for the UK UI</returns>
-        [HttpGet("heat-network/{hnId}")]
-        [ProducesResponseType(typeof(List<AuditLogResponse>), StatusCodes.Status200OK)]
+        [HttpGet("heat-network-audit-logs")]
+        [ProducesResponseType(typeof(AuditLogResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> GetHeatNetworkHistory(string hnId)
+        public async Task<IActionResult> GetHeatNetworkHistory([FromBody] AuditLogRequest auditLogRequest)
         {
-            if (string.IsNullOrWhiteSpace(hnId))
+            if (string.IsNullOrWhiteSpace(auditLogRequest.HnId))
             {
                 return BadRequest("A valid Heat Network ID is required.");
             }
 
             // We pass <HeatNetwork> so the service targets "Audit_HeatNetworks"
-            var history = await _auditService.GetAuditHistoryAsync<HeatNetwork>(hnId);
+            var history = await _auditService.GetAuditHistoryAsync<HeatNetwork>(auditLogRequest);
 
-            if (history == null || !history.Any())
+            if (history == null)
             {
-                return NotFound(new { message = $"No audit history found for Heat Network: {hnId}" });
+                return NotFound(new { message = $"No audit history found for Heat Network: {auditLogRequest.HnId}" });
             }
 
             return Ok(history);

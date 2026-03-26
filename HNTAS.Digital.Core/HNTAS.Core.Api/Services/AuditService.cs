@@ -94,13 +94,19 @@ namespace HNTAS.Core.Api.Services
             var totalCount = await auditCollection.CountDocumentsAsync(new BsonDocument("entityId", auditLogRequest.HnId));
 
             // 3. Build Aggregation Pipeline with pagination
+            var sortBy = ColumnNameForSorting(auditLogRequest.SortBy!) ?? "timestamp";
+            var sortDirection = auditLogRequest.SortDirection?.ToLowerInvariant() ?? "desc";
+            var sortDefinition = sortDirection == "asc"
+                ? Builders<BsonDocument>.Sort.Ascending(sortBy)
+                : Builders<BsonDocument>.Sort.Descending(sortBy);
+
             var pipeline = auditCollection.Aggregate()
                 .Match(new BsonDocument("entityId", auditLogRequest.HnId))
                 // Join with Users collection
                 .Lookup("Users", "userId", "_id", "joinedUser")
                 // Flatten the joinedUser array (left outer join)
                 .Unwind("joinedUser", new AggregateUnwindOptions<BsonDocument> { PreserveNullAndEmptyArrays = true })
-                .Sort(Builders<BsonDocument>.Sort.Descending(auditLogRequest.SortBy ?? "timestamp"))
+                .Sort(sortDefinition)
                 .Skip((auditLogRequest.Page - 1) * auditLogRequest.PageSize)
                 .Limit(auditLogRequest.PageSize);
 
@@ -175,6 +181,24 @@ namespace HNTAS.Core.Api.Services
                 TotalPages = (int)Math.Ceiling(totalCount / (double)auditLogRequest.PageSize)
             };
         }
+
+        private string ColumnNameForSorting(string sortBy)
+        {
+            switch (sortBy?.ToLowerInvariant())
+            {
+                case "timestamp":
+                    return "timestamp";
+                case "phase":
+                    return "phase"; 
+                case "entrytype":
+                    return "entryType";
+                case "element":
+                    return "elementName";
+                default:
+                    return "timestamp";
+                }
+            }
+        
     }
     
 }

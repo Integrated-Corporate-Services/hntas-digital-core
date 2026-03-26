@@ -9,6 +9,7 @@
         public int TotalPages { get; set; }
         public bool HasPreviousPage => PageNumber > 1;
         public bool HasNextPage => PageNumber < TotalPages;
+        public string? HnId { get; set; }
     }
 
     public class AuditLog

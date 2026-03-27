@@ -17,6 +17,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
         private readonly Mock<IEmailService> _mockEmailService;
         private readonly Mock<IHeatNetworkService> _mockHeatNetworkService;
         private readonly Mock<IUserService> _mockUserService;
+        private readonly Mock<IAuditService> _mockAuditService;
 
         private readonly SOAController _controller;
 
@@ -27,7 +28,8 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             _mockEmailService = new Mock<IEmailService>();
             _mockHeatNetworkService = new Mock<IHeatNetworkService>();
             _mockUserService = new Mock<IUserService>();
-            _controller = new SOAController(_mockSoaService.Object, _mockLogger.Object, _mockEmailService.Object, _mockHeatNetworkService.Object, _mockUserService.Object);
+            _mockAuditService = new Mock<IAuditService>();
+            _controller = new SOAController(_mockSoaService.Object, _mockLogger.Object, _mockEmailService.Object, _mockHeatNetworkService.Object, _mockUserService.Object, _mockAuditService.Object);
         }
 
         [Fact]
@@ -53,6 +55,9 @@ namespace HNTAS.Digital.Core.Tests.Controllers
                     It.IsAny<string>(),
                     It.IsAny<NetworkDetailsStatus>()))
                 .Returns(Task.CompletedTask);
+
+            _mockHeatNetworkService.Setup(s => s.GetByHnIdAsync(It.IsAny<string>()))
+                .ReturnsAsync(new  HeatNetwork { HnId = "HN0000001", Name = "Test Heat Network" });
 
             // Act
             var result = await _controller.UpdateSoaStatus(request);

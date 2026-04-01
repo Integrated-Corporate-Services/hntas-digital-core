@@ -194,6 +194,25 @@ namespace HNTAS.Core.Api.Services
             }
         }
 
+        public async Task<List<User>> GetActiveAssessorsByNameOrEmailAsync(string searchTerm)
+        {
+            var filter = Builders<User>.Filter.And(
+                Builders<User>.Filter.ElemMatch(
+                    u => u.Roles,
+                    role => role == UserRole.Assessor
+                ),
+                Builders<User>.Filter.Eq(u => u.Status, UserStatus.Active),
+                Builders<User>.Filter.Or(
+                    Builders<User>.Filter.Regex(u => u.FirstName, new BsonRegularExpression(searchTerm, "i")),
+                    Builders<User>.Filter.Regex(u => u.LastName, new BsonRegularExpression(searchTerm, "i")),
+                    Builders<User>.Filter.Regex(u => u.EmailId, new BsonRegularExpression(searchTerm, "i"))
+                )
+            );
+
+            return await _usersCollection.Find(filter).ToListAsync();
+        }                
+
+
         // --- Private Helper Method for Reusable Pipeline ---
 
         /// <summary>

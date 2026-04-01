@@ -13,6 +13,9 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonElement("networkElementDisplayType")]
         [BsonRepresentation(BsonType.String)]
         public HeatNetworkElementDisplayType Type { get; set; }
+        [BsonElement("networkElementInstanceName")]
+        [BsonRepresentation(BsonType.String)]
+        public string? NetworkElementInstanceName { get; set; }
         [BsonElement("count")]
         [BsonRepresentation(BsonType.Int32)]
         public int? Count { get; set; }

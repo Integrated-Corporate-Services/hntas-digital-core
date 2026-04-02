@@ -780,12 +780,7 @@ public class UsersController : ControllerBase
             _logger.LogWarning("User with ID {UserId} not found.", userId);
             return NotFound();
         }
-
-        // Map responsible user
-        var managedUsers = new List<ManagedUserResponse>();
-        var responsibleUser = _mapper.Map<ManagedUserResponse>(user);
-        responsibleUser.HeatNetworks = MapHeatNetworks(user);
-        managedUsers.Add(responsibleUser);
+        var managedUsers = new List<ManagedUserResponse>();        
 
         // Get invitations and registered users
         var invitations = await _invitationService.GetInvitedUsersAsRegisteredAsync(user.Id);

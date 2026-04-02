@@ -1,8 +1,11 @@
+using FluentValidation;
 using HNTAS.Core.Api.Configuration;
 using HNTAS.Core.Api.DataMigrations;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.MappingProfiles;
 using HNTAS.Core.Api.Services;
+using HNTAS.Core.Api.Validators.Arms;
+using HNTAS.Core.Api.Validators.Extensions;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 
@@ -33,6 +36,7 @@ builder.Services.AddSingleton<IEmailService, EmailService>();
 builder.Services.AddSingleton<ICountryAndTerritoryService, CountryAndTerritoryService>();
 builder.Services.AddSingleton<IAssessorService, AssessorService>();
 builder.Services.AddSingleton<IAuditService, AuditService>();
+builder.Services.AddScoped<IArmsKpiService, ArmsKpiService>();
 
 
 builder.Services.Configure<AWSDocDbSettings>(
@@ -64,11 +68,17 @@ builder.Services.AddScoped<ICsvImportService, CsvImportService>();
 
 builder.Services.AddScoped<IHNDataImportExportService, HNDataImportExportService>();
 
+// Register FluentValidation validators
+builder.Services.AddValidatorsFromAssemblyContaining<KpiSubmissionRequestValidator>();
 
 builder.Services.AddControllers().AddJsonOptions(options =>
 {
     options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
 });
+
+// Ensure FluentValidation uses JSON property names in error messages
+builder.Services.UseJsonPropertyNames();
+
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi("HNTAS.Core.Api");
 

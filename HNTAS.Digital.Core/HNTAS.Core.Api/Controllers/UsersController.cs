@@ -772,7 +772,7 @@ public class UsersController : ControllerBase
     [ProducesResponseType(typeof(List<ManagedUserResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [Produces("application/json")]
-    public async Task<ActionResult<List<ManagedUserResponse>>> GetManagedUsersAsync(string userId)
+    public async Task<ActionResult<List<ManagedUserResponse>>> GetManagedUsersAsync(string userId, bool networkManagersOnly = false)
     {
         var user = await _userService.GetUserWithDetailsAsync(userId);
         if (user == null)
@@ -780,12 +780,7 @@ public class UsersController : ControllerBase
             _logger.LogWarning("User with ID {UserId} not found.", userId);
             return NotFound();
         }
-
-        // Map responsible user
-        var managedUsers = new List<ManagedUserResponse>();
-        var responsibleUser = _mapper.Map<ManagedUserResponse>(user);
-        responsibleUser.HeatNetworks = MapHeatNetworks(user);
-        managedUsers.Add(responsibleUser);
+        var managedUsers = new List<ManagedUserResponse>();        
 
         // Get invitations and registered users
         var invitations = await _invitationService.GetInvitedUsersAsRegisteredAsync(user.Id);
@@ -798,11 +793,25 @@ public class UsersController : ControllerBase
             var sourceUser = invitedUsersDetail.FirstOrDefault(x => x.Id == ruser.Id);
             ruser.HeatNetworks = MapHeatNetworks(sourceUser);
         }
-
+        var coordinatorRoleName = UserRole.Coordinator.ToString();
         if (registeredUsers != null && registeredUsers.Any())
         {
             // Exclude the responsible user
-            registeredUsers = registeredUsers.Where(ru => ru.EmailId != user.EmailId).ToList();
+            registeredUsers = registeredUsers.Where(ru => ru.EmailId != user.EmailId).ToList();            
+
+            // If only network manager are required, include only registered users who have the Coordinator role.
+            if (networkManagersOnly)
+            {
+                registeredUsers = registeredUsers
+                    .Where(ru => ru.Roles != null && ru.Roles.Any(r => string.Equals(r, coordinatorRoleName, StringComparison.OrdinalIgnoreCase)))
+                    .ToList();
+            }
+            else
+            {
+                registeredUsers = registeredUsers
+                    .Where(ru => ru.Roles == null || !ru.Roles.Any(r => string.Equals(r, coordinatorRoleName, StringComparison.OrdinalIgnoreCase)))
+                    .ToList();
+            }
             managedUsers.AddRange(registeredUsers);
         }
 
@@ -821,6 +830,18 @@ public class UsersController : ControllerBase
 
         if (invitedUsers.Any())
         {
+            if (networkManagersOnly)
+            {
+                invitedUsers = invitedUsers
+                    .Where(ru => ru.Roles != null && ru.Roles.Any(r => string.Equals(r, coordinatorRoleName, StringComparison.OrdinalIgnoreCase)))
+                    .ToList();
+            }
+            else
+            {
+                invitedUsers = invitedUsers
+                    .Where(ru => ru.Roles == null || !ru.Roles.Any(r => string.Equals(r, coordinatorRoleName, StringComparison.OrdinalIgnoreCase)))
+                    .ToList();
+            }
             managedUsers.AddRange(invitedUsers);
         }
 

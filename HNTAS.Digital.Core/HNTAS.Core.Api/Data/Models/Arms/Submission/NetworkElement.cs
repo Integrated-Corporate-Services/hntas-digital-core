@@ -8,7 +8,6 @@ namespace HNTAS.Core.Api.Data.Models.Arms.Submission
     [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
     public class NetworkElement
     {
-        [JsonPropertyName("element_id")]
         [BsonElement("elementId")]
         public required string ElementId { get; set; }
 

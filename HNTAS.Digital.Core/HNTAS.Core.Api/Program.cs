@@ -23,7 +23,7 @@ builder.Services.Configure<HntasServiceSettings>(
     builder.Configuration.GetSection("HntasService"));
 
 // Register AutoMapper and scan for profiles
-builder.Services.AddAutoMapper(typeof(UserMappingProfile));
+builder.Services.AddAutoMapper(typeof(UserMappingProfile).Assembly);
 
 builder.Services.AddSingleton<IUserService, UserService>();
 builder.Services.AddSingleton<IOrganisationService, OrganisationService>();
@@ -38,6 +38,9 @@ builder.Services.AddSingleton<IAssessorService, AssessorService>();
 builder.Services.AddSingleton<IAuditService, AuditService>();
 builder.Services.AddScoped<IArmsKpiService, ArmsKpiService>();
 
+//Data Migrations
+builder.Services.AddScoped<IDataMigration, SeedCountriesAndTerritories>();
+builder.Services.AddScoped<IDataMigration, KpiSeedData>();
 
 builder.Services.Configure<AWSDocDbSettings>(
     builder.Configuration.GetSection("AWSDocDbSettings"));
@@ -100,8 +103,21 @@ using (var scope = app.Services.CreateScope())
     var awsDocDbSettings = serviceProvider.GetRequiredService<IOptions<AWSDocDbSettings>>();
     var logger = serviceProvider.GetRequiredService<ILogger<SeedCountriesAndTerritories>>();
 
-    var migration = new SeedCountriesAndTerritories(awsDocDbSettings, logger);
-    await migration.RunAsync();
+    var migrations = serviceProvider.GetServices<IDataMigration>();
+
+    foreach (var migration in migrations)
+    {
+        try
+        {
+            await migration.RunAsync();
+        }
+        catch (Exception ex)
+        {
+            var prologger = serviceProvider.GetRequiredService<ILogger<Program>>();
+            prologger.LogError(ex, "Error running migration: {MigrationName}", migration.GetType().Name);
+            throw;
+        }
+    }
 }
 
 // Configure the HTTP request pipeline.

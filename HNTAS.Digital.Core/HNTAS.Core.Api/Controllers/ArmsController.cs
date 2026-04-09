@@ -94,7 +94,7 @@ namespace HNTAS.Core.Api.Controllers
         /// <returns></returns>
         [HttpGet("{networkId}/kpi-config")]
         [ProducesResponseType(typeof(KpiConfigResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<KpiConfigResponse>> GetKpiConfig(string networkId)
         {
@@ -118,7 +118,12 @@ namespace HNTAS.Core.Api.Controllers
                 if (config == null)
                 {
                     _logger.LogWarning("KPI Config search returned no results for Network: {NetworkId}", networkId);
-                    return NotFound();
+                    return NotFound(new ProblemDetails
+                    {
+                        Status = StatusCodes.Status404NotFound,
+                        Title = "Configuration Not Found",
+                        Detail = $"No KPI configuration could be found for the network ID: {networkId}."
+                    });
                 }
 
                 var response = _mapper.Map<KpiConfigResponse>(config);

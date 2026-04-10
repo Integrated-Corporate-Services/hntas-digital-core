@@ -102,6 +102,10 @@ using (var scope = app.Services.CreateScope())
 
     var migration = new SeedCountriesAndTerritories(awsDocDbSettings, logger);
     await migration.RunAsync();
+
+    var assessorMigrationLogger = serviceProvider.GetRequiredService<ILogger<SeedAssessors>>();
+    var assessorMigration = new SeedAssessors(awsDocDbSettings, assessorMigrationLogger);
+    await assessorMigration.RunAsync();
 }
 
 // Configure the HTTP request pipeline.

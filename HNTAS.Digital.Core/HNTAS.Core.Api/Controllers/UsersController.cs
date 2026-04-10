@@ -207,28 +207,7 @@ public class UsersController : ControllerBase
         bool isActive = user.Status == UserStatus.Active;
 
         return Ok(isActive);
-    }
-
-    [HttpGet("get-active-assessors/{searchTerm}")]
-    [ProducesResponseType(typeof(List<User>), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [Produces("application/json")]
-    public async Task<ActionResult<List<User>>> GetActiveAssessors(string searchTerm)
-    {
-        if (string.IsNullOrWhiteSpace(searchTerm))
-        {
-            return BadRequest("Search term must be provided.");
-        }
-
-        var activeAssessors = await _userService.GetActiveAssessorsByNameOrEmailAsync(searchTerm);
-
-        if (activeAssessors == null || activeAssessors.Count == 0)
-        {
-            return NotFound();
-        }
-
-        return Ok(activeAssessors);
-    }
+    }    
 
     /// <summary>
     /// Get a User by their OneLogin ID

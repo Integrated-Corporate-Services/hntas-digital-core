@@ -3,6 +3,7 @@ using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
+using HNTAS.Core.Api.Models.Soa;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 
@@ -256,7 +257,7 @@ namespace HNTAS.Core.Api.Services
             {
                 throw new InvalidOperationException($"No embedded SOA data found to delete for HN ID: {hnId}");
             }
-        }        
+        }
 
         public async Task UpdateSoaStatus(string hnId, string elementId, SoaStage stage, string soaStatus, string updatedBy, NetworkDetailsStatus elementSoaStatus)
         {
@@ -337,6 +338,93 @@ namespace HNTAS.Core.Api.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error updating SOA document for HN ID: {HnId}, Element: {Element}, Stage: {Stage}", StringFormatter.Sanitize(hnId), StringFormatter.Sanitize(elementId), stage);
+                throw;
+            }
+
+        }
+
+        public async Task<NetworkElements> UpdateAssignAssessor(ElementSoaAssignAssessorRequest request, NetworkElements networkElements, string phase,  bool initiateSoa)
+        {
+            var networkElementsName = new List<string>();
+            try
+            {                
+                if (initiateSoa)
+                {
+                    foreach (var elementId in request.ElementIds)
+                    {
+                        // First, ensure SoaStages is initialized
+                        var initFilter = Builders<HeatNetwork>.Filter.And(
+                            Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, request.HnId),
+                            Builders<HeatNetwork>.Filter.ElemMatch(hn => hn.NetworkElements!.Elements,
+                                e => e.ElementId == elementId && e.SoaStages == null)
+                        );
+
+                        var initUpdate = Builders<HeatNetwork>.Update.Set("networkElements.elements.$.soaStages", new List<SoaStages>());
+
+                        await _heatNetworkCollection.UpdateOneAsync(initFilter, initUpdate);
+
+                    }
+                }
+                else
+                {
+                    foreach (var networkElement in networkElements.Elements)
+                    {
+                        var isNetworkElementToUpdate = request.ElementIds.Contains(networkElement.ElementId!);
+                        if (isNetworkElementToUpdate)
+                        {
+                            networkElementsName.Add(networkElement.NetworkElementInstanceName!);
+                            var stages = HeatNetworkHelper.GetStagesForPhase(phase);
+
+                            foreach (var stage in stages)
+                            {
+                                var stageExists = networkElement.SoaStages?.Any(s => s.StageId.ToString() == stage) ?? false;
+                                if (stageExists)
+                                {
+                                    networkElement.SoaStages?.ForEach(networkElementStage =>
+                                    {
+                                        if (networkElementStage.StageId.ToString() == stage)
+                                        {
+                                            networkElementStage.Assessor = new SoaAssessor
+                                            {
+                                                FirstName = request.AssessorFirstName,
+                                                LastName = request.AssessorLastName,
+                                                Email = request.AssessorEmail,
+                                                Status = UserStatus.Active,
+                                                Assessment = request.Assessment                                                
+                                            };                                            
+                                            networkElementStage.AssessorUpdatedAt = DateTime.UtcNow;
+                                            networkElementStage.AssessorUpdatedBy = request.UpdatedBy;
+                                        }
+                                    });
+                                }
+                                else
+                                {
+                                    networkElement.SoaStages?.Add(new SoaStages
+                                    {
+                                        StageId = Enum.Parse<SoaStage>(stage),                                        
+                                        AssessorUpdatedAt = DateTime.UtcNow,
+                                        AssessorUpdatedBy = request.UpdatedBy,
+                                        Assessor = new SoaAssessor
+                                        {
+                                            FirstName = request.AssessorFirstName,
+                                            LastName = request.AssessorLastName,
+                                            Email = request.AssessorEmail,
+                                            Status = UserStatus.Active,
+                                            Assessment = request.Assessment
+                                        }
+                                    });
+                                }
+                            }
+                            _logger.LogInformation("Updated Assigned Assessor for HN ID: {HnId}, Element(s): {Element}", StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(string.Join(", ", networkElementsName)));
+                        }                        
+                    }
+                }
+                networkElements.ElementSoaStatus = NetworkDetailsStatus.InProgress;
+                return networkElements;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating Assigned Assessor for HN ID: {HnId}, Element(s): {Element}", StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(string.Join(", ", networkElementsName)));
                 throw;
             }
 

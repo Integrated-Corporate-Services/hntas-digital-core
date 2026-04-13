@@ -22,6 +22,16 @@ builder.Services.Configure<AWSDocDbSettings>(
 builder.Services.Configure<HntasServiceSettings>(
     builder.Configuration.GetSection("HntasService"));
 
+builder.Services.AddControllers()
+.ConfigureApiBehaviorOptions(options =>
+{
+    options.ClientErrorMapping[StatusCodes.Status400BadRequest].Link = null;
+    options.ClientErrorMapping[StatusCodes.Status404NotFound].Link = null;
+    options.ClientErrorMapping[StatusCodes.Status500InternalServerError].Link = null;
+    options.ClientErrorMapping[StatusCodes.Status503ServiceUnavailable].Link = null;
+    // This stops the RFC link from appearing for 400 errors
+});
+
 // Register AutoMapper and scan for profiles
 builder.Services.AddAutoMapper(typeof(UserMappingProfile).Assembly);
 

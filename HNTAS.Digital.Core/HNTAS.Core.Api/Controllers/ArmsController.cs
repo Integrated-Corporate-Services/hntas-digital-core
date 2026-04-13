@@ -1,9 +1,11 @@
 ﻿using AutoMapper;
 using FluentValidation;
+using HNTAS.Core.Api.Common;
 using HNTAS.Core.Api.Data.Models.Arms.Configuration;
 using HNTAS.Core.Api.Data.Models.Arms.Submission;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models.Arms;
+using HNTAS.Core.Api.Validators.Arms;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Driver;
 using System.Text.RegularExpressions;
@@ -17,6 +19,8 @@ namespace HNTAS.Core.Api.Controllers
         private readonly IArmsKpiService _kpiService;
         private readonly ILogger<ArmsController> _logger;
         private readonly IValidator<KpiSubmissionRequest> _validator;
+        private readonly IHeatNetworkValidator _networkValidator;
+        private readonly IKpiRuleValidator _ruleValidator;
         private readonly IMapper _mapper;
 
         public ArmsController(IArmsKpiService kpiService, ILogger<ArmsController> logger, IValidator<KpiSubmissionRequest> validator, IMapper mapper)
@@ -52,8 +56,30 @@ namespace HNTAS.Core.Api.Controllers
                     {
                         ModelState.AddModelError(error.PropertyName, error.ErrorMessage);
                     }
-                    return ValidationProblem(ModelState);
+                    var problemDetails = new ValidationProblemDetails(ModelState)
+                    {
+                        Status = StatusCodes.Status400BadRequest,
+                        Title = "Validation Failed",
+                        Detail = "One or more validation errors occurred. See the errors property for details.",
+                        Type = null
+                    };
+
+                    return new BadRequestObjectResult(problemDetails);
                 }
+
+
+                // Registry Validation (HeatNetwork Collection)
+                var registryResult = await _networkValidator.ValidateAsync(
+                    request.MetaData.NetworkId,
+                    request.Elements.Select(e => e.ElementId)
+                );
+                if (!registryResult.IsValid)
+                    return StatusCode(registryResult.StatusCode, CreateProblem(registryResult));
+
+                // Configuration Validation (KPI_Config Collection)
+                var ruleResult = await _ruleValidator.ValidateAsync(request);
+                if (!ruleResult.IsValid)
+                    return BadRequest(CreateProblem(ruleResult));
 
                 var dataModel = _mapper.Map<KpiSubmission>(request);
 
@@ -71,7 +97,8 @@ namespace HNTAS.Core.Api.Controllers
                 return Problem(
                     detail: "Database service temporarily unavailable.",
                     statusCode: 503,
-                    title: "Service Unavailable"
+                    title: "Service Unavailable",
+                    type: null
                 );
             }
             catch (Exception ex)
@@ -81,7 +108,8 @@ namespace HNTAS.Core.Api.Controllers
                 return Problem(
                      detail: "An unexpected error occurred while processing your request.",
                      statusCode: 500,
-                     title: "Internal Server Error"
+                     title: "Internal Server Error",
+                     type: null
                  );
             }
         }
@@ -107,7 +135,8 @@ namespace HNTAS.Core.Api.Controllers
                 {
                     Status = StatusCodes.Status400BadRequest,
                     Title = "Invalid NetworkId",
-                    Detail = "The NetworkId must follow the format: HN followed by 7 digits (e.g., HN1234567)."
+                    Detail = "The NetworkId must follow the format: HN followed by 7 digits (e.g., HN1234567).",
+                    Type = null
                 });
             }
 
@@ -122,7 +151,8 @@ namespace HNTAS.Core.Api.Controllers
                     {
                         Status = StatusCodes.Status404NotFound,
                         Title = "Configuration Not Found",
-                        Detail = $"No KPI configuration could be found for the network ID: {networkId}."
+                        Detail = $"No KPI configuration could be found for the network ID: {networkId}.",
+                        Type = null
                     });
                 }
 
@@ -138,7 +168,8 @@ namespace HNTAS.Core.Api.Controllers
                 {
                     Status = StatusCodes.Status500InternalServerError,
                     Title = "Error retrieving configuration",
-                    Detail = "An unexpected error occurred while fetching the KPI configuration."
+                    Detail = "An unexpected error occurred while fetching the KPI configuration.",
+                    Type = null
                 });
             }
         }
@@ -150,7 +181,7 @@ namespace HNTAS.Core.Api.Controllers
         /// <returns></returns>
         [HttpPost("kpi-config")]
         [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> SaveConfig([FromBody] KpiConfigRequest request)
         {
@@ -159,7 +190,13 @@ namespace HNTAS.Core.Api.Controllers
             if (request == null || string.IsNullOrEmpty(request.NetworkId))
             {
                 _logger.LogWarning("SaveConfig failed: Request body or NetworkId is missing.");
-                return BadRequest("Invalid configuration data.");
+                return StatusCode(StatusCodes.Status400BadRequest, new ProblemDetails
+                {
+                    Status = StatusCodes.Status500InternalServerError,
+                    Title = "An error occurred while processing your request.",
+                    Detail = "Invalid configuration data.",
+                    Type = null
+                });
             }
 
             try
@@ -180,9 +217,20 @@ namespace HNTAS.Core.Api.Controllers
                 {
                     Status = StatusCodes.Status500InternalServerError,
                     Title = "An error occurred while processing your request.",
-                    Detail = ex.Message
+                    Detail = ex.Message,
+                    Type = null
                 });
             }
         }
+
+
+        // Helper to keep the "Type" link out of our GOV.UK style response
+        private ProblemDetails CreateProblem(ValidationGateResult result) => new()
+        {
+            Title = "Validation Error",
+            Detail = result.Message,
+            Status = result.StatusCode,
+            Type = null
+        };
     }
 }

@@ -207,7 +207,7 @@ public class UsersController : ControllerBase
         bool isActive = user.Status == UserStatus.Active;
 
         return Ok(isActive);
-    }
+    }    
 
     /// <summary>
     /// Get a User by their OneLogin ID

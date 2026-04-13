@@ -1,4 +1,5 @@
-﻿using HNTAS.Core.Api.Data.Models.Arms.Submission;
+﻿using HNTAS.Core.Api.Data.Models.Arms.Configuration;
+using HNTAS.Core.Api.Data.Models.Arms.Submission;
 using HNTAS.Core.Api.Interfaces;
 using MongoDB.Driver;
 
@@ -7,12 +8,14 @@ namespace HNTAS.Core.Api.Services
     public class ArmsKpiService : IArmsKpiService
     {
         private readonly IMongoCollection<KpiSubmission> _kpiCollection;
+        private readonly IMongoCollection<KpiConfiguration> _configCollection;
         private readonly ILogger<ArmsKpiService> _logger;
 
         public ArmsKpiService(ILogger<ArmsKpiService> logger, IMongoDatabase mongoDatabase)
         {
             _logger = logger;
             _kpiCollection = mongoDatabase.GetCollection<KpiSubmission>("KPI_Data");
+            _configCollection = mongoDatabase.GetCollection<KpiConfiguration>("KPI_Configurations");
             _logger.LogInformation("ArmsKpiService initialized via Dependency Injection.");
         }
 
@@ -26,20 +29,72 @@ namespace HNTAS.Core.Api.Services
 
             var existing = await _kpiCollection.Find(filter).FirstOrDefaultAsync();
 
-            if (existing != null)
+            if (existing == null)
             {
-                submission.SubmissionId = existing.SubmissionId;
+                submission.Id = null;
+                submission.CreatedAt = DateTime.UtcNow;
+                submission.UpdatedAt = null;
 
-                await _kpiCollection.ReplaceOneAsync(filter, submission);
-                _logger.LogInformation("Updated existing submission for {NetworkId}", submission.MetaData.NetworkId);
+                await _kpiCollection.InsertOneAsync(submission);
             }
             else
             {
-                await _kpiCollection.InsertOneAsync(submission);
-                _logger.LogInformation("Created new submission for {NetworkId}", submission.MetaData.NetworkId);
+                submission.Id = existing.Id;
+                submission.CreatedAt = existing.CreatedAt;
+                submission.UpdatedAt = DateTime.UtcNow;
+
+                await _kpiCollection.ReplaceOneAsync(filter, submission, new ReplaceOptions { IsUpsert = true });
             }
 
-            return submission.SubmissionId!;
+
+            _logger.LogInformation("Processed submission for {NetworkId}", submission.MetaData.NetworkId);
+
+            return submission.Id!;
+        }
+
+
+        public async Task<KpiConfiguration?> GetConfigurationAsync(string networkId)
+        {
+            // 2. Find the configuration
+            var config = await _configCollection
+                .Find(x => x.NetworkId == networkId)
+                .FirstOrDefaultAsync();
+
+            if (config == null)
+            {
+                _logger.LogWarning("No KPI configuration found for NetworkId: {NetworkId}", networkId);
+                return null;
+            }
+
+            return config;
+        }
+
+
+        public async Task CreateOrUpdateConfigurationAsync(KpiConfiguration configuration)
+        {
+            var filter = Builders<KpiConfiguration>.Filter.Eq(x => x.NetworkId, configuration.NetworkId);
+
+            var existing = await _configCollection.Find(filter).FirstOrDefaultAsync();
+
+            if (existing == null)
+            {
+                configuration.CreatedAt = DateTime.UtcNow;
+                configuration.UpdatedAt = null;
+
+                configuration.Id = null;
+            }
+            else
+            {
+                configuration.Id = existing.Id;
+                configuration.CreatedAt = existing.CreatedAt;
+                configuration.UpdatedAt = DateTime.UtcNow;
+            }
+
+            //Upsert the document
+            var options = new ReplaceOptions { IsUpsert = true };
+            await _configCollection.ReplaceOneAsync(filter, configuration, options);
+
+            _logger.LogInformation("KPI Configuration processed for NetworkId: {NetworkId}", configuration.NetworkId);
         }
     }
 }

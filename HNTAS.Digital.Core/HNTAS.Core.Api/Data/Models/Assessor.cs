@@ -19,6 +19,9 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonElement("email")]
         public string Email { get; set; } = null!;
 
+        [BsonElement("fullNameWithEmail")]
+        public string FullNameWithEmail { get; set; } = null!;
+
         [BsonElement("status")]
         [BsonRepresentation(BsonType.String)]
         public UserStatus Status { get; set; }

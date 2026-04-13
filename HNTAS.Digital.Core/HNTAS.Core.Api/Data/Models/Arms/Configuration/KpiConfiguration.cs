@@ -2,26 +2,22 @@
 using MongoDB.Bson.Serialization.Attributes;
 using System.Text.Json.Serialization;
 
-namespace HNTAS.Core.Api.Data.Models.Arms.Submission
+namespace HNTAS.Core.Api.Data.Models.Arms.Configuration
 {
-    public class KpiSubmission
+    public class KpiConfiguration
     {
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
         [BsonIgnoreIfDefault]
         public string? Id { get; set; }
 
-        [BsonElement("metaData")]
-        [JsonPropertyName("meta_data")]
-        public required KpiMetadata MetaData { get; set; }
-
-        [BsonElement("consumerConnectionAggregatedKpis")]
-        [JsonPropertyName("consumer_connection_aggregated_kpis")]
-        public Dictionary<string, KpiValueAggregated>? ConsumerConnectionAggregatedKpis { get; set; }
+        [JsonPropertyName("network_id")]
+        [BsonElement("networkId")]
+        public string NetworkId { get; set; }
 
         [JsonPropertyName("elements")]
         [BsonElement("elements")]
-        public List<NetworkElement> Elements { get; set; } = new();
+        public List<KpiNetworkElement> Elements { get; set; } = new();
 
         [JsonPropertyName("created_at")]
         [BsonElement("createdAt")]

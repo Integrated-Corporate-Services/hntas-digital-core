@@ -384,6 +384,52 @@ namespace HNTAS.Core.Api.Controllers
             }
         }
 
+        [HttpPatch("soa-assign-assessor")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> SoaAssignAssessor([FromBody] ElementSoaAssignAssessorRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                _logger.LogWarning("Invalid SaveDocument request: {@Errors}",
+                    ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage));
+                return BadRequest(ModelState);
+            }
+
+            _logger.LogInformation("Saving Assessor Assigned for HN ID: {HnId}, UpdatedBy: {UpdatedBy}",
+                StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(request.UpdatedBy));
+
+            try
+            {
+                var existingHeatNetwork = await _heatNetworkService.GetByHnIdAsync(request.HnId);
+                if (existingHeatNetwork == null)
+                {
+                    _logger.LogInformation("No heat network found for HnId: {HnId}", StringFormatter.Sanitize(request.HnId));
+                    return NotFound($"No heat network found for HnId '{request.HnId}'.");
+                }
+
+                var networkElements = existingHeatNetwork.NetworkElements;
+
+                await _soaService.UpdateAssignAssessor(request, networkElements!, existingHeatNetwork.Phase, true);
+                existingHeatNetwork = await _heatNetworkService.GetByHnIdAsync(request.HnId);
+                networkElements = existingHeatNetwork.NetworkElements;
+                var elementModelToUpdate = await _soaService.UpdateAssignAssessor(request, networkElements!, existingHeatNetwork.Phase, false);
+                existingHeatNetwork.NetworkElements = elementModelToUpdate;
+                await _heatNetworkService.UpdateAsync(request.HnId, existingHeatNetwork);
+                _logger.LogInformation("Saved Assessor Assigned for HN ID: {HnId}, Elements: {ElementIds}, UpdatedBy: {UpdatedBy}",
+                StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(string.Join(", ", request.ElementIds!)), StringFormatter.Sanitize(request.UpdatedBy));
+
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to save Assessor Assigned for HN ID: {HnId}, Elements: {ElementIds}, UpdatedBy: {UpdatedBy}",
+                StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(string.Join(", ", request.ElementIds!)), StringFormatter.Sanitize(request.UpdatedBy));
+                throw;
+            }
+        }
+
         [HttpDelete("{hnId}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]

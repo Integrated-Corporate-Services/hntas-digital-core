@@ -34,9 +34,9 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             _mockLogger = new Mock<ILogger<UsersController>>();
             _mockCounterService = new Mock<ICounterService>();
             _mockMapper = new Mock<IMapper>();
-            _mockEmailService = new Mock<IEmailService>();            
+            _mockEmailService = new Mock<IEmailService>();
             _mockHeatNetworkService = new Mock<IHeatNetworkService>();
-            _mockAuditService = new Mock<IAuditService>();  
+            _mockAuditService = new Mock<IAuditService>();
 
             _controller = new UsersController(
                 _mockUserService.Object,
@@ -249,49 +249,129 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             var okResult = Assert.IsType<OkObjectResult>(result.Result);
             var managedUsers = Assert.IsType<List<ManagedUserResponse>>(okResult.Value);
 
-            // Should contain: 1 Responsible + 1 Registered + 1 Invited
-            Assert.Equal(3, managedUsers.Count);
-            Assert.Contains(managedUsers, u => u.EmailId == "resp@test.com");
+            // Should contain: 1 Registered + 1 Invited
+            Assert.Equal(2, managedUsers.Count);
+            //Assert.Contains(managedUsers, u => u.EmailId == "resp@test.com");
             Assert.Contains(managedUsers, u => u.EmailId == "registered@test.com");
             Assert.Contains(managedUsers, u => u.EmailId == "invited@test.com");
         }
 
         [Fact]
-        public async Task GetManagedUsersAsync_ExcludesResponsibleUserFromRegisteredList()
+        public async Task GetManagedUsersAsync_ExcludesResponsibleUserFromFinalResult()
         {
             // Arrange
-            string userId = "resp-user-id";
-            string email = "same@test.com";
-            var mainUser = new UserDetailsResult { Id = userId, EmailId = email };
+            string rpUserId = "resp-user-id";
+            string contributorEmail = "contributor@test.com";
 
-            // Registered users list contains the same user (edge case)
+            var rpUser = new UserDetailsResult { Id = rpUserId, EmailId = "rp@test.com" };
+
+            // Registered users list contains the RP AND a contributor
             var invitedUsersDetail = new List<UserDetailsResult>
             {
-                new UserDetailsResult { Id = userId, EmailId = email }
+                new UserDetailsResult { Id = rpUserId, EmailId = "rp@test.com" }, // RP
+                new UserDetailsResult { Id = "other-id", EmailId = contributorEmail } // Contributor
             };
 
-            _mockUserService.Setup(s => s.GetUserWithDetailsAsync(userId)).ReturnsAsync(mainUser);
-            _mockMapper.Setup(m => m.Map<ManagedUserResponse>(mainUser))
-                .Returns(new ManagedUserResponse { Id = userId, EmailId = email });
+            _mockUserService.Setup(s => s.GetUserWithDetailsAsync(rpUserId)).ReturnsAsync(rpUser);
 
-            _mockInvitationService.Setup(s => s.GetInvitedUsersAsRegisteredAsync(userId))
+            // Mocking the list return
+            _mockMapper.Setup(m => m.Map<List<ManagedUserResponse>>(invitedUsersDetail))
+                .Returns(new List<ManagedUserResponse>
+                {
+                    new ManagedUserResponse { Id = rpUserId, EmailId = "rp@test.com" },
+                    new ManagedUserResponse { Id = "other-id", EmailId = contributorEmail }
+                });
+
+            _mockInvitationService.Setup(s => s.GetInvitedUsersAsRegisteredAsync(rpUserId))
                 .ReturnsAsync(new List<ManagedUserResponse>());
 
             _mockUserService.Setup(s => s.GetUsersByInvitedEmailsWithDetailsAsync(It.IsAny<List<string>>()))
                 .ReturnsAsync(invitedUsersDetail);
 
-            _mockMapper.Setup(m => m.Map<List<ManagedUserResponse>>(invitedUsersDetail))
-                .Returns(new List<ManagedUserResponse> { new ManagedUserResponse { Id = userId, EmailId = email } });
-
             // Act
-            var result = await _controller.GetManagedUsersAsync(userId);
+            var result = await _controller.GetManagedUsersAsync(rpUserId);
 
             // Assert
             var okResult = Assert.IsType<OkObjectResult>(result.Result);
             var managedUsers = Assert.IsType<List<ManagedUserResponse>>(okResult.Value);
 
-            // Should only have 1 entry because the duplicate email was filtered out
+            // Should only have 1 entry (the contributor) because the RP (resp-user-id) is excluded
             Assert.Single(managedUsers);
+            Assert.All(managedUsers, u => Assert.NotEqual(rpUserId, u.Id));
+            Assert.Contains(managedUsers, u => u.EmailId == contributorEmail);
+        }
+
+
+        [Fact]
+        public async Task GetManagedUsersAsync_HandlesRejectedAndRegisteredLogic_Correctly()
+        {
+            // Arrange
+            string rpUserId = "rp-id";
+            string networkId = "network-A";
+            string email1 = "contributor1@test.com";
+            string email2 = "contributor2@test.com";
+
+            var rpUser = new UserDetailsResult { Id = rpUserId, FirstName = "rp", LastName = "user", Roles = new List<UserRole> { UserRole.ResponsiblePerson }, Status = UserStatus.Active, EmailId = "rpuser@test.com" };
+
+            // 1. Registered Users (User 1)
+            var registeredUsersDetail = new List<UserDetailsResult>
+            {
+                new UserDetailsResult
+                {
+                    Id = "u1-reg-id", // Ensure this ID matches what the loop expects
+                    FirstName = "User",
+                    LastName = "One",
+                    EmailId = email1,
+                    Status = UserStatus.Active,
+                    Roles = new List<UserRole> { UserRole.Contributor },
+                    HnRoleMappings = new List<HnRoleMappingsUserResult> { new HnRoleMappingsUserResult { HeatNetwork = new HeatNetworkUserResponse { HnId = networkId }, Role = "DesignatedDesigner" } }
+                }
+            };
+
+            // 2. Invitations
+            var invitations = new List<ManagedUserResponse>
+            {
+                new ManagedUserResponse { EmailId = email1, Status = "Rejected", InvitedAt = DateTime.Now.AddDays(-5),
+                    HeatNetworks = new List<HeatNetworkInfo> { new HeatNetworkInfo { HnId = networkId } } },
+                new ManagedUserResponse { EmailId = email1, Status = "Invited", InvitedAt = DateTime.Now.AddDays(-2),
+                     HeatNetworks = new List<HeatNetworkInfo> { new HeatNetworkInfo { HnId = networkId } } },
+                new ManagedUserResponse { EmailId = email2, Status = "Rejected", InvitedAt = DateTime.Now.AddDays(-1),
+                    HeatNetworks = new List<HeatNetworkInfo> { new HeatNetworkInfo { HnId = networkId } } },
+            };
+
+            _mockUserService.Setup(s => s.GetUserWithDetailsAsync(rpUserId)).ReturnsAsync(rpUser);
+            _mockInvitationService.Setup(s => s.GetInvitedUsersAsRegisteredAsync(rpUserId)).ReturnsAsync(invitations);
+            _mockUserService.Setup(s => s.GetUsersByInvitedEmailsWithDetailsAsync(It.IsAny<List<string>>())).ReturnsAsync(registeredUsersDetail);
+
+            // FIX: Ensure the mapped object has the ID so FirstOrDefault(x => x.Id == ruser.Id) works
+            _mockMapper.Setup(m => m.Map<List<ManagedUserResponse>>(registeredUsersDetail))
+                .Returns(new List<ManagedUserResponse> {
+            new ManagedUserResponse {
+                Id = "u1-reg-id", // MUST MATCH the Detail ID above
+                EmailId = email1,
+                Status = UserStatus.Active.ToString()
+            }
+                });
+
+            // Act
+            var result = await _controller.GetManagedUsersAsync(rpUserId);
+
+            // Assert
+            var okResult = Assert.IsType<OkObjectResult>(result.Result);
+            var managedUsers = Assert.IsType<List<ManagedUserResponse>>(okResult.Value);
+
+            // We expect 2 contributors. RP is filtered out by the controller logic.
+            Assert.Equal(2, managedUsers.Count);
+
+            // Verify User 1: Registered record exists, invite record is hidden
+            Assert.Contains(managedUsers, u => u.EmailId == email1 && u.Status == UserStatus.Active.ToString());
+            Assert.DoesNotContain(managedUsers, u => u.EmailId == email1 && u.Status == "Rejected");
+
+            // Verify User 2: Still shows "Rejected" because they are not registered
+            Assert.Contains(managedUsers, u => u.EmailId == email2 && u.Status == "Rejected");
+
+            // Verify RP is NOT in the list
+            Assert.DoesNotContain(managedUsers, u => u.EmailId == "rpuser@test.com");
         }
 
         #endregion

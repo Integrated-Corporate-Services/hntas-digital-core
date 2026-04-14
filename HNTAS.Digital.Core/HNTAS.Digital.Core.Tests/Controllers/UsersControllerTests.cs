@@ -249,49 +249,56 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             var okResult = Assert.IsType<OkObjectResult>(result.Result);
             var managedUsers = Assert.IsType<List<ManagedUserResponse>>(okResult.Value);
 
-            // Should contain: 1 Responsible + 1 Registered + 1 Invited
-            Assert.Equal(3, managedUsers.Count);
-            Assert.Contains(managedUsers, u => u.EmailId == "resp@test.com");
+            // Should contain: 1 Registered + 1 Invited
+            Assert.Equal(2, managedUsers.Count);
+            //Assert.Contains(managedUsers, u => u.EmailId == "resp@test.com");
             Assert.Contains(managedUsers, u => u.EmailId == "registered@test.com");
             Assert.Contains(managedUsers, u => u.EmailId == "invited@test.com");
         }
 
         [Fact]
-        public async Task GetManagedUsersAsync_ExcludesResponsibleUserFromRegisteredList()
+        public async Task GetManagedUsersAsync_ExcludesResponsibleUserFromFinalResult()
         {
             // Arrange
-            string userId = "resp-user-id";
-            string email = "same@test.com";
-            var mainUser = new UserDetailsResult { Id = userId, EmailId = email };
+            string rpUserId = "resp-user-id";
+            string contributorEmail = "contributor@test.com";
 
-            // Registered users list contains the same user (edge case)
+            var rpUser = new UserDetailsResult { Id = rpUserId, EmailId = "rp@test.com" };
+
+            // Registered users list contains the RP AND a contributor
             var invitedUsersDetail = new List<UserDetailsResult>
             {
-                new UserDetailsResult { Id = userId, EmailId = email }
+                new UserDetailsResult { Id = rpUserId, EmailId = "rp@test.com" }, // RP
+                new UserDetailsResult { Id = "other-id", EmailId = contributorEmail } // Contributor
             };
 
-            _mockUserService.Setup(s => s.GetUserWithDetailsAsync(userId)).ReturnsAsync(mainUser);
-            _mockMapper.Setup(m => m.Map<ManagedUserResponse>(mainUser))
-                .Returns(new ManagedUserResponse { Id = userId, EmailId = email });
+            _mockUserService.Setup(s => s.GetUserWithDetailsAsync(rpUserId)).ReturnsAsync(rpUser);
 
-            _mockInvitationService.Setup(s => s.GetInvitedUsersAsRegisteredAsync(userId))
+            // Mocking the list return
+            _mockMapper.Setup(m => m.Map<List<ManagedUserResponse>>(invitedUsersDetail))
+                .Returns(new List<ManagedUserResponse>
+                {
+                    new ManagedUserResponse { Id = rpUserId, EmailId = "rp@test.com" },
+                    new ManagedUserResponse { Id = "other-id", EmailId = contributorEmail }
+                });
+
+            _mockInvitationService.Setup(s => s.GetInvitedUsersAsRegisteredAsync(rpUserId))
                 .ReturnsAsync(new List<ManagedUserResponse>());
 
             _mockUserService.Setup(s => s.GetUsersByInvitedEmailsWithDetailsAsync(It.IsAny<List<string>>()))
                 .ReturnsAsync(invitedUsersDetail);
 
-            _mockMapper.Setup(m => m.Map<List<ManagedUserResponse>>(invitedUsersDetail))
-                .Returns(new List<ManagedUserResponse> { new ManagedUserResponse { Id = userId, EmailId = email } });
-
             // Act
-            var result = await _controller.GetManagedUsersAsync(userId);
+            var result = await _controller.GetManagedUsersAsync(rpUserId);
 
             // Assert
             var okResult = Assert.IsType<OkObjectResult>(result.Result);
             var managedUsers = Assert.IsType<List<ManagedUserResponse>>(okResult.Value);
 
-            // Should only have 1 entry because the duplicate email was filtered out
+            // Should only have 1 entry (the contributor) because the RP (resp-user-id) is excluded
             Assert.Single(managedUsers);
+            Assert.All(managedUsers, u => Assert.NotEqual(rpUserId, u.Id));
+            Assert.Contains(managedUsers, u => u.EmailId == contributorEmail);
         }
 
 

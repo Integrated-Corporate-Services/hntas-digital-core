@@ -20,6 +20,7 @@ namespace HNTAS.Core.Api.Controllers
         private readonly IEmailService _emailService;
         private readonly IHeatNetworkService _hnService;
         private readonly IOrganisationService _organisationService;
+        private readonly INotificationHistoryService _notificationHistoryService;
         private readonly IMapper _mapper;
 
 
@@ -31,7 +32,8 @@ namespace HNTAS.Core.Api.Controllers
             IEmailService emailService,
             IHeatNetworkService hnService,
             IMapper mapper,
-            IOrganisationService organisationService)
+            IOrganisationService organisationService,
+            INotificationHistoryService notificationHistoryService)
         {
             _userService = userService;
             _invitationService = invitationService;
@@ -41,6 +43,7 @@ namespace HNTAS.Core.Api.Controllers
             _hnService = hnService;
             _mapper = mapper;
             _organisationService = organisationService;
+            _notificationHistoryService = notificationHistoryService;
         }
 
         /// <summary>
@@ -160,6 +163,8 @@ namespace HNTAS.Core.Api.Controllers
                     }
                 }
 
+                await NotificationHistory(existingUser, newInvitation);
+
                 return StatusCode(StatusCodes.Status201Created, newInvitation.Id);
             }
             catch (Exception ex)
@@ -239,6 +244,48 @@ namespace HNTAS.Core.Api.Controllers
 
             _logger.LogInformation("Invitation {InvitationId} was rejected.", invitationId);
             return NoContent();
+        }
+
+        private async Task NotificationHistory(User user, Invitation invitation)
+        {
+            var subject = string.Empty;
+            var description = string.Empty;
+            var userRole = user.Roles.FirstOrDefault();
+            var date = DateTime.UtcNow;
+            var action = string.Empty;
+            var heatNetworkId = invitation.InvitedHnId;
+            if (userRole == UserRole.ResponsiblePerson)
+            {
+
+                var invitedRole = invitation.InvitedRoles.FirstOrDefault();
+                var invitedPerson = $"{invitation.FirstName} {invitation.LastName}".Trim();
+                description = $"Email to {invitedPerson}";
+
+                if (invitedRole == ContributorRole.DesignatedDesigner)
+                {
+                    subject = "Designated Designer invited";
+                }
+                else if (invitedRole == ContributorRole.DesignatedContractor)
+                {
+                    subject = "Designated Contractor invited";
+                }
+                else if (invitedRole == ContributorRole.DesignatedOperator)
+                {
+                    subject = "Designated Operator invited";
+                }                
+                
+                var notificationHistory = new NotificationHistory
+                {
+                    NotificationType = NotificationType.RpInvitesDdhToHeatNetwork,
+                    ActorsId = new List<string> { user.Id! },
+                    Subject = subject,
+                    Description = description,
+                    Timestamp = date,
+                    Action = action,
+                    HeatNetworkId = heatNetworkId,
+                };
+                await _notificationHistoryService.CreateAsync(notificationHistory);
+            }
         }
 
     }

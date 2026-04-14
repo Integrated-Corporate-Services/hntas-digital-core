@@ -12,5 +12,6 @@
         public string CountriesAndTerritoriesCollectionName { get; set; } = null!;
         public string HnCarbonCalculationsCollectionName { get; set; } = null!;
         public string AssessorsCollectionName { get; set; } = null!;
+        public string NotificationHistoryCollectionName { get; set; } = null!;
     }
 }

@@ -207,7 +207,7 @@ public class UsersController : ControllerBase
         bool isActive = user.Status == UserStatus.Active;
 
         return Ok(isActive);
-    }    
+    }
 
     /// <summary>
     /// Get a User by their OneLogin ID
@@ -591,7 +591,7 @@ public class UsersController : ControllerBase
                     Title = "Invitation Not Found",
                     Detail = $"No invitation found for email ({request.InvitedEmail})."
                 });
-            }            
+            }
 
             // Mark invitation as accepted
             invitation.Status = InvitationStatus.Accepted;
@@ -780,7 +780,7 @@ public class UsersController : ControllerBase
             _logger.LogWarning("User with ID {UserId} not found.", userId);
             return NotFound();
         }
-        var managedUsers = new List<ManagedUserResponse>();        
+        var managedUsers = new List<ManagedUserResponse>();
 
         // Get invitations and registered users
         var invitations = await _invitationService.GetInvitedUsersAsRegisteredAsync(user.Id);
@@ -797,7 +797,7 @@ public class UsersController : ControllerBase
         if (registeredUsers != null && registeredUsers.Any())
         {
             // Exclude the responsible user
-            registeredUsers = registeredUsers.Where(ru => ru.EmailId != user.EmailId).ToList();            
+            registeredUsers = registeredUsers.Where(ru => ru.EmailId != user.EmailId).ToList();
 
             // If only network manager are required, include only registered users who have the Coordinator role.
             if (networkManagersOnly)
@@ -820,13 +820,18 @@ public class UsersController : ControllerBase
             .GroupBy(i => new { i.EmailId, i.HeatNetworks?.FirstOrDefault()?.HnId })
             .Select(g => g.OrderByDescending(i => i.InvitedAt).First())
             .Where(i =>
-                !registeredUsers.Any(u =>
-                    u.EmailId == i.EmailId ||
-                    (u.HeatNetworks?.Any(x => x.HnId == i.HeatNetworks?.FirstOrDefault()?.HnId) ?? false)
-                )
-                || i.Status == InvitationStatus.Invited.ToString()
-            )
-            .ToList();
+            {
+                // Check if this specific person (Email + Network) is already registered
+                bool isRegistered = registeredUsers.Any(u =>
+                    u.EmailId == i.EmailId &&
+                    u.HeatNetworks.Any(hn => hn.HnId == (i.HeatNetworks.FirstOrDefault()?.HnId))
+                );
+
+                // ONLY show the record if they are NOT registered
+                // This will show "Invited" or "Rejected" status records
+                return !isRegistered;
+            })
+        .ToList();
 
         if (invitedUsers.Any())
         {
@@ -1125,7 +1130,7 @@ public class UsersController : ControllerBase
                     stage: stage
                 );
             }
-        }        
+        }
     }
 
 }

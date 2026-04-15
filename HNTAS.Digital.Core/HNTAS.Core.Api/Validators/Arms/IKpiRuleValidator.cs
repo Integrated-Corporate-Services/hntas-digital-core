@@ -1,10 +1,10 @@
 ﻿using HNTAS.Core.Api.Common;
-using HNTAS.Core.Api.Models.Arms;
+using HNTAS.Core.Api.Data.Models.Arms.Submission;
 
 namespace HNTAS.Core.Api.Validators.Arms
 {
     public interface IKpiRuleValidator
     {
-        Task<ValidationGateResult> ValidateAsync(KpiSubmissionRequest request);
+        Task<ValidationGateResult> ValidateAsync(KpiSubmission request);
     }
 }

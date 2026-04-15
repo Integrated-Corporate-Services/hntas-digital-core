@@ -1,18 +1,20 @@
 ﻿using AutoMapper;
 using FluentValidation;
 using HNTAS.Core.Api.Common;
+using HNTAS.Core.Api.Configuration;
 using HNTAS.Core.Api.Data.Models.Arms.Configuration;
 using HNTAS.Core.Api.Data.Models.Arms.Submission;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models.Arms;
 using HNTAS.Core.Api.Validators.Arms;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 using System.Text.RegularExpressions;
 
 namespace HNTAS.Core.Api.Controllers
 {
-    [Route("api/arms/v1/hn")]
+    [Route("arms/v1/hn")]
     [ApiController]
     public class ArmsController : ControllerBase
     {
@@ -22,13 +24,15 @@ namespace HNTAS.Core.Api.Controllers
         private readonly IHeatNetworkValidator _networkValidator;
         private readonly IKpiRuleValidator _ruleValidator;
         private readonly IMapper _mapper;
+        private readonly ArmsSettings _armsSettings;
 
-        public ArmsController(IArmsKpiService kpiService, ILogger<ArmsController> logger, IValidator<KpiSubmissionRequest> validator, IMapper mapper)
+        public ArmsController(IArmsKpiService kpiService, ILogger<ArmsController> logger, IValidator<KpiSubmissionRequest> validator, IMapper mapper, IOptions<ArmsSettings> armsSettings)
         {
             _kpiService = kpiService;
             _logger = logger;
             _validator = validator;
             _mapper = mapper;
+            _armsSettings = armsSettings.Value;
         }
 
         /// <summary>
@@ -67,21 +71,27 @@ namespace HNTAS.Core.Api.Controllers
                     return new BadRequestObjectResult(problemDetails);
                 }
 
-
-                // Registry Validation (HeatNetwork Collection)
-                var registryResult = await _networkValidator.ValidateAsync(
-                    request.MetaData.NetworkId,
-                    request.Elements.Select(e => e.ElementId)
-                );
-                if (!registryResult.IsValid)
-                    return StatusCode(registryResult.StatusCode, CreateProblem(registryResult));
-
-                // Configuration Validation (KPI_Config Collection)
-                var ruleResult = await _ruleValidator.ValidateAsync(request);
-                if (!ruleResult.IsValid)
-                    return BadRequest(CreateProblem(ruleResult));
-
                 var dataModel = _mapper.Map<KpiSubmission>(request);
+
+                if (_armsSettings.EnableExtendedValidation)
+                {
+                    _logger.LogInformation("Extended validation is enabled. Performing additional checks for Network: {NetworkId}, Period: {Period}",
+                        request.MetaData.NetworkId,
+                        request.MetaData.PeriodStart);
+
+                    // Registry Validation (HeatNetwork Collection)
+                    var networkResult = await _networkValidator.ValidateAsync(
+                        request.MetaData.NetworkId,
+                        request.Elements.Select(e => e.ElementId)
+                    );
+                    if (!networkResult.IsValid)
+                        return StatusCode(networkResult.StatusCode, CreateProblem(networkResult));
+
+                    // Configuration Validation (KPI_Config Collection)
+                    var ruleResult = await _ruleValidator.ValidateAsync(dataModel);
+                    if (!ruleResult.IsValid)
+                        return BadRequest(CreateProblem(ruleResult));
+                }
 
                 var submissionId = await _kpiService.CreateOrUpdateSubmissionAsync(dataModel);
 

@@ -6,6 +6,12 @@ namespace HNTAS.Core.Api.Enums
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public enum KPIAssessmentStatus
     {
+        [Description("Undefined")]
+        /// <summary>
+        /// when the rule has not been applied to the value, or if the value is missing/invalid and cannot be assessed.
+        /// </summary>
+        Undefined = 0,
+
         [Description("Pass")]
         /// <summary>
         /// Value is within limits and meets/exceeds the target threshold.

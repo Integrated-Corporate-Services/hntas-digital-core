@@ -1,4 +1,5 @@
 ﻿using HNTAS.Core.Api.Data.Models;
+using System.Text.RegularExpressions;
 
 namespace HNTAS.Core.Api.Helpers
 {
@@ -32,6 +33,24 @@ namespace HNTAS.Core.Api.Helpers
             };
 
             return string.Join(", ", parts.Where(p => !string.IsNullOrEmpty(p)));
+        }
+
+        public static string Sanitize(string input)
+        {
+            if (string.IsNullOrEmpty(input))
+                return input;
+
+            // Remove control characters (including newlines, tabs, etc.) to prevent log forging
+            string sanitized = Regex.Replace(input, @"[\x00-\x1F\x7F]", string.Empty);
+
+            // Escape curly braces for logging frameworks that use them as format delimiters
+            sanitized = sanitized.Replace("{", "{{").Replace("}", "}}");
+
+            // Remove non-alphanumeric characters
+            sanitized = Regex.Replace(sanitized, @"[^A-Za-z0-9]", string.Empty);
+
+            // If input had content but sanitization removed everything, flag it
+            return sanitized.Length == 0 && input.Length > 0 ? "[INVALID_USER_INPUT]" : sanitized;
         }
     }
 }

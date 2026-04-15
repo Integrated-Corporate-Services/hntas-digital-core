@@ -22,6 +22,8 @@ public class UsersController : ControllerBase
     private readonly ICounterService _orgCounterService;
     private readonly IMapper _mapper;
     private readonly IEmailService _emailService;
+    private readonly IHeatNetworkService _heatNetworkService;
+    private readonly IAuditService _auditService;
 
 
     public UsersController(IUserService userService,
@@ -30,7 +32,9 @@ public class UsersController : ControllerBase
                            ILogger<UsersController> logger,
                            ICounterService orgCounterService,
                            IMapper mapper,
-                           IEmailService emailService)
+                           IEmailService emailService,
+                           IHeatNetworkService heatNetworkService,
+                           IAuditService auditService)
     {
         _userService = userService;
         _organisationService = organizationService;
@@ -39,6 +43,8 @@ public class UsersController : ControllerBase
         _emailService = emailService;
         _orgCounterService = orgCounterService;
         _mapper = mapper;
+        _heatNetworkService = heatNetworkService;
+        _auditService = auditService;
     }
 
     /// <summary>
@@ -627,6 +633,8 @@ public class UsersController : ControllerBase
 
                 _logger.LogInformation("Existing invited user updated: {UserId})", invitedUser.Id);
 
+                await AuditLogs(invitation, invitedUser.Id!);
+
                 return Ok(invitedUser.Id);
             }
             if (invitedUser != null && invitation.InvitedOrgId != null)
@@ -649,7 +657,7 @@ public class UsersController : ControllerBase
                 organisation.RpUserId = invitedUser.Id;
 
                 await _organisationService.UpdateAsync(organisation.Id, organisation);
-
+                await AuditLogs(invitation, invitedUser.Id!);
                 return StatusCode(StatusCodes.Status201Created, invitedUser.Id);
             }
             else
@@ -658,6 +666,8 @@ public class UsersController : ControllerBase
                 var newUser = await BuildUserFromInvitation(request, invitation);
                 await _invitationService.ExecuteRoleSwapAsync(newUser, null, invitation);
                 _logger.LogInformation("New invited user registered: {UserId} (DB Id: {Id})", newUser.OneLoginId, newUser.Id);
+
+                await AuditLogs(invitation, newUser.Id!);
                 return StatusCode(StatusCodes.Status201Created, newUser.Id);
             }
         }
@@ -762,7 +772,7 @@ public class UsersController : ControllerBase
     [ProducesResponseType(typeof(List<ManagedUserResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [Produces("application/json")]
-    public async Task<ActionResult<List<ManagedUserResponse>>> GetManagedUsersAsync(string userId)
+    public async Task<ActionResult<List<ManagedUserResponse>>> GetManagedUsersAsync(string userId, bool networkManagersOnly = false)
     {
         var user = await _userService.GetUserWithDetailsAsync(userId);
         if (user == null)
@@ -770,12 +780,7 @@ public class UsersController : ControllerBase
             _logger.LogWarning("User with ID {UserId} not found.", userId);
             return NotFound();
         }
-
-        // Map responsible user
         var managedUsers = new List<ManagedUserResponse>();
-        var responsibleUser = _mapper.Map<ManagedUserResponse>(user);
-        responsibleUser.HeatNetworks = MapHeatNetworks(user);
-        managedUsers.Add(responsibleUser);
 
         // Get invitations and registered users
         var invitations = await _invitationService.GetInvitedUsersAsRegisteredAsync(user.Id);
@@ -788,11 +793,25 @@ public class UsersController : ControllerBase
             var sourceUser = invitedUsersDetail.FirstOrDefault(x => x.Id == ruser.Id);
             ruser.HeatNetworks = MapHeatNetworks(sourceUser);
         }
-
+        var coordinatorRoleName = UserRole.Coordinator.ToString();
         if (registeredUsers != null && registeredUsers.Any())
         {
             // Exclude the responsible user
             registeredUsers = registeredUsers.Where(ru => ru.EmailId != user.EmailId).ToList();
+
+            // If only network manager are required, include only registered users who have the Coordinator role.
+            if (networkManagersOnly)
+            {
+                registeredUsers = registeredUsers
+                    .Where(ru => ru.Roles != null && ru.Roles.Any(r => string.Equals(r, coordinatorRoleName, StringComparison.OrdinalIgnoreCase)))
+                    .ToList();
+            }
+            else
+            {
+                registeredUsers = registeredUsers
+                    .Where(ru => ru.Roles == null || !ru.Roles.Any(r => string.Equals(r, coordinatorRoleName, StringComparison.OrdinalIgnoreCase)))
+                    .ToList();
+            }
             managedUsers.AddRange(registeredUsers);
         }
 
@@ -801,16 +820,33 @@ public class UsersController : ControllerBase
             .GroupBy(i => new { i.EmailId, i.HeatNetworks?.FirstOrDefault()?.HnId })
             .Select(g => g.OrderByDescending(i => i.InvitedAt).First())
             .Where(i =>
-                !registeredUsers.Any(u =>
-                    u.EmailId == i.EmailId ||
-                    (u.HeatNetworks?.Any(x => x.HnId == i.HeatNetworks?.FirstOrDefault()?.HnId) ?? false)
-                )
-                || i.Status == InvitationStatus.Invited.ToString()
-            )
-            .ToList();
+            {
+                // Check if this specific person (Email + Network) is already registered
+                bool isRegistered = registeredUsers.Any(u =>
+                    u.EmailId == i.EmailId &&
+                    u.HeatNetworks.Any(hn => hn.HnId == (i.HeatNetworks.FirstOrDefault()?.HnId))
+                );
+
+                // ONLY show the record if they are NOT registered
+                // This will show "Invited" or "Rejected" status records
+                return !isRegistered;
+            })
+        .ToList();
 
         if (invitedUsers.Any())
         {
+            if (networkManagersOnly)
+            {
+                invitedUsers = invitedUsers
+                    .Where(ru => ru.Roles != null && ru.Roles.Any(r => string.Equals(r, coordinatorRoleName, StringComparison.OrdinalIgnoreCase)))
+                    .ToList();
+            }
+            else
+            {
+                invitedUsers = invitedUsers
+                    .Where(ru => ru.Roles == null || !ru.Roles.Any(r => string.Equals(r, coordinatorRoleName, StringComparison.OrdinalIgnoreCase)))
+                    .ToList();
+            }
             managedUsers.AddRange(invitedUsers);
         }
 
@@ -949,12 +985,12 @@ public class UsersController : ControllerBase
     private static readonly Dictionary<ContributorRole, UserRole> RoleMapping =
         new Dictionary<ContributorRole, UserRole>
     {
-            { ContributorRole.DesignatedDesigner, UserRole.Designer },
-            { ContributorRole.ContributingDesigner, UserRole.Designer },
-            { ContributorRole.DesignatedContractor, UserRole.Contractor },
-            { ContributorRole.ContributingContractor, UserRole.Contractor },
-            { ContributorRole.DesignatedOperator, UserRole.Operator },
-            { ContributorRole.ContributingOperator, UserRole.Operator },
+            { ContributorRole.DesignatedDesigner, UserRole.DesignatedDutyHolder },
+            { ContributorRole.DesignatedContractor, UserRole.DesignatedDutyHolder },
+            { ContributorRole.DesignatedOperator, UserRole.DesignatedDutyHolder },
+            { ContributorRole.ContributingDesigner, UserRole.Contributor },
+            { ContributorRole.ContributingContractor, UserRole.Contributor },
+            { ContributorRole.ContributingOperator, UserRole.Contributor },
             { ContributorRole.Assessor, UserRole.Assessor },
             { ContributorRole.Certifier, UserRole.Certifier },
             { ContributorRole.Coordinator, UserRole.Coordinator },
@@ -1043,6 +1079,58 @@ public class UsersController : ControllerBase
         user.Roles = MapAndFilterRoles(invitation.InvitedRoles);
 
         return user;
+    }
+
+    private async Task AuditLogs(Invitation invitation, string userId)
+    {
+        // Log for Audit history
+        var isRegistrationEnabledString = Environment.GetEnvironmentVariable("IS_REGISTRATION_ENABLED");
+        if (!string.IsNullOrEmpty(isRegistrationEnabledString) &&
+                isRegistrationEnabledString.ToLower() == "true")
+
+        {
+            var existingHeatNetwork = await _heatNetworkService.GetByHnIdAsync(invitation.InvitedHnId!);
+            if (existingHeatNetwork != null)
+            {
+                var phase = existingHeatNetwork.Phase;
+                var stage = HeatNetworkHelper.GetStageFromPhase(phase);
+                var invitedRole = invitation.InvitedRoles.FirstOrDefault();
+                var entryType = "";
+                switch (invitedRole)
+                {
+                    case ContributorRole.DesignatedDesigner:
+                        entryType = "Designated designer assigned";
+                        break;
+                    case ContributorRole.DesignatedContractor:
+                        entryType = "Designated contractor assigned";
+                        break;
+                    case ContributorRole.DesignatedOperator:
+                        entryType = "Designated operator assigned";
+                        break;
+                    case ContributorRole.ContributingContractor:
+                        entryType = "Contributor contractor assigned";
+                        break;
+                    case ContributorRole.ContributingDesigner:
+                        entryType = "Contributor designer assigned";
+                        break;
+                    case ContributorRole.ContributingOperator:
+                        entryType = "Contributor operator assigned";
+                        break;
+                    default:
+                        break;
+                }
+                await _auditService.SaveAuditAsync<HeatNetwork>(
+                    entryType: entryType,
+                    actorId: userId,
+                    entityId: existingHeatNetwork.HnId!,
+                    oldState: existingHeatNetwork,
+                    newState: existingHeatNetwork,
+                    elementName: "NA",
+                    phase: phase,
+                    stage: stage
+                );
+            }
+        }
     }
 
 }

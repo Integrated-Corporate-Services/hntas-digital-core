@@ -34,6 +34,7 @@ namespace HNTAS.Core.Api.Data.Models
 
         [BsonElement("createdAt")]
         [BsonRepresentation(BsonType.DateTime)]
+        [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
         public DateTime CreatedAt { get; set; }
 
         [BsonElement("lastModifiedBy")]
@@ -41,9 +42,11 @@ namespace HNTAS.Core.Api.Data.Models
 
         [BsonElement("lastModifiedAt")]
         [BsonRepresentation(BsonType.DateTime)]
+        [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
         public DateTime? LastModifiedAt { get; set; }
 
         [BsonElement("rpUserId")]
+        [BsonRepresentation(BsonType.ObjectId)]
         public string? RpUserId { get; set; }
     }
 

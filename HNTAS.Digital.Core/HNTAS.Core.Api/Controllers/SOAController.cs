@@ -1,7 +1,11 @@
-﻿using HNTAS.Core.Api.Data.Models;
+﻿using HNTAS.Core.Api.Constants;
+using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Enums;
+using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
+using HNTAS.Core.Api.Models;
 using HNTAS.Core.Api.Models.Soa;
+using HNTAS.Core.Api.Services;
 using Microsoft.AspNetCore.Mvc;
 using System.ComponentModel.DataAnnotations;
 
@@ -16,13 +20,15 @@ namespace HNTAS.Core.Api.Controllers
         private readonly IEmailService _emailService;
         private readonly IHeatNetworkService _heatNetworkService;
         private readonly IUserService _userService;
-        public SOAController(ISoaService soaProjectService, ILogger<SOAController> logger, IEmailService emailService, IHeatNetworkService heatNetworkService, IUserService userService)
+        private readonly IAuditService _auditService;
+        public SOAController(ISoaService soaProjectService, ILogger<SOAController> logger, IEmailService emailService, IHeatNetworkService heatNetworkService, IUserService userService, IAuditService auditService)
         {
             _soaService = soaProjectService;
             _logger = logger;
             _emailService = emailService;
             _heatNetworkService = heatNetworkService;
             _userService = userService;
+            _auditService = auditService;
         }
 
 
@@ -300,7 +306,7 @@ namespace HNTAS.Core.Api.Controllers
                         break;
                     case DocumentType.Certifier:
                         await _soaService.UpdateCertifierDocumentAsync(request.HnId, document);
-                        break;
+                        break;                     
                     default:
                         _logger.LogWarning("Unsupported document type: {DocumentType}", request.DocumentType);
                         return BadRequest($"Unsupported document type: {request.DocumentType}");
@@ -315,6 +321,111 @@ namespace HNTAS.Core.Api.Controllers
             {
                 _logger.LogError(ex, "Failed to save {DocumentType} document for HN ID: {HnId}, Phase: {Phase}, Stage: {Stage}, UploadedBy: {UploadedBy}",
                     request.DocumentType, request.HnId, request.Phase, request.Stage, request.UploadedBy);
+                throw;
+            }
+        }        
+
+        [HttpPatch("update-soa-status")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> UpdateSoaStatus([FromBody] ElementSoaStatusUpdateRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                _logger.LogWarning("Invalid SaveDocument request: {@Errors}",
+                    ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage));
+                return BadRequest(ModelState);
+            }
+
+            _logger.LogInformation("Saving status - {SoaStatus} for HN ID: {HnId}, Element:{ElementId}, Stage: {Stage}, UpdatedBy: {UpdatedBy}",
+                request.SoaStatus, StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(request.ElementId!), request.Stage, StringFormatter.Sanitize(request.SoaStatusUpdatedBy!));
+
+            try
+            {
+                var existingHeatNetwork = await _heatNetworkService.GetByHnIdAsync(request.HnId);
+                if (existingHeatNetwork == null)
+                {
+                    _logger.LogInformation("No heat network found for HnId: {HnId}", StringFormatter.Sanitize(request.HnId));
+                    return NotFound($"No heat network found for HnId '{request.HnId}'.");
+                }
+
+                await _soaService.UpdateSoaStatus(request.HnId, request.ElementId!, request.Stage, request.SoaStatus!, request.SoaStatusUpdatedBy!, request.ElementSoaStatus);
+
+                _logger.LogInformation("Updated status - {SoaStatus} successfully for HN ID: {HnId}, Element:{ElementId}, Stage: {Stage}, UpdatedBy: {UpdatedBy}",
+                request.SoaStatus, StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(request.ElementId!), request.Stage, StringFormatter.Sanitize(request.SoaStatusUpdatedBy!));
+
+                var isRegistrationEnabledString = Environment.GetEnvironmentVariable("IS_REGISTRATION_ENABLED");
+                if (!string.IsNullOrEmpty(isRegistrationEnabledString) &&
+                    isRegistrationEnabledString.ToLower() == "true")
+                {
+                    var updatedHeatNetwork = await _heatNetworkService.GetByHnIdAsync(request.HnId);
+
+                    await _auditService.SaveAuditAsync<HeatNetwork>(
+                        entryType: "SOA - " + request.SoaStatus,
+                        actorId: request.SoaStatusUpdatedBy!,
+                        entityId: existingHeatNetwork.HnId!,
+                        oldState: existingHeatNetwork,
+                        newState: updatedHeatNetwork,
+                        elementName: request.ElementDisplayName!,
+                        phase: request.SoaPhase!,
+                        stage: request.Stage.ToString()
+                    );
+                }
+                    
+
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to update status - {SoaStatus} for HN ID: {HnId}, Element:{ElementId}, Stage: {Stage}, UpdatedBy: {UpdatedBy}",
+                request.SoaStatus, StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(request.ElementId!), request.Stage, StringFormatter.Sanitize(request.SoaStatusUpdatedBy!));
+                throw;
+            }
+        }
+
+        [HttpPatch("soa-assign-assessor")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> SoaAssignAssessor([FromBody] ElementSoaAssignAssessorRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                _logger.LogWarning("Invalid SaveDocument request: {@Errors}",
+                    ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage));
+                return BadRequest(ModelState);
+            }
+
+            _logger.LogInformation("Saving Assessor Assigned for HN ID: {HnId}, UpdatedBy: {UpdatedBy}",
+                StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(request.UpdatedBy));
+
+            try
+            {
+                var existingHeatNetwork = await _heatNetworkService.GetByHnIdAsync(request.HnId);
+                if (existingHeatNetwork == null)
+                {
+                    _logger.LogInformation("No heat network found for HnId: {HnId}", StringFormatter.Sanitize(request.HnId));
+                    return NotFound($"No heat network found for HnId '{request.HnId}'.");
+                }
+
+                var networkElements = existingHeatNetwork.NetworkElements;
+
+                await _soaService.UpdateAssignAssessor(request, networkElements!, existingHeatNetwork.Phase, true);
+                existingHeatNetwork = await _heatNetworkService.GetByHnIdAsync(request.HnId);
+                networkElements = existingHeatNetwork.NetworkElements;
+                var elementModelToUpdate = await _soaService.UpdateAssignAssessor(request, networkElements!, existingHeatNetwork.Phase, false);
+                existingHeatNetwork.NetworkElements = elementModelToUpdate;
+                await _heatNetworkService.UpdateAsync(request.HnId, existingHeatNetwork);
+                _logger.LogInformation("Saved Assessor Assigned for HN ID: {HnId}, Elements: {ElementIds}, UpdatedBy: {UpdatedBy}",
+                StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(string.Join(", ", request.ElementIds!)), StringFormatter.Sanitize(request.UpdatedBy));
+
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to save Assessor Assigned for HN ID: {HnId}, Elements: {ElementIds}, UpdatedBy: {UpdatedBy}",
+                StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(string.Join(", ", request.ElementIds!)), StringFormatter.Sanitize(request.UpdatedBy));
                 throw;
             }
         }

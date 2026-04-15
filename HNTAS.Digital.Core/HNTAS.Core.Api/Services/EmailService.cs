@@ -94,6 +94,28 @@ namespace HNTAS.Core.Api.Services
                 _logger.LogWarning("Organisation-updated email failed to send to {EmailId}.", MaskEmail(userEmail));
         }
 
+        public async Task TrySendHeatNetworkRegistrationEmailAsync(string userEmail, string fullName, string hnId, string hnName)
+        {
+            var personalisation = new Dictionary<string, dynamic>
+            {
+                { "full_name", fullName },
+                { "hn_name", hnName },
+                { "hn_id", hnId },
+                { "digital_service_link", "https://signin.integration.account.gov.uk/sign-in-or-create" }
+            };
+
+            var emailSent = await _govUkNotifyService.SendEmailAsync(
+                userEmail,
+                _notificationSettings.HeatNetworkRegistrationEmailTemplateId,
+                personalisation
+            );
+
+            if (emailSent)
+                _logger.LogInformation("Heat network registered email sent successfully to {EmailId}.", MaskEmail(userEmail));
+            else
+                _logger.LogWarning("Heat network registered email failed to send to {EmailId}.", MaskEmail(userEmail));
+        }
+
         // --- Private Helper Method ---
         public async Task TrySendHeatNetworkInvitationEmailAsync(Invitation invitation, string token, string heatNetworkName)
         {

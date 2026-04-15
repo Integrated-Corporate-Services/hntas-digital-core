@@ -4,6 +4,7 @@
     {
         public string OrgCreatedEmailTemplateId { get; set; } = null!;
         public string OrgDetailsUpdatedEmailTemplateId { get; set; } = null!;
+        public string HeatNetworkRegistrationEmailTemplateId { get; set; } = null!;
         public string ContributorInvitationTemplatedId { get; set; } = null!;
         public string ContributorHeatNetworkDiscontinuedTemplatedId { get; set; } = null!;
         public string OrganisationUserInvitationTemplatedId { get; set; } = null!;

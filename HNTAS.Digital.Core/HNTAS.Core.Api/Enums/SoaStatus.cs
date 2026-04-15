@@ -5,7 +5,7 @@ using System.Text.Json.Serialization;
 namespace HNTAS.Core.Api.Enums
 {
     [JsonConverter(typeof(JsonStringEnumConverter))]
-    public enum SoaStatus
+    public enum SoaStatus 
     {
         [Description("In Progress")]
         InProgress = 1,
@@ -14,6 +14,12 @@ namespace HNTAS.Core.Api.Enums
         [Description("Complete")]
         Complete = 3,
         [Description("Archived")]
-        Archived = 4
+        Archived = 4,
+        [Description("Ready to start")]
+        ReadyToStart = 5,
+        [Description("Cannot start yet")]
+        CannotStartYet = 6,
+        [Description("Incomplete")]
+        Incomplete = 7,
     }
 }

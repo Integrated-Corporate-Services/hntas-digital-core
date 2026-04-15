@@ -6,22 +6,16 @@ namespace HNTAS.Core.Api.Enums
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public enum HeatNetworkType
     {
-        [Description("City-scale district heating network (CSDH)")]
-        CityScaleDistrictHeatingNetwork = 1,
+        [Description("Communal (with an integral energy centre)")]
+        CommunalWithIntegralEC = 1,
 
-        [Description("Development led district heating network (DLDH)")]
-        DevelopmentLedDistrictHeatingNetwork = 2,
+        [Description("Communal (supplied by a separate upstream heat network)")]
+        CommunalWithSeparateUpstreamHN = 2,
 
-        [Description("Large communal heat network (c.300 consumers) (LD)")]
-        LargeCommunalHeatNetwork = 3,
+        [Description("District (with its own main energy centre)")]
+        DistrictWithOwnEC = 3,
 
-        [Description("Medium communal heat network (c.100 consumers) (MC)")]
-        MediumCommunalHeatNetwork = 4,
-
-        [Description("Small communal heat network (c. 50 consumers) (SC)")]
-        SmallCommunalHeatNetwork = 5,
-
-        [Description("Other")]
-        Other = 6
+        [Description("District (supplied by a separate upstream heat network)")]
+        DistrictWithSeparateUpstreamHN = 4,
     }
 }

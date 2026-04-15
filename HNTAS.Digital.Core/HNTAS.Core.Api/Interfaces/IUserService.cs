@@ -24,7 +24,5 @@ namespace HNTAS.Core.Api.Interfaces
 
         Task<List<UserDetailsResult>> GetUsersByInvitedEmailsWithDetailsAsync(List<string> invitedEmails);
         Task<List<UserRoleDetailResponse>> GetHeatNetworkUsersWithRolesAsync(string hnId);
-
-
     }
 }

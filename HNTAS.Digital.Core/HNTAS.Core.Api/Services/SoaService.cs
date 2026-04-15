@@ -1,7 +1,9 @@
 ﻿using HNTAS.Core.Api.Configuration;
 using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Enums;
+using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
+using HNTAS.Core.Api.Models.Soa;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 
@@ -118,7 +120,7 @@ namespace HNTAS.Core.Api.Services
 
 
 
-        public async Task UpdateElementLocationsAsync(string hnId, HeatNetworkElementType elementType, List<string> locations, string updatedBy)
+        public async Task UpdateElementLocationsAsync(string hnId, HeatNetworkElementDisplayType elementType, List<string> locations, string updatedBy)
         {
             var enumAsString = elementType.ToString();
 
@@ -141,7 +143,7 @@ namespace HNTAS.Core.Api.Services
 
         public async Task UpdateElementDocumentsAsync(
             string hnId,
-            HeatNetworkElementType elementType,
+            HeatNetworkElementDisplayType elementType,
             List<UploadedDocument> documents,
             string updatedBy)
         {
@@ -242,9 +244,7 @@ namespace HNTAS.Core.Api.Services
 
                 await _heatNetworkCollection.UpdateOneAsync(insertFilter, insertUpdate);
             }
-        }
-
-
+        } 
 
         public async Task DeleteByHeatNetworkIdAsync(string hnId)
         {
@@ -257,6 +257,177 @@ namespace HNTAS.Core.Api.Services
             {
                 throw new InvalidOperationException($"No embedded SOA data found to delete for HN ID: {hnId}");
             }
+        }
+
+        public async Task UpdateSoaStatus(string hnId, string elementId, SoaStage stage, string soaStatus, string updatedBy, NetworkDetailsStatus elementSoaStatus)
+        {
+            try
+            {
+                // First, ensure SoaStages is initialized
+                var initFilter = Builders<HeatNetwork>.Filter.And(
+                    Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
+                    Builders<HeatNetwork>.Filter.ElemMatch(hn => hn.NetworkElements!.Elements,
+                        e => e.ElementId == elementId && e.SoaStages == null)
+                );
+
+                var initUpdate = Builders<HeatNetwork>.Update.Set("networkElements.elements.$.soaStages", new List<SoaStages>());
+
+                await _heatNetworkCollection.UpdateOneAsync(initFilter, initUpdate);
+
+                // Try to update existing status for the specific stage and element
+                var updateFilter = Builders<HeatNetwork>.Filter.And(
+                    Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
+                    Builders<HeatNetwork>.Filter.ElemMatch<Element>("networkElements.elements",
+                        new MongoDB.Bson.BsonDocument
+                        {
+                            { "elementId", elementId },
+                            { "soaStages.stageId", stage.ToString() }
+                        })
+                );
+
+                var update = Builders<HeatNetwork>.Update
+                    .Set("networkElements.elements.$[element].soaStages.$[stage].soaStatus", soaStatus)
+                    .Set("networkElements.elements.$[element].soaStages.$[stage].soaStatusUpdatedAt", DateTime.UtcNow)
+                    .Set("networkElements.elements.$[element].soaStages.$[stage].soaStatusUpdatedBy", updatedBy)
+                    .Set(hn => hn.NetworkElements!.ElementSoaStatus, elementSoaStatus);
+
+                var arrayFilters = new[]
+                {
+                    new BsonDocumentArrayFilterDefinition<MongoDB.Bson.BsonDocument>(
+                        new MongoDB.Bson.BsonDocument("element.elementId", elementId)),
+                    new BsonDocumentArrayFilterDefinition<MongoDB.Bson.BsonDocument>(
+                        new MongoDB.Bson.BsonDocument("stage.stageId", stage.ToString()))
+                };
+
+                var updateOptions = new UpdateOptions { ArrayFilters = arrayFilters };
+                var result = await _heatNetworkCollection.UpdateOneAsync(updateFilter, update, updateOptions);
+
+                if (result.ModifiedCount == 0)
+                {
+                    // Stage doesn't exist - add it using array filter
+                    var pushFilter = Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId);
+
+                    var pushUpdate = Builders<HeatNetwork>.Update
+                        .Push("networkElements.elements.$[element].soaStages", new SoaStages
+                        {
+                            StageId = stage,
+                            SoaStatus = soaStatus,
+                            SoaStatusUpdatedAt = DateTime.UtcNow,
+                            SoaStatusUpdatedBy = updatedBy                            
+                        })
+                        .Set(hn => hn.NetworkElements!.ElementSoaStatus, elementSoaStatus);
+
+                    var pushArrayFilters = new[]
+                    {
+                        new BsonDocumentArrayFilterDefinition<MongoDB.Bson.BsonDocument>(
+                            new MongoDB.Bson.BsonDocument("element.elementId", elementId))
+                    };
+
+                    var pushOptions = new UpdateOptions { ArrayFilters = pushArrayFilters };
+                    result = await _heatNetworkCollection.UpdateOneAsync(pushFilter, pushUpdate, pushOptions);
+
+                    if (result.ModifiedCount > 0)
+                    {
+                        _logger.LogInformation("Added document to existing element for HN ID: {HnId}, Stage: {Stage}, Element: {Element}", StringFormatter.Sanitize(hnId), stage, StringFormatter.Sanitize(elementId));
+                        return;
+                    }
+                }
+
+                _logger.LogInformation("Updated ElementSoa document for HN ID: {HnId}, Stage: {Stage}, Element: {Element}", StringFormatter.Sanitize(hnId), stage, StringFormatter.Sanitize(elementId));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating SOA document for HN ID: {HnId}, Element: {Element}, Stage: {Stage}", StringFormatter.Sanitize(hnId), StringFormatter.Sanitize(elementId), stage);
+                throw;
+            }
+
+        }
+
+        public async Task<NetworkElements> UpdateAssignAssessor(ElementSoaAssignAssessorRequest request, NetworkElements networkElements, string phase,  bool initiateSoa)
+        {
+            var networkElementsName = new List<string>();
+            try
+            {                
+                if (initiateSoa)
+                {
+                    foreach (var elementId in request.ElementIds)
+                    {
+                        // First, ensure SoaStages is initialized
+                        var initFilter = Builders<HeatNetwork>.Filter.And(
+                            Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, request.HnId),
+                            Builders<HeatNetwork>.Filter.ElemMatch(hn => hn.NetworkElements!.Elements,
+                                e => e.ElementId == elementId && e.SoaStages == null)
+                        );
+
+                        var initUpdate = Builders<HeatNetwork>.Update.Set("networkElements.elements.$.soaStages", new List<SoaStages>());
+
+                        await _heatNetworkCollection.UpdateOneAsync(initFilter, initUpdate);
+
+                    }
+                }
+                else
+                {
+                    foreach (var networkElement in networkElements.Elements)
+                    {
+                        var isNetworkElementToUpdate = request.ElementIds.Contains(networkElement.ElementId!);
+                        if (isNetworkElementToUpdate)
+                        {
+                            networkElementsName.Add(networkElement.NetworkElementInstanceName!);
+                            var stages = HeatNetworkHelper.GetStagesForPhase(phase);
+
+                            foreach (var stage in stages)
+                            {
+                                var stageExists = networkElement.SoaStages?.Any(s => s.StageId.ToString() == stage) ?? false;
+                                if (stageExists)
+                                {
+                                    networkElement.SoaStages?.ForEach(networkElementStage =>
+                                    {
+                                        if (networkElementStage.StageId.ToString() == stage)
+                                        {
+                                            networkElementStage.Assessor = new SoaAssessor
+                                            {
+                                                FirstName = request.AssessorFirstName,
+                                                LastName = request.AssessorLastName,
+                                                Email = request.AssessorEmail,
+                                                Status = UserStatus.Active,
+                                                Assessment = request.Assessment                                                
+                                            };                                            
+                                            networkElementStage.AssessorUpdatedAt = DateTime.UtcNow;
+                                            networkElementStage.AssessorUpdatedBy = request.UpdatedBy;
+                                        }
+                                    });
+                                }
+                                else
+                                {
+                                    networkElement.SoaStages?.Add(new SoaStages
+                                    {
+                                        StageId = Enum.Parse<SoaStage>(stage),                                        
+                                        AssessorUpdatedAt = DateTime.UtcNow,
+                                        AssessorUpdatedBy = request.UpdatedBy,
+                                        Assessor = new SoaAssessor
+                                        {
+                                            FirstName = request.AssessorFirstName,
+                                            LastName = request.AssessorLastName,
+                                            Email = request.AssessorEmail,
+                                            Status = UserStatus.Active,
+                                            Assessment = request.Assessment
+                                        }
+                                    });
+                                }
+                            }
+                            _logger.LogInformation("Updated Assigned Assessor for HN ID: {HnId}, Element(s): {Element}", StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(string.Join(", ", networkElementsName)));
+                        }                        
+                    }
+                }
+                networkElements.ElementSoaStatus = NetworkDetailsStatus.InProgress;
+                return networkElements;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating Assigned Assessor for HN ID: {HnId}, Element(s): {Element}", StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(string.Join(", ", networkElementsName)));
+                throw;
+            }
+
         }
     }
 }

@@ -21,7 +21,8 @@ namespace HNTAS.Core.Api.Services
         /// <summary>
         /// Atomically increments a sequence counter and returns its new value.
         /// This method is crucial for generating unique, sequential IDs in MongoDB.
-        /// It uses findOneAndUpdate with $inc and upsert:true for atomicity and initialization.
+        /// Note: Counter documents should be pre-initialized with starting values (e.g., 2000001)
+        /// to ensure the first returned value is 2000001.
         /// </summary>
         /// <param name="sequenceName">The unique name of the sequence (e.g., "userId_sequence", "orgId_sequence").</param>
         /// <returns>The incremented sequence value.</returns>
@@ -30,46 +31,44 @@ namespace HNTAS.Core.Api.Services
         {
             _logger.LogDebug("Attempting to get next sequence value for counter: '{SequenceName}'.", sequenceName);
 
-            // Filter to find the specific counter document by its _id
             var filter = Builders<Counter>.Filter.Eq(c => c.Id, sequenceName);
-
-            // Update operation: increment the 'sequence_value' field by 1
+            
+            // Use only Inc - cannot combine with SetOnInsert on same field
             var update = Builders<Counter>.Update.Inc(c => c.SequenceValue, 1);
 
-            // Options for the findOneAndUpdate operation
             var options = new FindOneAndUpdateOptions<Counter, Counter>
             {
-                ReturnDocument = ReturnDocument.After, // Return the document *after* the update has been applied
-                IsUpsert = true // If a document matching the filter doesn't exist, create it.
-                                // For a new counter, SequenceValue will effectively start at 0, then become 1.
+                ReturnDocument = ReturnDocument.After,
+                IsUpsert = true
             };
 
             try
             {
-                // Execute the atomic findOneAndUpdate operation
                 var counter = await _countersCollection.FindOneAndUpdateAsync(filter, update, options);
 
-                // Defensive check: counter should never be null if IsUpsert is true and operation is successful
-                if (counter == null)
+                if (counter == null) throw new InvalidOperationException("Counter result was null.");
+
+                // Handle first-time initialization: if counter was just created, set to desired starting value
+                if (counter.SequenceValue < 2000001)
                 {
-                    _logger.LogError("Failed to retrieve or create counter document for sequence '{SequenceName}' despite upsert option. This is unexpected.", sequenceName);
-                    throw new InvalidOperationException($"Failed to get or create counter for sequence '{sequenceName}'. The database operation did not return a document.");
+                    _logger.LogWarning("Counter '{SequenceName}' was not pre-initialized. Setting starting value to 2000001.", sequenceName);
+                    var setUpdate = Builders<Counter>.Update.Set(c => c.SequenceValue, 2000001);
+                    counter = await _countersCollection.FindOneAndUpdateAsync(filter, setUpdate, 
+                        new FindOneAndUpdateOptions<Counter, Counter> { ReturnDocument = ReturnDocument.After });
+                    
+                    if (counter == null) throw new InvalidOperationException("Counter initialization failed.");
                 }
 
-                _logger.LogDebug("Next sequence value for '{SequenceName}' is {SequenceValue}.", sequenceName, counter.SequenceValue);
+                _logger.LogDebug("Sequence value for '{SequenceName}' is now: {Value}", sequenceName, counter.SequenceValue);
+
                 return counter.SequenceValue;
             }
-            catch (MongoException ex) // Catch specific MongoDB driver exceptions
+            catch (Exception ex)
             {
-                _logger.LogError(ex, "MongoDB error occurred while getting next sequence value for '{SequenceName}'.", sequenceName);
-                throw new InvalidOperationException($"Database error generating sequence '{sequenceName}'. See inner exception for details.", ex);
+                _logger.LogError(ex, "Sequence generation failed for {Name}", sequenceName);
+                throw;
             }
-            catch (Exception ex) // Catch any other unexpected exceptions
-            {
-                _logger.LogError(ex, "An unexpected error occurred while getting next sequence value for '{SequenceName}'.", sequenceName);
-                throw new InvalidOperationException($"Failed to generate sequence '{sequenceName}' due to an unexpected error. See inner exception for details.", ex);
-            }
-        }
+        }        
     }
 }
 

@@ -1,7 +1,12 @@
 ﻿using AutoMapper;
+using HNTAS.Core.Api.Constants;
 using HNTAS.Core.Api.Data.Models;
+using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
+using HNTAS.Core.Api.Models;
+using HNTAS.Core.Api.Models.NetworkDetails;
 using HNTAS.Core.Api.Models.Soa;
+using HNTAS.Core.Api.Services;
 using Microsoft.AspNetCore.Mvc;
 using System.Net.Mime;
 
@@ -9,27 +14,32 @@ namespace HNTAS.Core.Api.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class HeatNetworksController : ControllerBase
+    public partial class HeatNetworksController : ControllerBase
     {
         private readonly IHeatNetworkService _hnService;
         private readonly ILogger<HeatNetworksController> _logger;
         private readonly ICounterService _counterService;
         private readonly IMapper _mapper;
+        private readonly IAuditService _auditService;        
+        private readonly IUserService _userService;
+        private readonly IEmailService _emailService;
 
-        public HeatNetworksController(IHeatNetworkService hnService, ILogger<HeatNetworksController> logger, ICounterService counterService, IMapper mapper)
+        public HeatNetworksController(IHeatNetworkService hnService, ILogger<HeatNetworksController> logger, ICounterService counterService, IMapper mapper, IUserService userService, IEmailService emailService, IAuditService auditService)
         {
             _hnService = hnService;
             _logger = logger;
             _counterService = counterService;
             _mapper = mapper;
+            _auditService = auditService;
+            _userService = userService;
+            _emailService = emailService;
         }
 
-
         /// <summary>
-        /// Retrieves a list of all users.
+        /// Retrieves a list of all heat networks available in the system.
         /// </summary>
-        /// <returns>A list of user objects.</returns>
-        [HttpGet] // This defines the route as GET /api/users
+        /// <returns>A list of heat network response objects.</returns>
+        [HttpGet] // This defines the route as GET /api/HeatNetworks
         [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<HeatNetworkResponse>))]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<List<HeatNetworkResponse>>> GetHeatNetworks()
@@ -41,7 +51,7 @@ namespace HNTAS.Core.Api.Controllers
                 var heatNetworksResponse = _mapper.Map<List<HeatNetworkResponse>>(heatNetworks);
                 _logger.LogInformation("Successfully retrieved {HeatNetworkCount} heatNetworks.", heatNetworks.Count);
 
-                return Ok(heatNetworksResponse); // Returns 200 OK with the list of users
+                return Ok(heatNetworksResponse); // Returns 200 OK with the list of heat networks
             }
             catch (Exception ex)
             {
@@ -110,7 +120,7 @@ namespace HNTAS.Core.Api.Controllers
 
                 if (heatNetwork == null)
                 {
-                    _logger.LogInformation("No heat network found for the provided ID: {HeatNetworkId}", hnId);
+                    _logger.LogInformation("No heat network found for the provided ID: {HeatNetworkId}", StringFormatter.Sanitize(hnId));
                     return NotFound("No heat network found for the given ID.");
                 }
 
@@ -120,7 +130,7 @@ namespace HNTAS.Core.Api.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An error occurred while retrieving heat network for ID: {HeatNetworkId}", hnId);
+                _logger.LogError(ex, "An error occurred while retrieving heat network for ID: {HeatNetworkId}", StringFormatter.Sanitize(hnId));
                 return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while retrieving the heat network.");
             }
         }
@@ -130,19 +140,10 @@ namespace HNTAS.Core.Api.Controllers
         [HttpPost("add-heat-network")]
         [Consumes(MediaTypeNames.Application.Json)]
         [ProducesResponseType(typeof(HeatNetworkResponse), StatusCodes.Status201Created)]
-        [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(StatusCodes.Status409Conflict)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<HeatNetworkResponse>> AddHeatNetwork([FromBody] HeatNetwork heatNetworkDetails)
         {
-            //if (!ModelState.IsValid)
-            //{
-            //    _logger.LogWarning("Invalid initial registration data for UserId: {UserId}, EmailId: {EmailId}. Errors: {Errors}",
-            //        registrationData.OneLoginId, registrationData.EmailId, string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
-            //    return ValidationProblem(ModelState);
-            //}
-
             try
             {
                 if (String.IsNullOrWhiteSpace(heatNetworkDetails.HnId))
@@ -150,28 +151,24 @@ namespace HNTAS.Core.Api.Controllers
                     var sequenceID = await _counterService.GetNextSequenceValue("heatNetworkId_sequence");
                     var heatNetworkId = $"HN{sequenceID:D7}";
                     heatNetworkDetails.HnId = heatNetworkId;
+                    heatNetworkDetails.UHnId = sequenceID.ToString();
                     _logger.LogInformation("Generated new heat network ID: {HeatNetworkId}", heatNetworkDetails.HnId);
-
                 }
 
-                await _hnService.CreateAsync(heatNetworkDetails);
+                await _hnService.CreateAsync(heatNetworkDetails, true);
                 _logger.LogInformation("New heat network initially registered: {HNID} (DB Id: {Id})", heatNetworkDetails.HnId, heatNetworkDetails.Id);
+
+                UserDetailsResult user = await _userService.GetUserWithDetailsAsync(heatNetworkDetails.CreatedBy);
+                string userEmail = user.EmailId;
+                string fullName = user.FullName;
+                string hnId = heatNetworkDetails.HnId;
+                string hnName = heatNetworkDetails.Name;
+                await _emailService.TrySendHeatNetworkRegistrationEmailAsync(userEmail, fullName, hnId, hnName);
 
                 return CreatedAtAction(nameof(AddHeatNetwork), new { id = heatNetworkDetails.Id }, heatNetworkDetails);
             }
-            //catch (MongoWriteException ex) when (ex.WriteError.Category == ServerErrorCategory.DuplicateKey)
-            //{
-            //    _logger.LogWarning(ex, "Duplicate key error during initial user registration for UserId: {UserId}, EmailId: {EmailId}", registrationData.OneLoginId, registrationData.EmailId);
-            //    return Conflict(new ProblemDetails
-            //    {
-            //        Status = StatusCodes.Status409Conflict,
-            //        Title = "User Already Exists",
-            //        Detail = $"A user with the provided UserId ({registrationData.OneLoginId}) or EmailId ({registrationData.EmailId}) already exists."
-            //    });
-            //}
             catch (Exception ex)
             {
-                //_logger.LogError(ex, "Unexpected error during initial user registration for UserId: {UserId}, EmailId: {EmailId}", registrationData.OneLoginId, registrationData.EmailId);
                 return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
                 {
                     Status = StatusCodes.Status500InternalServerError,
@@ -180,5 +177,130 @@ namespace HNTAS.Core.Api.Controllers
                 });
             }
         }
+
+        /// <summary>
+        /// Updates the NetworkElements for a given heat network identified by HnId.
+        /// </summary>
+        [HttpPut("network-elements")]
+        [Consumes(MediaTypeNames.Application.Json)]
+        [ProducesResponseType(typeof(HeatNetworkResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<HeatNetworkResponse>> UpdateNetworkElements([FromBody] NetworkElements request, string hnId)
+        {
+            if (string.IsNullOrWhiteSpace(hnId))
+            {
+                _logger.LogWarning("UpdateNetworkElements called with empty HnId.");
+                return BadRequest("Please provide a valid heat network HnId.");
+            }
+
+            if (request == null)
+            {
+                _logger.LogWarning("UpdateNetworkElements called without NetworkElements payload for HnId: {HnId}", StringFormatter.Sanitize(hnId));
+                return BadRequest("Please provide NetworkElements to update.");
+            }
+
+            try
+            {
+                var existingHeatNetwork = await _hnService.GetByHnIdAsync(hnId);
+                if (existingHeatNetwork == null)
+                {
+                    _logger.LogInformation("No heat network found for HnId: {HnId}", StringFormatter.Sanitize(hnId));
+                    return NotFound($"No heat network found for HnId '{hnId}'.");
+                }
+                
+                var existingHeatNetworkSnapshot = System.Text.Json.JsonSerializer.Deserialize<HeatNetwork>(
+                    System.Text.Json.JsonSerializer.Serialize(existingHeatNetwork)
+                )!;
+
+                existingHeatNetwork.NetworkElements = request;
+                await _hnService.UpdateAsync(hnId, existingHeatNetwork);
+
+                // Only log an audit event if NetworkElements were previously null, to capture the addition of elements rather than updates to existing elements
+                var isRegistrationEnabledString = Environment.GetEnvironmentVariable("IS_REGISTRATION_ENABLED");
+                if (!string.IsNullOrEmpty(isRegistrationEnabledString) &&
+                    isRegistrationEnabledString.ToLower() == "true" && existingHeatNetworkSnapshot.NetworkElements == null)
+                {
+                    await _auditService.SaveAuditAsync<HeatNetwork>(
+                        entryType: HeatNetworkEvents.NetworkElementsAdded,
+                        actorId: existingHeatNetwork.NetworkElements.CreatedBy,
+                        entityId: existingHeatNetwork.HnId!,
+                        oldState: existingHeatNetworkSnapshot,
+                        newState: existingHeatNetwork,
+                        elementName: "All Elements",
+                        phase: existingHeatNetwork.Phase,
+                        stage: HeatNetworkHelper.GetStageFromPhase(existingHeatNetwork.Phase)
+                        );
+                }                    
+                
+                _logger.LogInformation("Updated NetworkElements for HnId: {HnId}", StringFormatter.Sanitize(hnId));
+                var response = CreatedAtAction(nameof(UpdateNetworkElements), new { id = existingHeatNetwork.Id }, existingHeatNetwork);
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while updating NetworkElements for HnId: {HnId}", StringFormatter.Sanitize(hnId));
+                return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while updating the heat network.");
+            }
+        }
+
+        [HttpPatch("network-details-document-update")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> SaveDocument([FromBody] NetworkDetailsUploadDocumentRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                _logger.LogWarning("Invalid SaveDocument request: {@Errors}",
+                    ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage));
+                return BadRequest(ModelState);
+            }
+
+            _logger.LogInformation("Saving {DocumentType} document for HN ID: {HnId}, UploadedBy: {UploadedBy}",
+                request.DocumentType, request.HnId, request.UploadedBy);
+
+            
+
+            var document = new NetworkDetailsDocument
+            {
+                FileName = request.FileName,
+                S3Key = request.S3Key,                
+                UploadedAt = DateTime.UtcNow,
+                UploadedBy = request.UploadedBy
+            };
+
+            try
+            {
+                switch (request.DocumentType)
+                {                    
+                    case DocumentType.MeteringAndMonitoringStrategy:
+                        await _hnService.UpdateMeteringAndMonitoringStrategyAsync(request.HnId, document);
+                        break;
+                    case DocumentType.AssessmentPlan:
+                        await _hnService.UpdateAssessmentPlanAsync(request.HnId, document);
+                        break;
+                    case DocumentType.DesignConstructionLog:
+                        await _hnService.UpdateDesignConstructionLogAsync(request.HnId, document);
+                        break;
+                    default:
+                        _logger.LogWarning("Unsupported document type: {DocumentType}", request.DocumentType);
+                        return BadRequest($"Unsupported document type: {request.DocumentType}");
+                }
+
+                _logger.LogInformation("{DocumentType} document saved successfully for HN ID: {HnId}, UploadedBy: {UploadedBy}",
+                    request.DocumentType, request.HnId, request.UploadedBy);
+
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to save {DocumentType} document for HN ID: {HnId}, UploadedBy: {UploadedBy}",
+                    request.DocumentType, request.HnId, request.UploadedBy);
+                throw;
+            }
+        }
+
     }
 }

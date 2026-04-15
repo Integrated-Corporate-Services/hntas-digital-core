@@ -1,26 +1,44 @@
-﻿using HNTAS.Core.Api.Enums;
+﻿using HNTAS.Core.Api.Data.Models;
+using HNTAS.Core.Api.Enums;
+using MongoDB.Bson;
+using MongoDB.Bson.Serialization.Attributes;
 
 namespace HNTAS.Core.Api.Models.Soa
 {
     public class HeatNetworkResponse
     {
         public string Id { get; set; } = null!;
+        public string UHnId { get; set; } = null!;
         public string HnId { get; set; } = null!;
-        public string Location { get; set; } = null!;
+        public ECDetails ECDetails { get; set; } = null!;
+        public RegisteredAddress? Address { get; set; }
         public string Name { get; set; } = null!;
+        public string? HnDescription { get; set; } = null!;
         public string Pathway { get; set; } = null!;
         public SoaResponse? Soa { get; set; }
+        public string CreatedBy { get; set; } = null!;
+        public DateTime CreatedAt { get; set; }
+        public string? Phase { get; set; } = null;
+        public HeatNetworkType HeatNetworkType { get; set; }
+        public HeatNetworkConnections? HeatNetworkConnections { get; set; } = new();
+        public NetworkElementsResponse? NetworkElements { get; set; }
+        public MeteringAndMonitoringStrategyResponse? MeteringAndMonitoringStrategy { get; set; }
+        public AssessmentPlanResponse? AssessmentPlan { get; set; }
+        public DesignConstructionLogResponse? DesignConstructionLog { get; set; }
+
     }
 
-    public class SoaResponse
+    public class SoaResponse : NetworkDetailsResponseBase
     {
         public SoaStatus Status { get; set; }
-        public DateTime CreatedAt { get; set; }
-        public string? CreatedBy { get; set; }
-        public DateTime? UpdatedAt { get; set; }
-        public string? UpdatedBy { get; set; }
         public JourneyDataResponse? JourneyData { get; set; }
     }
+
+    //public class ElementSoaResponse : NetworkDetailsResponseBase
+    //{
+    //    public NetworkDetailsStatus Status { get; set; }
+    //    public List<Elements> Elements { get; set; } = [];
+    //}
 
     public class JourneyDataResponse
     {
@@ -85,6 +103,31 @@ namespace HNTAS.Core.Api.Models.Soa
         public DateTime UploadedAt { get; set; }
         public string UploadedBy { get; set; } = null!;
     }
+    
+    public class NetworkElementsResponse : NetworkDetailsResponseBase {
+        public NetworkDetailsStatus NetworkElementStatus { get; set; }
+        public NetworkDetailsStatus ElementSoaStatus { get; set; }
+        //public string? ElementType { get; set; }
+        public List<Element> Elements { get; set; } = [];
+    }
+    public class MeteringAndMonitoringStrategyResponse : NetworkDetailsResponseBase {
+        public NetworkDetailsStatus Status { get; set; }
+        public List<NetworkDetailsUploadedDocument> Documents { get; set; } = [];
+    }
+    public class AssessmentPlanResponse : NetworkDetailsResponseBase {
+        public NetworkDetailsStatus Status { get; set; }
+        public List<NetworkDetailsUploadedDocument> Documents { get; set; } = [];
+    }
+    public class DesignConstructionLogResponse : NetworkDetailsResponseBase {
+        public NetworkDetailsStatus Status { get; set; }
+        public List<NetworkDetailsUploadedDocument> Documents { get; set; } = [];
+    }
 
-
+    public class NetworkDetailsResponseBase
+    {        
+        public DateTime CreatedAt { get; set; }
+        public string? CreatedBy { get; set; }
+        public DateTime? UpdatedAt { get; set; }
+        public string? UpdatedBy { get; set; }        
+    }
 }

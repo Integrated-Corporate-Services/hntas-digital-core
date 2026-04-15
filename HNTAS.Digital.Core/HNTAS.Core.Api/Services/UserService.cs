@@ -192,7 +192,8 @@ namespace HNTAS.Core.Api.Services
             {
                 return await cursor.ToListAsync();
             }
-        }
+        }                       
+
 
         // --- Private Helper Method for Reusable Pipeline ---
 

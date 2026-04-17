@@ -1,6 +1,10 @@
-﻿using MongoDB.Bson;
+﻿using HNTAS.Core.Api.Enums;
+using HNTAS.Core.Api.Models;
+using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using System.ComponentModel;
+using System.ComponentModel.Design;
+using System.Diagnostics.Contracts;
 
 namespace HNTAS.Core.Api.Data.Models
 {
@@ -11,7 +15,7 @@ namespace HNTAS.Core.Api.Data.Models
         public string? Id { get; set; }
         [BsonElement("notificationType")]
         [BsonRepresentation(BsonType.String)]
-        public NotificationType NotificationType { get; set; }
+        public NotificationHistoryType NotificationType { get; set; }
         [BsonElement("actorsId")]
         public List<string> ActorsId { get; set; } = [];
         [BsonElement("subject")]
@@ -27,27 +31,52 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonElement("action")]
         [BsonRepresentation(BsonType.String)]
         public string? Action { get; set; }
+        [BsonElement("eligibleRoles")]
+        public List<string> EligibleRoles { get; set; } = [];
         [BsonElement("heatNetworkId")]
         [BsonRepresentation(BsonType.String)]
         public string? HeatNetworkId { get; set; }
         [BsonElement("createdBy")]
         public string? CreatedBy { get; set; }
+    }    
+
+    public static class NotificationHistoryActions
+    {
+        public const string YourHeatNetworks = "Your heat networks";
+        public const string NetworkElementsAdded = "Network elements added";
+        public const string NetworkManagers = "Network managers";
+        public const string DDHAndContributors = "DDH and contributors";
+        public const string HeatNetworkDetails = "Heat network details";
     }
 
-    public enum NotificationType
+    public static class NotificationHistorySubjects
     {
-        RpInvitesNetworkManager = 1,
-        NetworkManagerAcceptsInvite,
-        NetworkManagerRejectsInvite,
-        RpResistersHeatNetwork,
-        NetworkManagerResistersHeatNetwork,
-        RpInvitesDdhToHeatNetwork,
-        NetworkManagerInvitesDdhToHeatNetwork,
-        DdhInvitesContributorToHeatNetwork,
-        DdhAcceptsInviteToHeatNetwork,
-        DdhRejectsInviteToHeatNetwork,
-        ContributorAcceptsInviteToHeatNetwork,
-        ContributorRejectsInviteToHeatNetwork,
-        AssessorAssignsToHeatNetwork,
-    }
+        public const string DesignatedDesignerInvited = "Designated Designer invited";
+        public const string DesignatedContractorInvited = "Designated Contractor invited";
+        public const string DesignatedOperatorInvited = "Designated Operator invited";
+        public const string NetworkManagerInvited = "Network manager invited";
+        public const string NewBuildNetworkRegistered = "New build network registered";
+        public const string ContributingDesignerInvited = "Contributing Designer invited";
+        public const string ContributingContractorInvited = "Contributing Contractor invited";
+        public const string ContributingOperatorInvited = "Contributing Operator invited";
+        public const string NetworkManagerJoined = "Network manager joined";
+        public const string DesignatedDesignerJoined = "Designated Designer joined";
+        public const string DesignatedContractorJoined = "Designated Contractor joined";
+        public const string DesignatedOperatorJoined = "Designated Operator joined";
+        public const string ContributingDesignerJoined = "Contributing Designer joined";
+        public const string ContributingContractorJoined = "Contributing Contractor joined";
+        public const string ContributingOperatorJoined = "Contributing Operator joined";
+
+        public const string DesignatedDesignerRejected = "Designated Designer rejected";
+        public const string DesignatedContractorRejected = "Designated Contractor rejected";
+        public const string DesignatedOperatorRejected = "Designated Operator rejected";
+
+        public const string ContributingDesignerRejected = "Contributing Designer rejected";
+        public const string ContributingContractorRejected = "Contributing Contractor rejected";
+        public const string ContributingOperatorRejected = "Contributing Operator rejected";
+
+        public const string NetworkManagerRejected = "Network manager rejected";
+
+        public const string AssessorAssignedToHN = "Assessor assigned to HN";
+    }     
 }

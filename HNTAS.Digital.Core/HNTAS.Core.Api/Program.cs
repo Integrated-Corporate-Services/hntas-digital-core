@@ -37,6 +37,7 @@ builder.Services.AddSingleton<ICountryAndTerritoryService, CountryAndTerritorySe
 builder.Services.AddSingleton<IAssessorService, AssessorService>();
 builder.Services.AddSingleton<IAuditService, AuditService>();
 builder.Services.AddScoped<IArmsKpiService, ArmsKpiService>();
+builder.Services.AddScoped<INotificationHistoryService, NotificationHistoryService>();
 
 //Data Migrations
 builder.Services.AddScoped<IDataMigration, SeedCountriesAndTerritories>();

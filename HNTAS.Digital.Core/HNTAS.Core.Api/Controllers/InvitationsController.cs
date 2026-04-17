@@ -163,7 +163,7 @@ namespace HNTAS.Core.Api.Controllers
                     }
                 }
 
-                await NotificationHistory(existingUser, newInvitation);
+                await NotificationHistoryForAddInvite(existingUser, newInvitation);
 
                 return StatusCode(StatusCodes.Status201Created, newInvitation.Id);
             }
@@ -198,7 +198,7 @@ namespace HNTAS.Core.Api.Controllers
             if (invitation?.InvitedHnId != null)
             {
                 var hn = await _hnService.GetByHnIdAsync(invitation.InvitedHnId);
-                await _emailService.TrySendHeatNetworkInvitationEmailAsync(invitation, request.Token, hn?.Name);
+                await _emailService.TrySendHeatNetworkInvitationEmailAsync(invitation, request.Token, hn?.Name!);
             }
             else if (invitation?.InvitedOrgId != null)
             {
@@ -241,52 +241,193 @@ namespace HNTAS.Core.Api.Controllers
             invitation.RejectedAt = DateTime.UtcNow;
 
             await _invitationService.UpdateAsync(invitationId, invitation);
-
+            await NotificationHistoryForRejectInvite(invitation);
             _logger.LogInformation("Invitation {InvitationId} was rejected.", invitationId);
             return NoContent();
         }
 
-        private async Task NotificationHistory(User user, Invitation invitation)
+        private async Task NotificationHistoryForAddInvite(User user, Invitation invitation)
         {
             var subject = string.Empty;
             var description = string.Empty;
-            var userRole = user.Roles.FirstOrDefault();
+            var inviterRole = user.Roles.FirstOrDefault();
             var date = DateTime.UtcNow;
             var action = string.Empty;
             var heatNetworkId = invitation.InvitedHnId;
-            if (userRole == UserRole.ResponsiblePerson)
-            {
-
-                var invitedRole = invitation.InvitedRoles.FirstOrDefault();
-                var invitedPerson = $"{invitation.FirstName} {invitation.LastName}".Trim();
-                description = $"Email to {invitedPerson}";
+            var eligibleRoles = new List<string>();
+            NotificationHistoryType notificationType = NotificationHistoryType.NA;
+            var invitedRole = invitation.InvitedRoles.FirstOrDefault();
+            var invitedPerson = $"{invitation.FirstName} {invitation.LastName}".Trim();
+            description = $"Email to {invitedPerson}";
+            var actorIds = new List<string> { invitation.InviterUserId };
+            if (inviterRole == UserRole.ResponsiblePerson)
+            {                
+                eligibleRoles = new List<string>
+                {
+                    ContributorRole.ResponsiblePerson.ToString(),                    
+                };
 
                 if (invitedRole == ContributorRole.DesignatedDesigner)
                 {
-                    subject = "Designated Designer invited";
+                    subject = NotificationHistorySubjects.DesignatedDesignerInvited;
+                    notificationType = NotificationHistoryType.RpInvitesDdhToHeatNetwork;
                 }
                 else if (invitedRole == ContributorRole.DesignatedContractor)
                 {
-                    subject = "Designated Contractor invited";
+                    subject = NotificationHistorySubjects.DesignatedContractorInvited;
+                    notificationType = NotificationHistoryType.RpInvitesDdhToHeatNetwork;
                 }
                 else if (invitedRole == ContributorRole.DesignatedOperator)
                 {
-                    subject = "Designated Operator invited";
-                }                
-                
-                var notificationHistory = new NotificationHistory
+                    subject = NotificationHistorySubjects.DesignatedOperatorInvited;
+                    notificationType = NotificationHistoryType.RpInvitesDdhToHeatNetwork;
+                }
+                else if (invitedRole == ContributorRole.Coordinator)
                 {
-                    NotificationType = NotificationType.RpInvitesDdhToHeatNetwork,
-                    ActorsId = new List<string> { user.Id! },
-                    Subject = subject,
-                    Description = description,
-                    Timestamp = date,
-                    Action = action,
-                    HeatNetworkId = heatNetworkId,
-                };
-                await _notificationHistoryService.CreateAsync(notificationHistory);
+                    subject = NotificationHistorySubjects.NetworkManagerInvited;
+                    notificationType = NotificationHistoryType.RpInvitesNetworkManager;
+                }                
             }
+            else if (inviterRole == UserRole.Coordinator) // Network Manager
+            {
+                eligibleRoles = new List<string>
+                {
+                    ContributorRole.ResponsiblePerson.ToString(),
+                    ContributorRole.Coordinator.ToString()
+                };
+                notificationType = NotificationHistoryType.NetworkManagerInvitesDdhToHeatNetwork;
+                if (invitedRole == ContributorRole.DesignatedDesigner)
+                {
+                    subject = NotificationHistorySubjects.DesignatedDesignerInvited;                    
+                }
+                else if (invitedRole == ContributorRole.DesignatedContractor)
+                {
+                    subject = NotificationHistorySubjects.DesignatedContractorInvited;                    
+                }
+                else if (invitedRole == ContributorRole.DesignatedOperator)
+                {
+                    subject = NotificationHistorySubjects.DesignatedOperatorInvited;                    
+                }                
+            }
+            else if (inviterRole == UserRole.DesignatedDutyHolder)
+            {
+                //TODO: Get the invitor user id from the invitation based on email id, hnid and status and invited role
+                var ddhInvitor = await _invitationService.GetByInvitedDetailsAsync(user.EmailId, invitation.InvitedHnId!, invitation.InvitedRoles.FirstOrDefault());
+                actorIds.Add(ddhInvitor?.InviterUserId!);
+                eligibleRoles = new List<string>
+                {
+                    ContributorRole.ResponsiblePerson.ToString(),
+                    ContributorRole.Coordinator.ToString(),
+                    ContributorRole.DesignatedDesigner.ToString(),
+                    ContributorRole.DesignatedContractor.ToString(),
+                    ContributorRole.DesignatedOperator.ToString()
+                };
+                notificationType = NotificationHistoryType.DdhInvitesContributorToHeatNetwork;
+
+                if (invitedRole == ContributorRole.ContributingDesigner)
+                {
+                    subject = NotificationHistorySubjects.ContributingDesignerInvited;                    
+                }
+                else if (invitedRole == ContributorRole.ContributingContractor)
+                {
+                    subject = NotificationHistorySubjects.ContributingContractorInvited;                    
+                }
+                else if (invitedRole == ContributorRole.ContributingOperator)
+                {
+                    subject = NotificationHistorySubjects.ContributingOperatorInvited;                    
+                }
+            }            
+
+            var notificationHistory = new NotificationHistory
+            {
+                NotificationType = notificationType,
+                ActorsId = actorIds,
+                Subject = subject,
+                Description = description,
+                Timestamp = date,
+                Action = action,
+                HeatNetworkId = heatNetworkId,
+                CreatedBy = invitation.InviterUserId,
+                EligibleRoles = eligibleRoles
+            };
+            await _notificationHistoryService.CreateAsync(notificationHistory);
         }
 
+        private async Task NotificationHistoryForRejectInvite(Invitation invitation)
+        {
+            var subject = string.Empty;
+            var description = string.Empty;
+            var date = DateTime.UtcNow;
+            var action = string.Empty;            
+            var heatNetworkId = invitation.InvitedHnId;
+            var eligibleRoles = new List<string> { ContributorRole.ResponsiblePerson.ToString() };
+            NotificationHistoryType notificationType = NotificationHistoryType.NA;
+            var invitedRole = invitation.InvitedRoles.FirstOrDefault();
+            var invitedPerson = $"{invitation.FirstName} {invitation.LastName}".Trim();
+            description = $"{invitation.FirstName} {invitation.LastName} rejected, please take alternate action";
+
+            if (invitedRole == ContributorRole.DesignatedDesigner)
+            {
+                eligibleRoles.Add(ContributorRole.Coordinator.ToString());
+                subject = NotificationHistorySubjects.DesignatedDesignerRejected;
+                notificationType = NotificationHistoryType.DdhRejectsInviteToHeatNetwork;
+                action = NotificationHistoryActions.DDHAndContributors;
+            }
+            else if (invitedRole == ContributorRole.DesignatedContractor)
+            {
+                eligibleRoles.Add(ContributorRole.Coordinator.ToString());
+                subject = NotificationHistorySubjects.DesignatedContractorRejected;
+                notificationType = NotificationHistoryType.DdhRejectsInviteToHeatNetwork;
+                action = NotificationHistoryActions.DDHAndContributors;
+            }
+            else if (invitedRole == ContributorRole.DesignatedOperator)
+            {
+                eligibleRoles.Add(ContributorRole.Coordinator.ToString());
+                subject = NotificationHistorySubjects.DesignatedOperatorRejected;
+                notificationType = NotificationHistoryType.DdhRejectsInviteToHeatNetwork;
+                action = NotificationHistoryActions.DDHAndContributors;
+            }
+            else if (invitedRole == ContributorRole.ContributingDesigner)
+            {
+                eligibleRoles.Add(ContributorRole.Coordinator.ToString());
+                subject = NotificationHistorySubjects.ContributingDesignerRejected;
+                notificationType = NotificationHistoryType.ContributorRejectsInviteToHeatNetwork;
+                action = NotificationHistoryActions.DDHAndContributors;
+            }
+            else if (invitedRole == ContributorRole.ContributingContractor)
+            {
+                eligibleRoles.Add(ContributorRole.Coordinator.ToString());
+                subject = NotificationHistorySubjects.ContributingContractorRejected;
+                notificationType = NotificationHistoryType.ContributorRejectsInviteToHeatNetwork;
+                action = NotificationHistoryActions.DDHAndContributors;
+            }
+            else if (invitedRole == ContributorRole.ContributingOperator)
+            {
+                eligibleRoles.Add(ContributorRole.Coordinator.ToString());
+                subject = NotificationHistorySubjects.ContributingOperatorRejected;
+                notificationType = NotificationHistoryType.ContributorRejectsInviteToHeatNetwork;
+                action = NotificationHistoryActions.DDHAndContributors;
+            }
+            else if (invitedRole == ContributorRole.Coordinator)
+            {
+                subject = NotificationHistorySubjects.NetworkManagerRejected;
+                notificationType = NotificationHistoryType.NetworkManagerRejectsInvite;
+                action = NotificationHistoryActions.NetworkManagers;
+            }            
+
+            var notificationHistory = new NotificationHistory
+            {
+                NotificationType = notificationType,
+                ActorsId = new List<string> { invitation.InviterUserId },
+                Subject = subject,
+                Description = description,
+                Timestamp = date,
+                Action = action,
+                HeatNetworkId = heatNetworkId,
+                CreatedBy = invitation.InviterUserId,
+                EligibleRoles = eligibleRoles
+            };
+            await _notificationHistoryService.CreateAsync(notificationHistory);
+        }
     }
 }

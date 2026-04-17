@@ -1,5 +1,6 @@
 ﻿using HNTAS.Core.Api.Configuration;
 using HNTAS.Core.Api.Data.Models;
+using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
 using Microsoft.Extensions.Options;
@@ -142,5 +143,9 @@ namespace HNTAS.Core.Api.Services
             }
 
         }
+
+        // Get invitation by invitedEmailId, invitedHnId, invitedRole
+        public async Task<Invitation> GetByInvitedDetailsAsync(string invitedEmailId, string invitedHnId, ContributorRole invitedRole) =>
+            await _invitationsCollection.Find(invitation => invitation.InvitedEmail == invitedEmailId && invitation.InvitedHnId == invitedHnId && invitation.InvitedRoles.Contains(invitedRole) && invitation.Status == Enums.InvitationStatus.Accepted).FirstOrDefaultAsync();
     }
 }

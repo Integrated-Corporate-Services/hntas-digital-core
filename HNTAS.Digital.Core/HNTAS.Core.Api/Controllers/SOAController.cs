@@ -7,6 +7,7 @@ using HNTAS.Core.Api.Models;
 using HNTAS.Core.Api.Models.Soa;
 using HNTAS.Core.Api.Services;
 using Microsoft.AspNetCore.Mvc;
+using System;
 using System.ComponentModel.DataAnnotations;
 
 namespace HNTAS.Core.Api.Controllers
@@ -21,7 +22,8 @@ namespace HNTAS.Core.Api.Controllers
         private readonly IHeatNetworkService _heatNetworkService;
         private readonly IUserService _userService;
         private readonly IAuditService _auditService;
-        public SOAController(ISoaService soaProjectService, ILogger<SOAController> logger, IEmailService emailService, IHeatNetworkService heatNetworkService, IUserService userService, IAuditService auditService)
+        private readonly INotificationHistoryService _notificationHistoryService;
+        public SOAController(ISoaService soaProjectService, ILogger<SOAController> logger, IEmailService emailService, IHeatNetworkService heatNetworkService, IUserService userService, IAuditService auditService, INotificationHistoryService notificationHistoryService)
         {
             _soaService = soaProjectService;
             _logger = logger;
@@ -29,6 +31,7 @@ namespace HNTAS.Core.Api.Controllers
             _heatNetworkService = heatNetworkService;
             _userService = userService;
             _auditService = auditService;
+            _notificationHistoryService = notificationHistoryService;
         }
 
 
@@ -417,6 +420,7 @@ namespace HNTAS.Core.Api.Controllers
                 var elementModelToUpdate = await _soaService.UpdateAssignAssessor(request, networkElements!, existingHeatNetwork.Phase, false);
                 existingHeatNetwork.NetworkElements = elementModelToUpdate;
                 await _heatNetworkService.UpdateAsync(request.HnId, existingHeatNetwork);
+                await NotificationHistoryForAssigningAssessor(request, existingHeatNetwork);
                 _logger.LogInformation("Saved Assessor Assigned for HN ID: {HnId}, Elements: {ElementIds}, UpdatedBy: {UpdatedBy}",
                 StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(string.Join(", ", request.ElementIds!)), StringFormatter.Sanitize(request.UpdatedBy));
 
@@ -622,6 +626,32 @@ namespace HNTAS.Core.Api.Controllers
                 _logger.LogError(ex, "Error sending certification complete email to {hnName}", hnName);
                 return StatusCode(StatusCodes.Status500InternalServerError);
             }
+        }
+
+        private async Task NotificationHistoryForAssigningAssessor(ElementSoaAssignAssessorRequest request, HeatNetwork heatNetwork)
+        {
+            var description = $"{request.AssessorFirstName} {request.AssessorLastName} Assigned to {heatNetwork.HnId}-{heatNetwork.Name}";
+            var eligibleRoles = new List<string> { ContributorRole.ResponsiblePerson.ToString()
+                , ContributorRole.Coordinator.ToString(),
+                ContributorRole.DesignatedDesigner.ToString(),
+                ContributorRole.DesignatedContractor.ToString(),
+                ContributorRole.DesignatedOperator.ToString(),
+                ContributorRole.ContributingDesigner.ToString(),
+                ContributorRole.ContributingContractor.ToString(),
+                ContributorRole.ContributingOperator.ToString()};
+            var notificationHistory = new NotificationHistory
+            {
+                NotificationType = NotificationHistoryType.AssessorAssignsToHeatNetwork,
+                ActorsId = new List<string> { request.UpdatedBy },
+                Subject = NotificationHistorySubjects.AssessorAssignedToHN,
+                Description = description,
+                Timestamp = DateTime.UtcNow,
+                Action = NotificationHistoryActions.HeatNetworkDetails,
+                HeatNetworkId = heatNetwork.HnId,
+                CreatedBy = request.UpdatedBy,
+                EligibleRoles = eligibleRoles
+            };
+            await _notificationHistoryService.CreateAsync(notificationHistory);
         }
 
     }

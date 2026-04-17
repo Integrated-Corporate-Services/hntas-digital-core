@@ -1,4 +1,5 @@
 ﻿using HNTAS.Core.Api.Data.Models;
+using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Models;
 
 namespace HNTAS.Core.Api.Interfaces
@@ -16,5 +17,6 @@ namespace HNTAS.Core.Api.Interfaces
         Task<List<ManagedUserResponse>> GetInvitedUsersAsRegisteredAsync(string inviterUserId);
 
         Task ExecuteRoleSwapAsync(User invitedUser, User? replacedUser, Invitation invitation);
+        Task<Invitation> GetByInvitedDetailsAsync(string invitedEmailId, string invitedHnId, ContributorRole invitedRole);
     }
 }

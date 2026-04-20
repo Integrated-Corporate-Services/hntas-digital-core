@@ -44,7 +44,7 @@ namespace HNTAS.Core.Api.Controllers
 
         /// <summary>
         /// Updated to GOV.UK parameter naming conventions (snake_case)
-        /// URL: GET /api/external/heat-networks/search?from_date=2026-01-01&to_date=2026-01-15
+        /// URL: GET heat-networks/search?from_date=2026-01-01&to_date=2026-01-15
         /// </summary>
         [HttpGet("/external/heat-networks/search")]
         [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<HeatNetworkExternalResponse>))]

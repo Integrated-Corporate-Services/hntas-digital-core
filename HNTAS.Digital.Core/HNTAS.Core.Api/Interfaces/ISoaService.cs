@@ -1,5 +1,6 @@
 ﻿using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Enums;
+using HNTAS.Core.Api.Models.Soa;
 
 namespace HNTAS.Core.Api.Interfaces
 {
@@ -18,5 +19,6 @@ namespace HNTAS.Core.Api.Interfaces
         Task UpdateAssessorDocumentAsync(string hnId, Document document);
         Task UpdateCertifierDocumentAsync(string hnId, Document document);
         Task UpdateSoaStatus(string hnId, string elementId, SoaStage stage, string soaStatus, string updatedBy, NetworkDetailsStatus elementSoaStatus);
+        Task<NetworkElements> UpdateAssignAssessor(ElementSoaAssignAssessorRequest request, NetworkElements networkElements, string phase, bool initiateSoa);
     }
 }

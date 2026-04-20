@@ -1,5 +1,6 @@
 ﻿using HNTAS.Core.Api.Common;
 using HNTAS.Core.Api.Interfaces;
+using HNTAS.Core.Api.Models.Arms;
 
 namespace HNTAS.Core.Api.Validators.Arms
 {
@@ -12,23 +13,38 @@ namespace HNTAS.Core.Api.Validators.Arms
             _heatNetworkService = heatNetworkService;
         }
 
-        public async Task<ValidationGateResult> ValidateAsync(string networkId, IEnumerable<string> elementIds)
+        // Assuming your element object looks like this
+        public async Task<ValidationGateResult> ValidateAsync(string networkId, IEnumerable<NetworkElementRequest> elements)
         {
             var network = await _heatNetworkService.GetByHnIdAsync(networkId);
 
-            // Check if Network exists
             if (network == null)
                 return new ValidationGateResult(false, $"Network ID '{networkId}' is not registered.", 404);
 
-            // Check if all provided ElementIds belong to this Network
-            var registeredIds = network.NetworkElements?.Elements.Select(e => e.ElementId).ToHashSet();
-            if (registeredIds == null)
-                return new ValidationGateResult(false, $"Network ID '{networkId}' has no registered elements.");
+            // Create a dictionary for quick lookup: Key = ID, Value = Type
+            var registeredElements = network.NetworkElements?.Elements
+                .ToDictionary(e => e.ElementId, e => e.Type.ToString());
 
-            var unknownIds = elementIds.Where(id => !registeredIds.Contains(id)).ToList();
+            var invalidElements = new List<string>();
 
-            if (unknownIds.Any())
-                return new ValidationGateResult(false, $"Unknown Element IDs: {string.Join(", ", unknownIds)}.");
+            foreach (var element in elements)
+            {
+                // Check if ID exists
+                if (!registeredElements.TryGetValue(element.ElementId, out var registeredType))
+                {
+                    invalidElements.Add($"{element.ElementId} (Not found)");
+                    continue;
+                }
+
+                // Check if Type matches
+                if (registeredType != element.Type.ToString())
+                {
+                    invalidElements.Add($"{element.ElementId} (Expected {registeredType}, found {element.Type.ToString()})");
+                }
+            }
+
+            if (invalidElements.Any())
+                return new ValidationGateResult(false, $"Validation errors: {string.Join(", ", invalidElements)}.");
 
             return new ValidationGateResult(true);
         }

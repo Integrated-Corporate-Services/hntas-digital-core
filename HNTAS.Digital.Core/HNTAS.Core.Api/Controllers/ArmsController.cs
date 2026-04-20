@@ -82,7 +82,7 @@ namespace HNTAS.Core.Api.Controllers
                     // Registry Validation (HeatNetwork Collection)
                     var networkResult = await _networkValidator.ValidateAsync(
                         request.MetaData.NetworkId,
-                        request.Elements.Select(e => e.ElementId)
+                        request.Elements
                     );
                     if (!networkResult.IsValid)
                         return StatusCode(networkResult.StatusCode, CreateProblem(networkResult));

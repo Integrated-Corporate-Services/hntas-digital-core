@@ -15,7 +15,7 @@ namespace HNTAS.Core.Api.Data.Models.Arms.Submission
         [BsonElement("type")]
         [JsonConverter(typeof(JsonStringEnumConverter))]
         [BsonRepresentation(BsonType.String)]
-        public required ElementType Type { get; set; }
+        public required HeatNetworkElementType Type { get; set; }
 
         [JsonPropertyName("kpis")]
         [BsonElement("kpis")]

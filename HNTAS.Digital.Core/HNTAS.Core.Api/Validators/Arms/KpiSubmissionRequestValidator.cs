@@ -1,6 +1,6 @@
 ﻿using FluentValidation;
-using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Models.Arms;
+using ElementType = HNTAS.Core.Api.Enums.HeatNetworkElementType;
 
 namespace HNTAS.Core.Api.Validators.Arms
 {

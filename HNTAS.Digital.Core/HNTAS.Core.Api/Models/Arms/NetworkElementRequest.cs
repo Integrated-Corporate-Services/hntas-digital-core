@@ -11,7 +11,7 @@ namespace HNTAS.Core.Api.Models.Arms
 
         [JsonPropertyName("type")]
         [JsonConverter(typeof(JsonStringEnumConverter))]
-        public required ElementType Type { get; set; }
+        public required HeatNetworkElementType Type { get; set; }
 
         [JsonPropertyName("kpis")]
         public Dictionary<string, KpiValueRequest> Kpis { get; set; } = new();

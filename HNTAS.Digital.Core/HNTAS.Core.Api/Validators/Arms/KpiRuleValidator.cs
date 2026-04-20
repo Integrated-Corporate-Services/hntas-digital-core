@@ -31,7 +31,7 @@ namespace HNTAS.Core.Api.Validators.Arms
             {
                 // Find rule in config (assuming aggregated rules are stored under a specific element type)
                 var rule = config.Elements
-                    .FirstOrDefault(e => e.Type == ElementType.ConsumerConnection)?
+                    .FirstOrDefault(e => e.Type == HeatNetworkElementType.ConsumerConnection)?
                     .Kpis.GetValueOrDefault(kpi.Key);
 
                 if (rule != null)

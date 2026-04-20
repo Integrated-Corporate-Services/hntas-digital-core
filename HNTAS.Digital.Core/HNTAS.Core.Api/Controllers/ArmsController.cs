@@ -10,7 +10,7 @@ using System.Text.RegularExpressions;
 
 namespace HNTAS.Core.Api.Controllers
 {
-    [Route("v1/hn")]
+    [Route("arms/v1/hn")]
     [ApiController]
     public class ArmsController : ControllerBase
     {

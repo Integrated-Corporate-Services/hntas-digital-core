@@ -129,6 +129,56 @@ namespace HNTAS.Core.Api.Validators.Arms
                     }
                 }
             });
+
+            RuleFor(x => x.Elements).Custom((elements, context) =>
+            {
+                for (int i = 0; i < elements.Count; i++)
+                {
+                    var element = elements[i];
+                    var submittedKeys = element.Kpis.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase);
+                    string path = $"Elements[{i}]";
+
+                    if (element.Type == ElementType.EnergyCentre)
+                    {
+                        // 1. Check for Mutual Exclusivity (Only one of)
+                        if (submittedKeys.Contains("EC-KPI-09A") && submittedKeys.Contains("EC-KPI-09B"))
+                        {
+                            context.AddFailure(path, $"Element ID '{element.ElementId}' validation error: Reported both 'EC-KPI-09A' and 'EC-KPI-09B', but only one is allowed.");
+                        }
+
+                        if (submittedKeys.Contains("EC-KPI-10A") && submittedKeys.Contains("EC-KPI-10B"))
+                        {
+                            context.AddFailure(path, $"Element ID '{element.ElementId}' validation error: Reported both 'EC-KPI-10A' and 'EC-KPI-10B', but only one is allowed.");
+                        }
+
+                        // 2. Check for Mandatory Groups (At least one of)
+                        var group16 = new[] { "EC-KPI-16A", "EC-KPI-16B", "EC-KPI-16C", "EC-KPI-16D", "EC-KPI-16E", "EC-KPI-16F" };
+                        if (!group16.Any(k => submittedKeys.Contains(k)))
+                        {
+                            context.AddFailure(path, $"Element ID '{element.ElementId}' validation error: At least one KPI from the group 'EC-KPI-16A' to '16F' must be reported.");
+                        }
+
+                        var group17 = new[] { "EC-KPI-17A", "EC-KPI-17B", "EC-KPI-17C", "EC-KPI-17D", "EC-KPI-17E", "EC-KPI-17F" };
+                        if (!group17.Any(k => submittedKeys.Contains(k)))
+                        {
+                            context.AddFailure(path, $"Element ID '{element.ElementId}' validation error: At least one KPI from the group 'EC-KPI-17A' to '17F' must be reported.");
+                        }
+                    }
+                    else if (element.Type == ElementType.Substation)
+                    {
+                        // 1. Check for Mutual Exclusivity (Only one of)
+                        if (submittedKeys.Contains("SS-KPI-09A") && submittedKeys.Contains("SS-KPI-09B"))
+                        {
+                            context.AddFailure(path, $"Element ID '{element.ElementId}' validation error: Reported both 'SS-KPI-09A' and 'SS-KPI-09B', but only one is allowed.");
+                        }
+
+                        if (submittedKeys.Contains("SS-KPI-10A") && submittedKeys.Contains("SS-KPI-10B"))
+                        {
+                            context.AddFailure(path, $"Element ID '{element.ElementId}' validation error: Reported both 'SS-KPI-10A' and 'SS-KPI-10B', but only one is allowed.");
+                        }
+                    }
+                }
+            });
         }
     }
 }

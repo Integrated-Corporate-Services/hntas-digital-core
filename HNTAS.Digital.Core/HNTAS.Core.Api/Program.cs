@@ -59,6 +59,9 @@ builder.Services.AddScoped<IDataMigration, SeedAssessors>();
 builder.Services.Configure<AWSDocDbSettings>(
     builder.Configuration.GetSection("AWSDocDbSettings"));
 
+builder.Services.Configure<ArmsSettings>(
+    builder.Configuration.GetSection("ArmsSettings"));
+
 builder.Services.AddSingleton<IMongoClient>(sp =>
 {
     var connectionString = Environment.GetEnvironmentVariable("DOCUMENT_DB_CONNECTION_STRING");

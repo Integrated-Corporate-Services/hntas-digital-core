@@ -30,6 +30,8 @@ namespace HNTAS.Core.Api.MappingProfiles
                     }).ToList()));
 
             CreateMap<KpiSubmissionRequest, KpiSubmission>();
+            CreateMap<NetworkElementRequest, NetworkElement>();
+            CreateMap<KpiValueRequest, KpiValue>();
         }
     }
 }

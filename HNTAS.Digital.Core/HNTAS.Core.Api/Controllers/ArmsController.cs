@@ -27,13 +27,21 @@ namespace HNTAS.Core.Api.Controllers
         private readonly IMapper _mapper;
         private readonly ArmsSettings _armsSettings;
 
-        public ArmsController(IArmsKpiService kpiService, ILogger<ArmsController> logger, IValidator<KpiSubmissionRequest> validator, IMapper mapper, IOptions<ArmsSettings> armsSettings)
+        public ArmsController(IArmsKpiService kpiService,
+            ILogger<ArmsController> logger,
+            IValidator<KpiSubmissionRequest> validator,
+            IMapper mapper,
+            IOptions<ArmsSettings> armsSettings,
+            IHeatNetworkValidator networkValidator,
+            IKpiRuleValidator kpiRuleValidator)
         {
             _kpiService = kpiService;
             _logger = logger;
             _validator = validator;
             _mapper = mapper;
             _armsSettings = armsSettings.Value;
+            _networkValidator = networkValidator;
+            _ruleValidator = kpiRuleValidator;
         }
 
         /// <summary>
@@ -107,7 +115,7 @@ namespace HNTAS.Core.Api.Controllers
                                         k.Value.AssessmentStatus == KPIAssessmentStatus.OutsideLimit)
                             .ToDictionary(
                                 k => k.Key,
-                                k => new { value = k.Value.Value, status = k.Value.AssessmentStatus.ToString().ToLower() }
+                                k => new { value = k.Value.Value, status = FormatStatus(k.Value.AssessmentStatus) }
                             )
                     })
                     .Where(e => e.kpis.Any())
@@ -121,7 +129,7 @@ namespace HNTAS.Core.Api.Controllers
                                     k.Value.AssessmentStatus == KPIAssessmentStatus.OutsideLimit)
                         .ToDictionary(
                             k => k.Key,
-                            k => new { value = k.Value.Value, status = k.Value.AssessmentStatus.ToString().ToLower() }
+                            k => new { value = k.Value.Value, status = FormatStatus(k.Value.AssessmentStatus) }
                         );
 
                     if (aggWarnings.Any())
@@ -165,6 +173,12 @@ namespace HNTAS.Core.Api.Controllers
                  );
             }
         }
+
+        string FormatStatus(KPIAssessmentStatus status) => status switch
+        {
+            KPIAssessmentStatus.OutsideLimit => "outside limit",
+            _ => status.ToString().ToLower()
+        };
 
 
         /// <summary>
@@ -277,12 +291,30 @@ namespace HNTAS.Core.Api.Controllers
 
 
         // Helper to keep the "Type" link out of our GOV.UK style response
-        private ProblemDetails CreateProblem(ValidationGateResult result) => new()
+        private ValidationProblemDetails CreateProblem(ValidationGateResult result)
         {
-            Title = "Validation Error",
-            Detail = result.Message,
-            Status = result.StatusCode,
-            Type = null
-        };
+            var problem = new ValidationProblemDetails
+            {
+                Title = "Validation Failed",
+                Status = result.StatusCode,
+                // Use the high-level message for the detail
+                Detail = string.IsNullOrWhiteSpace(result.Message)
+                         ? "One or more validation errors occurred."
+                         : result.Message
+            };
+
+            // If we have specific errors, add them to the errors dictionary
+            if (result.Errors != null && result.Errors.Any())
+            {
+                problem.Errors.Add("ValidationErrors", result.Errors.ToArray());
+            }
+            else if (!string.IsNullOrWhiteSpace(result.Message))
+            {
+                // Fallback: Use the single message if no list is provided
+                problem.Errors.Add("General", new[] { result.Message });
+            }
+
+            return problem;
+        }
     }
 }

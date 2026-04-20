@@ -194,6 +194,94 @@ namespace HNTAS.Digital.Core.Tests.Validators
             Assert.Equal(KPIAssessmentStatus.Undefined, request.Elements.First().Kpis["MISSING_KPI"].AssessmentStatus);
         }
 
+
+        [Fact]
+        public async Task ValidateAsync_WhenMandatoryKpiIsMissing_ReturnsFailureWithDetails()
+        {
+            // Arrange
+            var networkId = "HN_MANDATORY_FAIL";
+            var mandatoryKpiId = "CD-KPI-01";
+            var request = CreateSubmissionStub(networkId);
+
+            // We send an element but leave the Kpis dictionary empty (missing the mandatory one)
+            request.Elements.Add(new NetworkElement
+            {
+                ElementId = "E001",
+                Type = HeatNetworkElementType.ConsumerConnection,
+                Kpis = new Dictionary<string, KpiValue>()
+            });
+
+            var config = new KpiConfiguration
+            {
+                NetworkId = networkId,
+                Elements = new List<KpiNetworkElement>
+                {
+                    new()
+                    {
+                        Type = HeatNetworkElementType.ConsumerConnection,
+                        Kpis = new Dictionary<string, KpiRule>
+                        {
+                            // Rule specifies this KPI is Mandatory
+                            { mandatoryKpiId, new KpiRule { IsMandatory = true, LowerLimit = 0, UpperLimit = 100 } }
+                        }
+                    }
+                }
+            };
+
+            _mockKpiService.Setup(s => s.GetConfigurationAsync(networkId)).ReturnsAsync(config);
+
+            // Act
+            var result = await _validator.ValidateAsync(request);
+
+            // Assert
+            Assert.False(result.IsValid);
+            Assert.Equal(400, result.StatusCode);
+            Assert.Contains(result.Errors, e => e.Contains($"Element ID 'E001' validation error: Missing mandatory KPI '{mandatoryKpiId}'"));
+        }
+
+
+
+        [Fact]
+        public async Task ValidateAsync_WhenMandatoryKpisArePresent_ReturnsSuccess()
+        {
+            // Arrange
+            var networkId = "HN_MANDATORY_PASS";
+            var kpiId = "CD-KPI-01";
+            var request = CreateSubmissionStub(networkId);
+
+            request.Elements.Add(new NetworkElement
+            {
+                ElementId = "E001",
+                Type = HeatNetworkElementType.ConsumerConnection,
+                Kpis = new Dictionary<string, KpiValue> { { kpiId, new KpiValue { Value = 50 } } }
+            });
+
+            var config = new KpiConfiguration
+            {
+                NetworkId = networkId,
+                Elements = new List<KpiNetworkElement>
+                {
+                    new()
+                    {
+                        Type = HeatNetworkElementType.ConsumerConnection,
+                        Kpis = new Dictionary<string, KpiRule>
+                        {
+                            { kpiId, new KpiRule { IsMandatory = true, LowerLimit = 0, UpperLimit = 100 } }
+                        }
+                    }
+                }
+            };
+
+            _mockKpiService.Setup(s => s.GetConfigurationAsync(networkId)).ReturnsAsync(config);
+
+            // Act
+            var result = await _validator.ValidateAsync(request);
+
+            // Assert
+            Assert.True(result.IsValid);
+            Assert.True(result.Errors == null || !result.Errors.Any());
+        }
+
         // --- Helper Methods ---
 
         private KpiSubmission CreateSubmissionStub(string networkId)

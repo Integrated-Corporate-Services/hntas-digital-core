@@ -43,10 +43,11 @@ namespace HNTAS.Digital.Core.Tests.Validators
         {
             // Arrange
             var hnid = "HN400219";
+            var elementId = "00001";
             // ID 00001 is an EnergyCentre in the DB, but we send it as a Substation
             var request = new List<NetworkElementRequest>
             {
-                new() { ElementId = "00001", Type = HeatNetworkElementType.Substation }
+                new() { ElementId = elementId, Type = HeatNetworkElementType.Substation }
             };
 
             _mockService.Setup(s => s.GetByHnIdAsync(hnid))
@@ -57,7 +58,9 @@ namespace HNTAS.Digital.Core.Tests.Validators
 
             // Assert
             Assert.False(result.IsValid);
-            Assert.Contains("Expected EnergyCentre, found Substation", result.Message);
+            Assert.Contains(result.Errors, e => e.Contains($"Element ID '{elementId}' type mismatch"));
+            Assert.Contains(result.Errors, e => e.Contains("Expected 'EnergyCentre'"));
+            Assert.Contains(result.Errors, e => e.Contains("found 'Substation'"));
         }
 
         [Fact]
@@ -78,7 +81,7 @@ namespace HNTAS.Digital.Core.Tests.Validators
 
             // Assert
             Assert.False(result.IsValid);
-            Assert.Contains("99999 (Not found)", result.Message);
+            Assert.Contains(result.Errors, e => e.Contains("Element ID '99999' not found"));
         }
 
         private HeatNetwork GetMockNetwork(string hnid)

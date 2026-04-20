@@ -11,6 +11,9 @@ namespace HNTAS.Core.Api.Validators.Arms
         private readonly IArmsKpiService _armsKpiService;
         private readonly ILogger<KpiRuleValidator> _logger;
 
+        // This handles floating-point precision errors (e.g., 75.0000000001 vs 75)
+        private const double GlobalEpsilon = 1e-6;
+
         public KpiRuleValidator(IArmsKpiService armsKpiService, ILogger<KpiRuleValidator> logger)
         {
             _armsKpiService = armsKpiService;
@@ -20,44 +23,63 @@ namespace HNTAS.Core.Api.Validators.Arms
         public async Task<ValidationGateResult> ValidateAsync(KpiSubmission request)
         {
             var config = await _armsKpiService.GetConfigurationAsync(request.MetaData.NetworkId);
+
             if (config == null)
             {
-                _logger.LogWarning("KPI Submission failed: No configuration found for Network: {NetworkId}, PeriodStart: {PeriodStart}", request.MetaData.NetworkId, request.MetaData.PeriodStart);
+                _logger.LogWarning("KPI Submission failed: No config for Network: {NetworkId}", request.MetaData.NetworkId);
                 return new ValidationGateResult(false, "KPI Configuration not found for this network.");
             }
 
-            // Validate Aggregated KPIs
-            foreach (var kpi in request.ConsumerConnectionAggregatedKpis)
-            {
-                // Find rule in config (assuming aggregated rules are stored under a specific element type)
-                var rule = config.Elements
-                    .FirstOrDefault(e => e.Type == HeatNetworkElementType.ConsumerConnection)?
-                    .Kpis.GetValueOrDefault(kpi.Key);
+            var configLookup = config.Elements.ToDictionary(e => e.Type, e => e.Kpis);
+            var errors = new List<string>();
 
-                if (rule != null)
+            // 1. Validate Aggregated KPIs
+            if (request.ConsumerConnectionAggregatedKpis != null && configLookup.TryGetValue(HeatNetworkElementType.ConsumerConnection, out var aggRules))
+            {
+                foreach (var (kpiId, kpiValue) in request.ConsumerConnectionAggregatedKpis)
                 {
-                    kpi.Value.AssessmentStatus = Assess(kpi.Value.Value, rule);
+                    if (aggRules.TryGetValue(kpiId, out var rule))
+                    {
+                        kpiValue.AssessmentStatus = Assess(kpiValue.Value, rule);
+                    }
                 }
             }
 
-
-            // Validate Individual Elements
+            // 2. Validate Individual Elements
             foreach (var element in request.Elements)
             {
-                var elementConfig = config.Elements.FirstOrDefault(e => e.Type == element.Type);
-
-                foreach (var kpi in element.Kpis)
+                if (!configLookup.TryGetValue(element.Type, out var elementKpiRules))
                 {
-                    var rule = elementConfig?.Kpis.GetValueOrDefault(kpi.Key);
+                    _logger.LogDebug("No config rules found for element type: {ElementType}", element.Type);
+                    continue;
+                }
 
-                    // If the rule exists, assess it; otherwise, mark as Undefined
-                    kpi.Value.AssessmentStatus = rule != null ? Assess(kpi.Value.Value, rule) : KPIAssessmentStatus.Undefined;
+                var missingMandatory = elementKpiRules
+                .Where(r => r.Value.IsMandatory && !element.Kpis.ContainsKey(r.Key))
+                .Select(r => r.Key);
 
-                    if (rule == null)
+                foreach (var missingKey in missingMandatory)
+                {
+                    errors.Add($"Element ID '{element.ElementId}' validation error: Missing mandatory KPI '{missingKey}'.");
+                }
+
+                foreach (var (kpiId, kpiValue) in element.Kpis)
+                {
+                    if (elementKpiRules.TryGetValue(kpiId, out var rule))
                     {
-                        _logger.LogDebug("KPI {KpiId} set to Undefined: No configuration found for element {ElementId}", kpi.Key, element.ElementId);
+                        kpiValue.AssessmentStatus = Assess(kpiValue.Value, rule);
+                    }
+                    else
+                    {
+                        kpiValue.AssessmentStatus = KPIAssessmentStatus.Undefined;
+                        _logger.LogDebug("KPI {KpiId} set to Undefined for element {ElementId}", kpiId, element.ElementId);
                     }
                 }
+            }
+
+            if (errors.Any())
+            {
+                return new ValidationGateResult(false, "Mandatory KPIs missing.", 400, errors);
             }
 
             return new ValidationGateResult(true);
@@ -73,21 +95,28 @@ namespace HNTAS.Core.Api.Validators.Arms
                 return KPIAssessmentStatus.OutsideLimit;
             }
 
+            // Handle case where there is no performance threshold to check
+            if (rule.ThresholdRule == null)
+            {
+                return KPIAssessmentStatus.Pass;
+            }
+
             var threshold = rule.ThresholdRule;
             bool metTarget = false;
 
             // 2. Performance Threshold Check
-            switch (threshold.Type.ToLower())
+            // Use StringComparison instead of ToLower for better performance
+            switch (threshold.Type)
             {
-                case "gte": // Greater than or equal to
+                case string t when string.Equals(t, "gte", StringComparison.OrdinalIgnoreCase):
                     metTarget = value >= (threshold.Value ?? threshold.Target ?? 0);
                     break;
 
-                case "lte": // Less than or equal to
+                case string t when string.Equals(t, "lte", StringComparison.OrdinalIgnoreCase):
                     metTarget = value <= (threshold.Value ?? threshold.Target ?? 0);
                     break;
 
-                case "plus_minus": // Within a specific range of a target
+                case string t when string.Equals(t, "plus_minus", StringComparison.OrdinalIgnoreCase):
                     if (threshold.Target.HasValue && threshold.Delta.HasValue)
                     {
                         double lowerTarget = threshold.Target.Value - threshold.Delta.Value;
@@ -96,12 +125,12 @@ namespace HNTAS.Core.Api.Validators.Arms
                     }
                     break;
 
-                case "equal":
-                    metTarget = Math.Abs(value - (threshold.Value ?? 0)) < 0.000001;
+                case string t when string.Equals(t, "equal", StringComparison.OrdinalIgnoreCase):
+                    metTarget = Math.Abs(value - (threshold.Value ?? 0)) < GlobalEpsilon;
                     break;
 
                 default:
-                    _logger.LogWarning("Unknown threshold type: {Type}", threshold.Type);
+                    _logger.LogWarning("Unknown threshold type: {Type} for KPI rule", threshold.Type);
                     metTarget = false;
                     break;
             }

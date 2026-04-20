@@ -19,32 +19,43 @@ namespace HNTAS.Core.Api.Validators.Arms
             var network = await _heatNetworkService.GetByHnIdAsync(networkId);
 
             if (network == null)
+            {
                 return new ValidationGateResult(false, $"Network ID '{networkId}' is not registered.", 404);
+            }
 
-            // Create a dictionary for quick lookup: Key = ID, Value = Type
-            var registeredElements = network.NetworkElements?.Elements
-                .ToDictionary(e => e.ElementId, e => e.Type.ToString());
+            // Safely handle cases where Elements might be null
+            var registeredElements = network.NetworkElements?.Elements?
+                .ToDictionary(e => e.ElementId, e => e.Type.ToString())
+                ?? new Dictionary<string, string>();
 
             var invalidElements = new List<string>();
 
             foreach (var element in elements)
             {
-                // Check if ID exists
+                // 1. Check if ID exists
                 if (!registeredElements.TryGetValue(element.ElementId, out var registeredType))
                 {
-                    invalidElements.Add($"{element.ElementId} (Not found)");
+                    invalidElements.Add($"Element ID '{element.ElementId}' not found.");
                     continue;
                 }
 
-                // Check if Type matches
+                // 2. Check if Type matches
                 if (registeredType != element.Type.ToString())
                 {
-                    invalidElements.Add($"{element.ElementId} (Expected {registeredType}, found {element.Type.ToString()})");
+                    invalidElements.Add($"Element ID '{element.ElementId}' type mismatch: Expected '{registeredType}', but found '{element.Type}'.");
                 }
             }
 
+            // Return the list of errors separately from the summary message
             if (invalidElements.Any())
-                return new ValidationGateResult(false, $"Validation errors: {string.Join(", ", invalidElements)}.");
+            {
+                return new ValidationGateResult(
+                    IsValid: false,
+                    Message: "Registry mismatch detected.", // High-level summary
+                    StatusCode: 400,
+                    Errors: invalidElements // The specific list of mismatches
+                );
+            }
 
             return new ValidationGateResult(true);
         }

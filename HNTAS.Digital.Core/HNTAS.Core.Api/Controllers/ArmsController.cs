@@ -4,6 +4,7 @@ using HNTAS.Core.Api.Common;
 using HNTAS.Core.Api.Configuration;
 using HNTAS.Core.Api.Data.Models.Arms.Configuration;
 using HNTAS.Core.Api.Data.Models.Arms.Submission;
+using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models.Arms;
 using HNTAS.Core.Api.Validators.Arms;
@@ -95,9 +96,50 @@ namespace HNTAS.Core.Api.Controllers
 
                 var submissionId = await _kpiService.CreateOrUpdateSubmissionAsync(dataModel);
 
+                // Extract warnings from individual elements
+                var elementWarnings = dataModel.Elements
+                    .Select(e => new
+                    {
+                        type = e.Type.ToString(),
+                        elementId = e.ElementId,
+                        kpis = e.Kpis
+                            .Where(k => k.Value.AssessmentStatus == KPIAssessmentStatus.Fail ||
+                                        k.Value.AssessmentStatus == KPIAssessmentStatus.OutsideLimit)
+                            .ToDictionary(
+                                k => k.Key,
+                                k => new { value = k.Value.Value, status = k.Value.AssessmentStatus.ToString().ToLower() }
+                            )
+                    })
+                    .Where(e => e.kpis.Any())
+                    .ToList<object>();
+
+                // Add aggregated warnings if any (Optional, based on your requirements)
+                if (dataModel.ConsumerConnectionAggregatedKpis != null)
+                {
+                    var aggWarnings = dataModel.ConsumerConnectionAggregatedKpis
+                        .Where(k => k.Value.AssessmentStatus == KPIAssessmentStatus.Fail ||
+                                    k.Value.AssessmentStatus == KPIAssessmentStatus.OutsideLimit)
+                        .ToDictionary(
+                            k => k.Key,
+                            k => new { value = k.Value.Value, status = k.Value.AssessmentStatus.ToString().ToLower() }
+                        );
+
+                    if (aggWarnings.Any())
+                    {
+                        elementWarnings.Insert(0, new
+                        {
+                            type = "Aggregated",
+                            elementId = "N/A",
+                            kpis = aggWarnings
+                        });
+                    }
+                }
+
                 return Ok(new
                 {
-                    submission_id = submissionId
+                    submission_id = submissionId,
+                    message = elementWarnings.Any() ? "Submission accepted, but some items require review." : "Submission accepted successfully.",
+                    warnings = elementWarnings
                 });
             }
             catch (MongoException ex)

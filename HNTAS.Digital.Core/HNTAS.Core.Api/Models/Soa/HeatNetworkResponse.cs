@@ -13,7 +13,7 @@ namespace HNTAS.Core.Api.Models.Soa
         public ECDetails ECDetails { get; set; } = null!;
         public RegisteredAddress? Address { get; set; }
         public string Name { get; set; } = null!;
-        public string? HnDescription { get; set; } = null!;
+        public string? AdditionalDescription { get; set; }
         public string Pathway { get; set; } = null!;
         public SoaResponse? Soa { get; set; }
         public string CreatedBy { get; set; } = null!;

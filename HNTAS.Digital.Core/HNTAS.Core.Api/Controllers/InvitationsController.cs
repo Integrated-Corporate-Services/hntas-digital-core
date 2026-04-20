@@ -141,7 +141,7 @@ namespace HNTAS.Core.Api.Controllers
 
 
                 if (request.ReplacedUserId != null && !(request.RolesToReplace.Contains(ContributorRole.ResponsiblePerson)
-                    || request.RolesToReplace.Contains(ContributorRole.Coordinator)))
+                    || request.RolesToReplace.Contains(ContributorRole.NetworkManager)))
                 {
                     var userToUpdate = await _userService.GetByIdAsync(request.ReplacedUserId);
                     if (userToUpdate != null)

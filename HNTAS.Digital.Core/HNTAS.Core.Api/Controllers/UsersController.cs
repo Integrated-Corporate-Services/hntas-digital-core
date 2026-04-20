@@ -793,13 +793,13 @@ public class UsersController : ControllerBase
             var sourceUser = invitedUsersDetail.FirstOrDefault(x => x.Id == ruser.Id);
             ruser.HeatNetworks = MapHeatNetworks(sourceUser);
         }
-        var coordinatorRoleName = UserRole.Coordinator.ToString();
+        var coordinatorRoleName = UserRole.NetworkManager.ToString();
         if (registeredUsers != null && registeredUsers.Any())
         {
             // Exclude the responsible user
             registeredUsers = registeredUsers.Where(ru => ru.EmailId != user.EmailId).ToList();
 
-            // If only network manager are required, include only registered users who have the Coordinator role.
+            // If only network manager are required, include only registered users who have the NetworkManager role.
             if (networkManagersOnly)
             {
                 registeredUsers = registeredUsers
@@ -993,7 +993,7 @@ public class UsersController : ControllerBase
             { ContributorRole.ContributingOperator, UserRole.Contributor },
             { ContributorRole.Assessor, UserRole.Assessor },
             { ContributorRole.Certifier, UserRole.Certifier },
-            { ContributorRole.Coordinator, UserRole.Coordinator },
+            { ContributorRole.NetworkManager, UserRole.NetworkManager },
             { ContributorRole.ResponsiblePerson, UserRole.ResponsiblePerson }
     };
 
@@ -1027,7 +1027,7 @@ public class UsersController : ControllerBase
         // Define the roles that grant access to the Organisation's full HeatNetwork list
         var rolesGrantingFullAccess = new List<UserRole> {
            UserRole.ResponsiblePerson,
-           UserRole.Coordinator
+           UserRole.NetworkManager
         };
 
         // 1. Check for specific Heat Network role mappings (Highest Priority).
@@ -1041,7 +1041,7 @@ public class UsersController : ControllerBase
 
         if (hasFullAccessRole)
         {
-            // If the user is RP or Coordinator, assign ALL heat networks from the organization.
+            // If the user is RP or NetworkManager, assign ALL heat networks from the organization.
             if (src.Organisation != null && src.Organisation.HeatNetworks != null)
             {
                 return src.Organisation.HeatNetworks.ToList();

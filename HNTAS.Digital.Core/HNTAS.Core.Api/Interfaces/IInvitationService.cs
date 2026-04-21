@@ -18,5 +18,6 @@ namespace HNTAS.Core.Api.Interfaces
 
         Task ExecuteRoleSwapAsync(User invitedUser, User? replacedUser, Invitation invitation);
         Task<Invitation> GetByInvitedDetailsAsync(string invitedEmailId, string invitedHnId, ContributorRole invitedRole);
+        Task<List<Invitation>> GetByEmailsAndHnIdAsync(List<string> invitedEmails, string hnId);
     }
 }

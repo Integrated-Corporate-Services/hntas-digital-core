@@ -1,24 +1,19 @@
 ﻿using HNTAS.Core.Api.Enums;
-using MongoDB.Bson;
-using MongoDB.Bson.Serialization.Attributes;
 using System.Text.Json.Serialization;
 
-namespace HNTAS.Core.Api.Data.Models.Arms.Submission
+namespace HNTAS.Core.Api.Models.Arms
 {
     [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
-    public class NetworkElement
+    public class NetworkElementRequest
     {
-        [BsonElement("elementId")]
+        [JsonPropertyName("elementId")]
         public required string ElementId { get; set; }
 
         [JsonPropertyName("type")]
-        [BsonElement("type")]
         [JsonConverter(typeof(JsonStringEnumConverter))]
-        [BsonRepresentation(BsonType.String)]
         public required HeatNetworkElementType Type { get; set; }
 
         [JsonPropertyName("kpis")]
-        [BsonElement("kpis")]
-        public Dictionary<string, KpiValue> Kpis { get; set; } = new();
+        public Dictionary<string, KpiValueRequest> Kpis { get; set; } = new();
     }
 }

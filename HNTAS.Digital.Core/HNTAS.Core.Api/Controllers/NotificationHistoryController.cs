@@ -13,11 +13,13 @@ namespace HNTAS.Core.Api.Controllers
     {
         private readonly ILogger<NotificationHistoryController> _logger;
         private readonly INotificationHistoryService _notificationHistoryService;
+        private readonly IUserService _userService;
 
-        public NotificationHistoryController(ILogger<NotificationHistoryController> logger, INotificationHistoryService notificationHistoryService)
+        public NotificationHistoryController(ILogger<NotificationHistoryController> logger, INotificationHistoryService notificationHistoryService, IUserService userService)
         {
             _logger = logger;
             _notificationHistoryService = notificationHistoryService;
+            _userService = userService;
         }
         [HttpGet("notification-history")]
         [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(NotificationHistoryResponse))]
@@ -27,8 +29,10 @@ namespace HNTAS.Core.Api.Controllers
             try
             {
                 _logger.LogInformation("Retrieving Notification history for the user: {userId}", request.UserId);
+                var currentUser = await _userService.GetByIdAsync(request.UserId!);
+                var currentUserRoles = currentUser.Roles.FirstOrDefault();
 
-                var result = await _notificationHistoryService.GetNotificationHistory(request);
+                var result = await _notificationHistoryService.GetNotificationHistory(request, currentUserRoles);
 
                 if (result is null)
                 {

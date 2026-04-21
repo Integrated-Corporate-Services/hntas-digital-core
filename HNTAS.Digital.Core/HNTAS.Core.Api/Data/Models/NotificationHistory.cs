@@ -41,9 +41,7 @@ namespace HNTAS.Core.Api.Data.Models
     }    
 
     public static class NotificationHistoryActions
-    {
-        public const string YourHeatNetworks = "Your heat networks";
-        public const string NetworkElementsAdded = "Network elements added";
+    {        
         public const string NetworkManagers = "Network managers";
         public const string DDHAndContributors = "DDH and contributors";
         public const string HeatNetworkDetails = "Heat network details";

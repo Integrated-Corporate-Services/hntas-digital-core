@@ -800,13 +800,13 @@ public class UsersController : ControllerBase
             var sourceUser = invitedUsersDetail.FirstOrDefault(x => x.Id == ruser.Id);
             ruser.HeatNetworks = MapHeatNetworks(sourceUser);
         }
-        var coordinatorRoleName = UserRole.Coordinator.ToString();
+        var coordinatorRoleName = UserRole.NetworkManager.ToString();
         if (registeredUsers != null && registeredUsers.Any())
         {
             // Exclude the responsible user
             registeredUsers = registeredUsers.Where(ru => ru.EmailId != user.EmailId).ToList();
 
-            // If only network manager are required, include only registered users who have the Coordinator role.
+            // If only network manager are required, include only registered users who have the NetworkManager role.
             if (networkManagersOnly)
             {
                 registeredUsers = registeredUsers
@@ -1000,7 +1000,7 @@ public class UsersController : ControllerBase
             { ContributorRole.ContributingOperator, UserRole.Contributor },
             { ContributorRole.Assessor, UserRole.Assessor },
             { ContributorRole.Certifier, UserRole.Certifier },
-            { ContributorRole.Coordinator, UserRole.Coordinator },
+            { ContributorRole.NetworkManager, UserRole.NetworkManager },
             { ContributorRole.ResponsiblePerson, UserRole.ResponsiblePerson }
     };
 
@@ -1034,7 +1034,7 @@ public class UsersController : ControllerBase
         // Define the roles that grant access to the Organisation's full HeatNetwork list
         var rolesGrantingFullAccess = new List<UserRole> {
            UserRole.ResponsiblePerson,
-           UserRole.Coordinator
+           UserRole.NetworkManager
         };
 
         // 1. Check for specific Heat Network role mappings (Highest Priority).
@@ -1048,7 +1048,7 @@ public class UsersController : ControllerBase
 
         if (hasFullAccessRole)
         {
-            // If the user is RP or Coordinator, assign ALL heat networks from the organization.
+            // If the user is RP or NetworkManager, assign ALL heat networks from the organization.
             if (src.Organisation != null && src.Organisation.HeatNetworks != null)
             {
                 return src.Organisation.HeatNetworks.ToList();
@@ -1142,7 +1142,7 @@ public class UsersController : ControllerBase
     private async Task NotificationHistoryForAcceptingInvite(Invitation invitation, User user, HeatNetwork heatNetwork)
     {
         var invitedRole = invitation.InvitedRoles.FirstOrDefault();
-        var eligibleRoles = new List<string>() { UserRole.ResponsiblePerson.ToString() };
+        var eligibleRoles = new List<string>() { ContributorRole.ResponsiblePerson.ToString() };
         var subject = string.Empty;
         var action = string.Empty;
         var description = string.Empty;
@@ -1150,7 +1150,7 @@ public class UsersController : ControllerBase
         var actorIds = new List<string>() { invitation.InviterUserId };
         var heatNetworkName = heatNetwork != null ? heatNetwork.Name : "";
 
-        if (invitedRole == ContributorRole.Coordinator)
+        if (invitedRole == ContributorRole.NetworkManager)
         {
             subject = NotificationHistorySubjects.NetworkManagerJoined;
             action = NotificationHistoryActions.NetworkManagers;
@@ -1159,7 +1159,7 @@ public class UsersController : ControllerBase
         }
         else if (invitedRole == ContributorRole.DesignatedDesigner)
         {
-            eligibleRoles.Add(UserRole.Coordinator.ToString());
+            eligibleRoles.Add(ContributorRole.NetworkManager.ToString());
             subject = NotificationHistorySubjects.DesignatedDesignerJoined;
             action = NotificationHistoryActions.DDHAndContributors;
             description = $"{user.FirstName} {user.LastName} joined {invitation.InvitedHnId}-{heatNetworkName}";
@@ -1167,7 +1167,7 @@ public class UsersController : ControllerBase
         }
         else if (invitedRole == ContributorRole.DesignatedContractor)
         {
-            eligibleRoles.Add(UserRole.Coordinator.ToString());
+            eligibleRoles.Add(ContributorRole.NetworkManager.ToString());
             subject = NotificationHistorySubjects.DesignatedContractorJoined;
             action = NotificationHistoryActions.DDHAndContributors;
             description = $"{user.FirstName} {user.LastName} joined {invitation.InvitedHnId}-{heatNetworkName}";
@@ -1175,7 +1175,7 @@ public class UsersController : ControllerBase
         }
         else if (invitedRole == ContributorRole.DesignatedOperator)
         {
-            eligibleRoles.Add(UserRole.Coordinator.ToString());
+            eligibleRoles.Add(ContributorRole.NetworkManager.ToString());
             subject = NotificationHistorySubjects.DesignatedOperatorJoined;
             action = NotificationHistoryActions.DDHAndContributors;
             description = $"{user.FirstName} {user.LastName} joined {invitation.InvitedHnId}-{heatNetworkName}";
@@ -1183,11 +1183,16 @@ public class UsersController : ControllerBase
         }
         else if (invitedRole == ContributorRole.ContributingDesigner)
         {
-            //TODO: Get the invitor user id from the invitation based on email id, hnid and status and invited role
-            var ddhInvitor = await _invitationService.GetByInvitedDetailsAsync(user.EmailId, invitation.InvitedHnId!, invitedRole);
-            actorIds.Add(ddhInvitor?.InviterUserId!);
-            eligibleRoles.Add(UserRole.Coordinator.ToString());
-            eligibleRoles.Add(UserRole.DesignatedDutyHolder.ToString());
+            // Get emailId by userId from user service
+            var invitorDetailsOfDdh = await _userService.GetByIdAsync(invitation.InviterUserId);
+            var role = invitorDetailsOfDdh.HnRoleMappings.Where(mapping => mapping.HnId == invitation.InvitedHnId).Select(mapping => mapping.Role).FirstOrDefault();
+
+            var invitorOfDdh = await _invitationService.GetByInvitedDetailsAsync(invitorDetailsOfDdh.EmailId, invitation.InvitedHnId!, role);
+
+            if (invitorOfDdh != null)
+                actorIds.Add(invitorOfDdh?.InviterUserId!);
+            eligibleRoles.Add(ContributorRole.NetworkManager.ToString());
+            eligibleRoles.Add(ContributorRole.DesignatedDesigner.ToString());
             subject = NotificationHistorySubjects.ContributingDesignerJoined;
             action = NotificationHistoryActions.DDHAndContributors;
             description = $"{user.FirstName} {user.LastName} joined {invitation.InvitedHnId}-{heatNetworkName}";
@@ -1195,11 +1200,15 @@ public class UsersController : ControllerBase
         }
         else if (invitedRole == ContributorRole.ContributingContractor)
         {
-            //TODO: Get the invitor user id from the invitation based on email id, hnid and status and invited role
-            var ddhInvitor = await _invitationService.GetByInvitedDetailsAsync(user.EmailId, invitation.InvitedHnId!, invitedRole);
-            actorIds.Add(ddhInvitor?.InviterUserId!);
-            eligibleRoles.Add(UserRole.Coordinator.ToString());
-            eligibleRoles.Add(UserRole.DesignatedDutyHolder.ToString());
+            var invitorDetailsOfDdh = await _userService.GetByIdAsync(invitation.InviterUserId);
+            var role = invitorDetailsOfDdh.HnRoleMappings.Where(mapping => mapping.HnId == invitation.InvitedHnId).Select(mapping => mapping.Role).FirstOrDefault();
+
+            var invitorOfDdh = await _invitationService.GetByInvitedDetailsAsync(invitorDetailsOfDdh.EmailId, invitation.InvitedHnId!, role);
+
+            if (invitorOfDdh != null)
+                actorIds.Add(invitorOfDdh?.InviterUserId!);
+            eligibleRoles.Add(ContributorRole.NetworkManager.ToString());
+            eligibleRoles.Add(ContributorRole.DesignatedContractor.ToString());
             subject = NotificationHistorySubjects.ContributingContractorJoined;
             action = NotificationHistoryActions.DDHAndContributors;
             description = $"{user.FirstName} {user.LastName} joined {invitation.InvitedHnId}-{heatNetworkName}";
@@ -1207,11 +1216,15 @@ public class UsersController : ControllerBase
         }
         else if (invitedRole == ContributorRole.ContributingOperator)
         {
-            //TODO: Get the invitor user id from the invitation based on email id, hnid and status and invited role
-            var ddhInvitor = await _invitationService.GetByInvitedDetailsAsync(invitation.InvitedEmail, invitation.InvitedHnId!, invitedRole);
-            actorIds.Add(ddhInvitor?.InviterUserId!);
-            eligibleRoles.Add(UserRole.Coordinator.ToString());
-            eligibleRoles.Add(UserRole.DesignatedDutyHolder.ToString());
+            var invitorDetailsOfDdh = await _userService.GetByIdAsync(invitation.InviterUserId);
+            var role = invitorDetailsOfDdh.HnRoleMappings.Where(mapping => mapping.HnId == invitation.InvitedHnId).Select(mapping => mapping.Role).FirstOrDefault();
+
+            var invitorOfDdh = await _invitationService.GetByInvitedDetailsAsync(invitorDetailsOfDdh.EmailId, invitation.InvitedHnId!, role);
+
+            if (invitorOfDdh != null)
+                actorIds.Add(invitorOfDdh?.InviterUserId!);
+            eligibleRoles.Add(ContributorRole.NetworkManager.ToString());
+            eligibleRoles.Add(ContributorRole.DesignatedOperator.ToString());
             subject = NotificationHistorySubjects.ContributingOperatorJoined;
             action = NotificationHistoryActions.DDHAndContributors;
             description = $"{user.FirstName} {user.LastName} joined {invitation.InvitedHnId}-{heatNetworkName}";

@@ -13,10 +13,10 @@ namespace HNTAS.Core.Api.Enums
         ResponsiblePerson = 1,
 
         /// <summary>
-        /// Represents a HNTAS Coordinator role.
+        /// Represents a Network Manager role.
         /// </summary>
-        [Description("HNTAS Coordinator")]
-        Coordinator = 2,
+        [Description("Network Manager")]
+        NetworkManager = 2,
 
         /// <summary>
         /// Represents a Designated Duty Holder user role.

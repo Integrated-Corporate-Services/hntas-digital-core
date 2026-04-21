@@ -23,7 +23,8 @@ namespace HNTAS.Core.Api.Controllers
         private readonly IUserService _userService;
         private readonly IAuditService _auditService;
         private readonly INotificationHistoryService _notificationHistoryService;
-        public SOAController(ISoaService soaProjectService, ILogger<SOAController> logger, IEmailService emailService, IHeatNetworkService heatNetworkService, IUserService userService, IAuditService auditService, INotificationHistoryService notificationHistoryService)
+        private readonly IInvitationService _invitationService;
+        public SOAController(ISoaService soaProjectService, ILogger<SOAController> logger, IEmailService emailService, IHeatNetworkService heatNetworkService, IUserService userService, IAuditService auditService, INotificationHistoryService notificationHistoryService, IInvitationService invitationService)
         {
             _soaService = soaProjectService;
             _logger = logger;
@@ -32,6 +33,7 @@ namespace HNTAS.Core.Api.Controllers
             _userService = userService;
             _auditService = auditService;
             _notificationHistoryService = notificationHistoryService;
+            _invitationService = invitationService;
         }
 
 
@@ -630,9 +632,22 @@ namespace HNTAS.Core.Api.Controllers
 
         private async Task NotificationHistoryForAssigningAssessor(ElementSoaAssignAssessorRequest request, HeatNetwork heatNetwork)
         {
+            var users = await _userService.GetUsersAssociatedByHnIdAsync(request.HnId);
+            // get distinct user emailIds from the list of users
+            var emailIds = users.Select(u => u.EmailId).Distinct().ToList();
+            var userIds = users.Select(u => u.Id).Distinct().ToList();
+
+            var acceptedInvitations = await _invitationService.GetByEmailsAndHnIdAsync(emailIds, request.HnId);
+            var invitorUserIds = acceptedInvitations.Select(i => i.InviterUserId).Distinct().ToList();
+
+            // merge userIds and invitorUserIds and get distinct list of userIds to be notified
+            var actors = userIds.Union(invitorUserIds).Distinct().ToList();
+            // check if request.UpdatedBy is in actors list, if not add to the list
+            actors = actors.Contains(request.UpdatedBy) ? actors : actors.Append(request.UpdatedBy).ToList();
+
             var description = $"{request.AssessorFirstName} {request.AssessorLastName} Assigned to {heatNetwork.HnId}-{heatNetwork.Name}";
             var eligibleRoles = new List<string> { ContributorRole.ResponsiblePerson.ToString()
-                , ContributorRole.Coordinator.ToString(),
+                , ContributorRole.NetworkManager.ToString(),
                 ContributorRole.DesignatedDesigner.ToString(),
                 ContributorRole.DesignatedContractor.ToString(),
                 ContributorRole.DesignatedOperator.ToString(),
@@ -642,7 +657,7 @@ namespace HNTAS.Core.Api.Controllers
             var notificationHistory = new NotificationHistory
             {
                 NotificationType = NotificationHistoryType.AssessorAssignsToHeatNetwork,
-                ActorsId = new List<string> { request.UpdatedBy },
+                ActorsId = actors!,
                 Subject = NotificationHistorySubjects.AssessorAssignedToHN,
                 Description = description,
                 Timestamp = DateTime.UtcNow,

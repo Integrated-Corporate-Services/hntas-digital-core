@@ -321,7 +321,7 @@ namespace HNTAS.Core.Api.Controllers
             else
             {                
                 eligibleRoles.Add(UserRole.ResponsiblePerson.ToString());
-                eligibleRoles.Add(UserRole.Coordinator.ToString());
+                eligibleRoles.Add(UserRole.NetworkManager.ToString());
                 notificationType = NotificationHistoryType.NetworkManagerRegistersHeatNetwork;
             }
             var notificationHistory = new NotificationHistory
@@ -331,9 +331,9 @@ namespace HNTAS.Core.Api.Controllers
                 Subject = subject,
                 Description = description,
                 Timestamp = DateTime.UtcNow,
-                Action = NotificationHistoryActions.YourHeatNetworks,
+                Action = NotificationHistoryActions.HeatNetworkDetails,
                 EligibleRoles = eligibleRoles,
-                HeatNetworkId = heatNetwork.Id,
+                HeatNetworkId = heatNetwork.HnId,
                 CreatedBy = user.Id
             };
     

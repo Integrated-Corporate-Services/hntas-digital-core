@@ -1,6 +1,7 @@
 ﻿using HNTAS.Core.Api.Configuration;
 using HNTAS.Core.Api.Constants;
 using HNTAS.Core.Api.Data.Models;
+using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
@@ -31,18 +32,22 @@ namespace HNTAS.Core.Api.Services
             _logger.LogInformation("Notification history inserted...");
         }
 
-        public async Task<NotificationHistoryResponse> GetNotificationHistory(NotificationHistoryRequest notificatoinHistoryRequest)
+        public async Task<NotificationHistoryResponse> GetNotificationHistory(NotificationHistoryRequest notificatoinHistoryRequest, UserRole role)
         {
             try
             {
-                var filter = Builders<NotificationHistory>.Filter.AnyEq(nh => nh.ActorsId, notificatoinHistoryRequest.UserId);
+                var filter = Builders<NotificationHistory>.Filter.Empty;
+                if (role != UserRole.ResponsiblePerson)
+                {
+                    filter = Builders<NotificationHistory>.Filter.AnyEq(nh => nh.ActorsId, notificatoinHistoryRequest.UserId);
+                }                    
 
                 var totalCount = await _notificationHistoryCollection.CountDocumentsAsync(filter);
 
                 var sortDirection = notificatoinHistoryRequest.SortDirection?.ToLowerInvariant() ?? "desc";
                 var sort = sortDirection == "desc"
-                    ? Builders<NotificationHistory>.Sort.Descending(notificatoinHistoryRequest.SortBy ?? "CreatedAt")
-                    : Builders<NotificationHistory>.Sort.Ascending(notificatoinHistoryRequest.SortBy ?? "CreatedAt");
+                    ? Builders<NotificationHistory>.Sort.Descending(notificatoinHistoryRequest.SortBy ?? "timestamp")
+                    : Builders<NotificationHistory>.Sort.Ascending(notificatoinHistoryRequest.SortBy ?? "timestamp");
 
                 var notificationHistories = await _notificationHistoryCollection
                     .Find(filter)

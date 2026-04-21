@@ -63,6 +63,13 @@ namespace HNTAS.Core.Api.Services
               .SortByDescending(invitation => invitation.InvitedAt)
               .FirstOrDefaultAsync();
 
+        public async Task<List<Invitation>> GetByEmailsAndHnIdAsync(List<string> invitedEmails, string hnId) =>
+             await _invitationsCollection
+                .Find(invitation =>
+                    invitedEmails.Contains(invitation.InvitedEmail) &&
+                    invitation.InvitedHnId == hnId &&
+                    invitation.Status == Enums.InvitationStatus.Accepted)                
+                .ToListAsync();
 
         public async Task<List<ManagedUserResponse>> GetInvitedUsersAsRegisteredAsync(string inviterUserId)
         {

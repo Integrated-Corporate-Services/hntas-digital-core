@@ -10,9 +10,9 @@ namespace HNTAS.Core.Api.Models.Arms
         public required KpiMetadata MetaData { get; set; }
 
         [JsonPropertyName("consumer_connection_aggregated_kpis")]
-        public Dictionary<string, KpiValueAggregated>? ConsumerConnectionAggregatedKpis { get; set; }
+        public Dictionary<string, KpiValueAggregatedRequest>? ConsumerConnectionAggregatedKpis { get; set; }
 
         [JsonPropertyName("elements")]
-        public List<NetworkElement> Elements { get; set; } = new();
+        public List<NetworkElementRequest> Elements { get; set; } = new();
     }
 }

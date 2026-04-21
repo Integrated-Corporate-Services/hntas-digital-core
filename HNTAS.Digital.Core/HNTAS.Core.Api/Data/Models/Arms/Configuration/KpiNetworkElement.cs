@@ -10,7 +10,7 @@ namespace HNTAS.Core.Api.Data.Models.Arms.Configuration
         [JsonPropertyName("type")]
         [BsonElement("type")]
         [BsonRepresentation(BsonType.String)]
-        public ElementType Type { get; set; }
+        public HeatNetworkElementType Type { get; set; }
 
         [JsonPropertyName("kpis")]
         [BsonElement("kpis")]

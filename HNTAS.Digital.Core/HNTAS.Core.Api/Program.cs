@@ -6,6 +6,7 @@ using HNTAS.Core.Api.MappingProfiles;
 using HNTAS.Core.Api.Services;
 using HNTAS.Core.Api.Validators.Arms;
 using HNTAS.Core.Api.Validators.Extensions;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 
@@ -22,6 +23,16 @@ builder.Services.Configure<AWSDocDbSettings>(
 builder.Services.Configure<HntasServiceSettings>(
     builder.Configuration.GetSection("HntasService"));
 
+builder.Services.AddControllers()
+.ConfigureApiBehaviorOptions(options =>
+{
+    options.ClientErrorMapping[StatusCodes.Status400BadRequest].Link = null;
+    options.ClientErrorMapping[StatusCodes.Status404NotFound].Link = null;
+    options.ClientErrorMapping[StatusCodes.Status500InternalServerError].Link = null;
+    options.ClientErrorMapping[StatusCodes.Status503ServiceUnavailable].Link = null;
+    // This stops the RFC link from appearing for 400 errors
+});
+
 // Register AutoMapper and scan for profiles
 builder.Services.AddAutoMapper(typeof(UserMappingProfile).Assembly);
 
@@ -37,6 +48,8 @@ builder.Services.AddSingleton<ICountryAndTerritoryService, CountryAndTerritorySe
 builder.Services.AddSingleton<IAssessorService, AssessorService>();
 builder.Services.AddSingleton<IAuditService, AuditService>();
 builder.Services.AddScoped<IArmsKpiService, ArmsKpiService>();
+builder.Services.AddScoped<IKpiRuleValidator, KpiRuleValidator>();
+builder.Services.AddScoped<IHeatNetworkValidator, HeatNetworkValidator>();
 
 //Data Migrations
 builder.Services.AddScoped<IDataMigration, SeedCountriesAndTerritories>();
@@ -45,6 +58,9 @@ builder.Services.AddScoped<IDataMigration, SeedAssessors>();
 
 builder.Services.Configure<AWSDocDbSettings>(
     builder.Configuration.GetSection("AWSDocDbSettings"));
+
+builder.Services.Configure<ArmsSettings>(
+    builder.Configuration.GetSection("ArmsSettings"));
 
 builder.Services.AddSingleton<IMongoClient>(sp =>
 {
@@ -79,6 +95,62 @@ builder.Services.AddControllers().AddJsonOptions(options =>
 {
     options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
 });
+
+builder.Services.AddControllers()
+    .ConfigureApiBehaviorOptions(options =>
+    {
+        options.InvalidModelStateResponseFactory = context =>
+        {
+            var problemErrors = new Dictionary<string, string[]>();
+
+            foreach (var entry in context.ModelState)
+            {
+                // 1. Skip the internal "request" parameter error
+                if (entry.Key.Equals("request", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var errorMessages = entry.Value.Errors.Select(e =>
+                {
+                    // 2. Handle the Unmapped Member error (as we did before)
+                    if (e.ErrorMessage.Contains("could not be mapped to any .NET member"))
+                    {
+                        return "Unknown or unexpected property detected in the JSON request.";
+                    }
+                    return e.ErrorMessage;
+                }).ToArray();
+
+                if (errorMessages.Any())
+                {
+                    // 3. Clean up the key names (e.g., "meta_data.prop" instead of "$.meta_data.prop")
+                    var cleanKey = entry.Key.Replace("$.", "");
+                    problemErrors.Add(cleanKey, errorMessages);
+                }
+            }
+
+            // 4. If the only error was a missing body, provide a clear top-level message
+            if (!problemErrors.Any() && !context.ModelState.IsValid)
+            {
+                return new BadRequestObjectResult(new ProblemDetails
+                {
+                    Title = "Bad Request",
+                    Status = StatusCodes.Status400BadRequest,
+                    Detail = "The request body is missing, empty, or not a valid JSON object."
+                });
+            }
+
+            var problemDetails = new ValidationProblemDetails(problemErrors)
+            {
+                Title = "Invalid Request Structure",
+                Status = StatusCodes.Status400BadRequest,
+                Detail = "The submission contains properties that are not part of the HNTAS schema.",
+                Instance = context.HttpContext.Request.Path
+            };
+
+            return new BadRequestObjectResult(problemDetails);
+        };
+    });
 
 // Ensure FluentValidation uses JSON property names in error messages
 builder.Services.UseJsonPropertyNames();

@@ -558,7 +558,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
                 InvitedOrgId = "org-99",
                 ReplacedUserId = "old-rp-id",
                 InvitedRoles = new List<ContributorRole> { ContributorRole.ResponsiblePerson },
-                RolesToReplace = new List<ContributorRole> { ContributorRole.Coordinator }
+                RolesToReplace = new List<ContributorRole> { ContributorRole.NetworkManager }
             };
 
             var newUser = new User { Id = "user-new", OneLoginId = "new-rp-login" };

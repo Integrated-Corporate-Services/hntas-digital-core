@@ -142,19 +142,19 @@ namespace HNTAS.Core.Api.Services
                         }
                     }
 
-                    // PRIORITY 2: If no specific mapping, check for "Full Access" Org roles (RP or Coordinator)
+                    // PRIORITY 2: If no specific mapping, check for "Full Access" Org roles (RP or NetworkManager)
                     if (!foundSpecificMapping && userDoc.Contains("roles") && userDoc["roles"].IsBsonArray)
                     {
                         var globalRoles = userDoc["roles"].AsBsonArray.Select(r => r.AsString).ToList();
 
-                        // Check for Responsible Person first, then Coordinator
+                        // Check for Responsible Person first, then NetworkManager
                         if (globalRoles.Contains(UserRole.ResponsiblePerson.ToString()))
                         {
                             roleDescription = UserRole.ResponsiblePerson.GetDescription();
                         }
-                        else if (globalRoles.Contains(UserRole.Coordinator.ToString()))
+                        else if (globalRoles.Contains(UserRole.NetworkManager.ToString()))
                         {
-                            roleDescription = UserRole.Coordinator.GetDescription();
+                            roleDescription = UserRole.NetworkManager.GetDescription();
                         }
                     }
                 }

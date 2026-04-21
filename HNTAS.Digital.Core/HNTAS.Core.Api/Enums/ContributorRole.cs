@@ -22,8 +22,8 @@ namespace HNTAS.Core.Api.Enums
         Assessor = 7,
         [Description("Certifier")]
         Certifier = 8,
-        [Description("HNTAS Coordinator")]
-        Coordinator = 9,
+        [Description("Network Manager")]
+        NetworkManager = 9,
         [Description("Responsible Person")]
         ResponsiblePerson = 10
     }

@@ -25,11 +25,13 @@ namespace HNTAS.Core.Api.MappingProfiles
                     src.Elements.Select(kvp => new KpiNetworkElement
                     {
                         // Converts string "EnergyCentre" back to ElementType.EnergyCentre
-                        Type = Enum.Parse<ElementType>(kvp.Key, true),
+                        Type = Enum.Parse<HeatNetworkElementType>(kvp.Key, true),
                         Kpis = kvp.Value
                     }).ToList()));
 
             CreateMap<KpiSubmissionRequest, KpiSubmission>();
+            CreateMap<NetworkElementRequest, NetworkElement>();
+            CreateMap<KpiValueRequest, KpiValue>();
         }
     }
 }

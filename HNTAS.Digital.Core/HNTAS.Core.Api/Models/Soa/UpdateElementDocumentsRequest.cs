@@ -6,7 +6,7 @@ namespace HNTAS.Core.Api.Models.Soa
     public class UpdateElementDocumentsRequest
     {
         public string HnId { get; set; } = null!;
-        public HeatNetworkElementDisplayType ElementType { get; set; }
+        public HeatNetworkElementType ElementType { get; set; }
         public string UpdatedBy { get; set; } = null!;
         public List<UploadedDocument> Documents { get; set; } = [];
     }

@@ -28,7 +28,7 @@ namespace HNTAS.Core.Api.Controllers
         {
             try
             {
-                _logger.LogInformation("Retrieving Notification history for the user: {userId}", request.UserId);
+                _logger.LogInformation("Retrieving Notification history for the user: {userId}", StringFormatter.Sanitize(request.UserId!));
                 var currentUser = await _userService.GetByIdAsync(request.UserId!);
                 var currentUserRoles = currentUser.Roles.FirstOrDefault();
 
@@ -36,11 +36,11 @@ namespace HNTAS.Core.Api.Controllers
 
                 if (result is null)
                 {
-                    _logger.LogWarning("Notification history(s) are not found for the user: {userId}", request.UserId);
+                    _logger.LogWarning("Notification history(s) are not found for the user: {userId}", StringFormatter.Sanitize(request.UserId!));
                     return NotFound();
                 }
 
-                _logger.LogInformation("Notification history(s) are retrieved successfully for the user: {userId}", request.UserId);
+                _logger.LogInformation("Notification history(s) are retrieved successfully for the user: {userId}", StringFormatter.Sanitize(request.UserId!));
                 return Ok(result);
             }
             catch (Exception ex)

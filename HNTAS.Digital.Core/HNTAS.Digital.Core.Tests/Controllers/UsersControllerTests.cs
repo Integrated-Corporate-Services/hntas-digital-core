@@ -25,6 +25,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
         private readonly UsersController _controller;
         private readonly Mock<IHeatNetworkService> _mockHeatNetworkService;
         private readonly Mock<IAuditService> _mockAuditService;
+        private readonly Mock<INotificationHistoryService> _mockNotificationHistoryService;
 
         public UsersControllerTests()
         {
@@ -37,6 +38,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             _mockEmailService = new Mock<IEmailService>();
             _mockHeatNetworkService = new Mock<IHeatNetworkService>();
             _mockAuditService = new Mock<IAuditService>();
+            _mockNotificationHistoryService = new Mock<INotificationHistoryService>();
 
             _controller = new UsersController(
                 _mockUserService.Object,
@@ -47,7 +49,8 @@ namespace HNTAS.Digital.Core.Tests.Controllers
                 _mockMapper.Object,
                 _mockEmailService.Object,
                 _mockHeatNetworkService.Object,
-                _mockAuditService.Object
+                _mockAuditService.Object,
+                _mockNotificationHistoryService.Object
             );
         }
 

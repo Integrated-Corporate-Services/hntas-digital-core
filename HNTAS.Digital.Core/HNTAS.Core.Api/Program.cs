@@ -48,6 +48,7 @@ builder.Services.AddSingleton<ICountryAndTerritoryService, CountryAndTerritorySe
 builder.Services.AddSingleton<IAssessorService, AssessorService>();
 builder.Services.AddSingleton<IAuditService, AuditService>();
 builder.Services.AddScoped<IArmsKpiService, ArmsKpiService>();
+builder.Services.AddScoped<INotificationHistoryService, NotificationHistoryService>();
 builder.Services.AddScoped<IKpiRuleValidator, KpiRuleValidator>();
 builder.Services.AddScoped<IHeatNetworkValidator, HeatNetworkValidator>();
 

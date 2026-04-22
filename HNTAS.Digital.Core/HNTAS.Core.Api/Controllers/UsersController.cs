@@ -1183,14 +1183,7 @@ public class UsersController : ControllerBase
         }
         else if (invitedRole == ContributorRole.ContributingDesigner)
         {
-            // Get emailId by userId from user service
-            var invitorDetailsOfDdh = await _userService.GetByIdAsync(invitation.InviterUserId);
-            var role = invitorDetailsOfDdh.HnRoleMappings.Where(mapping => mapping.HnId == invitation.InvitedHnId).Select(mapping => mapping.Role).FirstOrDefault();
-
-            var invitorOfDdh = await _invitationService.GetByInvitedDetailsAsync(invitorDetailsOfDdh.EmailId, invitation.InvitedHnId!, role);
-
-            if (invitorOfDdh != null)
-                actorIds.Add(invitorOfDdh?.InviterUserId!);
+            await AddDdhInvitorToActorIds(invitation, actorIds);
             eligibleRoles.Add(ContributorRole.NetworkManager.ToString());
             eligibleRoles.Add(ContributorRole.DesignatedDesigner.ToString());
             subject = NotificationHistorySubjects.ContributingDesignerJoined;
@@ -1200,13 +1193,7 @@ public class UsersController : ControllerBase
         }
         else if (invitedRole == ContributorRole.ContributingContractor)
         {
-            var invitorDetailsOfDdh = await _userService.GetByIdAsync(invitation.InviterUserId);
-            var role = invitorDetailsOfDdh.HnRoleMappings.Where(mapping => mapping.HnId == invitation.InvitedHnId).Select(mapping => mapping.Role).FirstOrDefault();
-
-            var invitorOfDdh = await _invitationService.GetByInvitedDetailsAsync(invitorDetailsOfDdh.EmailId, invitation.InvitedHnId!, role);
-
-            if (invitorOfDdh != null)
-                actorIds.Add(invitorOfDdh?.InviterUserId!);
+            await AddDdhInvitorToActorIds(invitation, actorIds);
             eligibleRoles.Add(ContributorRole.NetworkManager.ToString());
             eligibleRoles.Add(ContributorRole.DesignatedContractor.ToString());
             subject = NotificationHistorySubjects.ContributingContractorJoined;
@@ -1216,13 +1203,7 @@ public class UsersController : ControllerBase
         }
         else if (invitedRole == ContributorRole.ContributingOperator)
         {
-            var invitorDetailsOfDdh = await _userService.GetByIdAsync(invitation.InviterUserId);
-            var role = invitorDetailsOfDdh.HnRoleMappings.Where(mapping => mapping.HnId == invitation.InvitedHnId).Select(mapping => mapping.Role).FirstOrDefault();
-
-            var invitorOfDdh = await _invitationService.GetByInvitedDetailsAsync(invitorDetailsOfDdh.EmailId, invitation.InvitedHnId!, role);
-
-            if (invitorOfDdh != null)
-                actorIds.Add(invitorOfDdh?.InviterUserId!);
+            await AddDdhInvitorToActorIds(invitation, actorIds);
             eligibleRoles.Add(ContributorRole.NetworkManager.ToString());
             eligibleRoles.Add(ContributorRole.DesignatedOperator.ToString());
             subject = NotificationHistorySubjects.ContributingOperatorJoined;
@@ -1244,6 +1225,25 @@ public class UsersController : ControllerBase
             };
 
         await _notificationHistoryService.CreateAsync(notificationHistory);
+    }
+
+    private async Task AddDdhInvitorToActorIds(Invitation invitation, List<string> actorIds)
+    {
+        var invitorDetailsOfDdh = await _userService.GetByIdAsync(invitation.InviterUserId);
+        if (invitorDetailsOfDdh == null) return;
+
+        var role = invitorDetailsOfDdh.HnRoleMappings
+            .Where(mapping => mapping.HnId == invitation.InvitedHnId)
+            .Select(mapping => mapping.Role)
+            .FirstOrDefault();
+
+        var invitorOfDdh = await _invitationService.GetByInvitedDetailsAsync(
+            invitorDetailsOfDdh.EmailId,
+            invitation.InvitedHnId!,
+            role);
+
+        if (invitorOfDdh != null)
+            actorIds.Add(invitorOfDdh.InviterUserId!);
     }
 
 }

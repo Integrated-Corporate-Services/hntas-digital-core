@@ -312,12 +312,7 @@ namespace HNTAS.Core.Api.Controllers
             }
             else if (inviterRole == UserRole.DesignatedDutyHolder)
             {
-                var role = user.HnRoleMappings.Where(mapping => mapping.HnId == invitation.InvitedHnId).Select(mapping => mapping.Role).FirstOrDefault();
-                
-                var invitorOfDdh = await _invitationService.GetByInvitedDetailsAsync(user.EmailId, invitation.InvitedHnId!, role);
-
-                if (invitorOfDdh != null) 
-                    actorIds.Add(invitorOfDdh?.InviterUserId!);
+                await AddDdhInvitorToActorIds(invitation, actorIds);
 
                 eligibleRoles = new List<string>
                 {
@@ -395,13 +390,7 @@ namespace HNTAS.Core.Api.Controllers
             }
             else if (invitedRole == ContributorRole.ContributingDesigner)
             {
-                var invitorDetailsOfDdh = await _userService.GetByIdAsync(invitation.InviterUserId);
-                var role = invitorDetailsOfDdh.HnRoleMappings.Where(mapping => mapping.HnId == invitation.InvitedHnId).Select(mapping => mapping.Role).FirstOrDefault();
-
-                var invitorOfDdh = await _invitationService.GetByInvitedDetailsAsync(invitorDetailsOfDdh.EmailId, invitation.InvitedHnId!, role);
-
-                if (invitorOfDdh != null)
-                    actorIds.Add(invitorOfDdh?.InviterUserId!);
+                await AddDdhInvitorToActorIds(invitation, actorIds);
                 eligibleRoles.Add(ContributorRole.NetworkManager.ToString());
                 subject = NotificationHistorySubjects.ContributingDesignerRejected;
                 notificationType = NotificationHistoryType.ContributorRejectsInviteToHeatNetwork;
@@ -409,13 +398,7 @@ namespace HNTAS.Core.Api.Controllers
             }
             else if (invitedRole == ContributorRole.ContributingContractor)
             {
-                var invitorDetailsOfDdh = await _userService.GetByIdAsync(invitation.InviterUserId);
-                var role = invitorDetailsOfDdh.HnRoleMappings.Where(mapping => mapping.HnId == invitation.InvitedHnId).Select(mapping => mapping.Role).FirstOrDefault();
-
-                var invitorOfDdh = await _invitationService.GetByInvitedDetailsAsync(invitorDetailsOfDdh.EmailId, invitation.InvitedHnId!, role);
-
-                if (invitorOfDdh != null)
-                    actorIds.Add(invitorOfDdh?.InviterUserId!);
+                await AddDdhInvitorToActorIds(invitation, actorIds);
                 eligibleRoles.Add(ContributorRole.NetworkManager.ToString());
                 subject = NotificationHistorySubjects.ContributingContractorRejected;
                 notificationType = NotificationHistoryType.ContributorRejectsInviteToHeatNetwork;
@@ -423,13 +406,7 @@ namespace HNTAS.Core.Api.Controllers
             }
             else if (invitedRole == ContributorRole.ContributingOperator)
             {
-                var invitorDetailsOfDdh = await _userService.GetByIdAsync(invitation.InviterUserId);
-                var role = invitorDetailsOfDdh.HnRoleMappings.Where(mapping => mapping.HnId == invitation.InvitedHnId).Select(mapping => mapping.Role).FirstOrDefault();
-
-                var invitorOfDdh = await _invitationService.GetByInvitedDetailsAsync(invitorDetailsOfDdh.EmailId, invitation.InvitedHnId!, role);
-
-                if (invitorOfDdh != null)
-                    actorIds.Add(invitorOfDdh?.InviterUserId!);
+                await AddDdhInvitorToActorIds(invitation, actorIds);
                 eligibleRoles.Add(ContributorRole.NetworkManager.ToString());
                 subject = NotificationHistorySubjects.ContributingOperatorRejected;
                 notificationType = NotificationHistoryType.ContributorRejectsInviteToHeatNetwork;
@@ -455,6 +432,25 @@ namespace HNTAS.Core.Api.Controllers
                 EligibleRoles = eligibleRoles
             };
             await _notificationHistoryService.CreateAsync(notificationHistory);
+        }
+
+        private async Task AddDdhInvitorToActorIds(Invitation invitation, List<string> actorIds)
+        {
+            var invitorDetailsOfDdh = await _userService.GetByIdAsync(invitation.InviterUserId);
+            if (invitorDetailsOfDdh == null) return;
+
+            var role = invitorDetailsOfDdh.HnRoleMappings
+                .Where(mapping => mapping.HnId == invitation.InvitedHnId)
+                .Select(mapping => mapping.Role)
+                .FirstOrDefault();
+
+            var invitorOfDdh = await _invitationService.GetByInvitedDetailsAsync(
+                invitorDetailsOfDdh.EmailId,
+                invitation.InvitedHnId!,
+                role);
+
+            if (invitorOfDdh != null)
+                actorIds.Add(invitorOfDdh.InviterUserId!);
         }
     }
 }

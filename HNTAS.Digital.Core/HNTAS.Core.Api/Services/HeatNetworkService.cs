@@ -5,6 +5,7 @@ using HNTAS.Core.Api.Data.Models.External;
 using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
+using HNTAS.Core.Api.Models.AssignedAssessor;
 using Microsoft.Extensions.Options;
 using MongoDB.Bson;
 using MongoDB.Driver;
@@ -273,6 +274,68 @@ namespace HNTAS.Core.Api.Services
 
                 await _hnCollection.UpdateOneAsync(insertFilter, insertUpdate);
             }
+        }
+
+        public async Task<AssignedAssessorResponse> GetAssignedAssessors(AssignedAssessorRequest request)
+        {
+            // get all the heat networks
+            var filter = Builders<HeatNetwork>.Filter.Empty;
+            
+            filter = Builders<HeatNetwork>.Filter.ElemMatch(hn => hn.NetworkElements!.Elements,
+                element => element.SoaStages != null && element.SoaStages.Any(soa => soa.Assessor != null));
+
+
+            var heatNetworks = await _hnCollection.Find(filter).ToListAsync();
+            var assignedAssessors = new List<AssignedAssessor>();
+
+            foreach (var hn in heatNetworks)
+            {                
+                    foreach (var element in hn.NetworkElements?.Elements!)
+                    {
+                        var firstSoaStage = element.SoaStages?.FirstOrDefault();
+                        if (firstSoaStage != null && firstSoaStage.Assessor != null)
+                        {
+                            assignedAssessors.Add(new AssignedAssessor
+                                {
+                                    Name = string.Join(" ", firstSoaStage!.Assessor?.FirstName, firstSoaStage.Assessor?.LastName),
+                                    Email = firstSoaStage.Assessor?.Email,
+                                    HeatNetworkName = hn.Name,
+                                    ElementAssigned = element.NetworkElementInstanceName!,
+                                    Status = firstSoaStage.SoaStatus
+                                });
+                        }
+                    }                
+            }
+
+            var groupedAssessors = assignedAssessors
+                .GroupBy(a => new { a.HeatNetworkName, a.Email })
+                .Select(g => new AssignedAssessorData
+                {
+                    HeatNetworkName = g.Key.HeatNetworkName,
+                    Email = g.Key.Email,
+                    ElementAssigned = g.Select(a => a.ElementAssigned!).ToList(),
+                    Status = g.Select(a => a.Status).FirstOrDefault(), 
+                    Name = g.Select(a => a.Name).FirstOrDefault() // 
+                })
+                .ToList();
+
+            // Apply pagination
+            var paginatedResults = groupedAssessors
+                .Skip((request.Page - 1) * request.PageSize)                
+                .Take(request.PageSize)
+                
+                .ToList();
+
+            var assignedAssessorResponse = new AssignedAssessorResponse
+            {
+                Items = paginatedResults,
+                PageNumber = request.Page,
+                PageSize = request.PageSize,
+                TotalCount = groupedAssessors.Count,
+                TotalPages = (int)Math.Ceiling((double)groupedAssessors.Count / request.PageSize)
+            };
+
+            return assignedAssessorResponse;
         }
 
         private IAsyncCursor<HeatNetworkExternalResponse> GetHeatNetworkDetailsPipeline(BsonDocument matchStage)

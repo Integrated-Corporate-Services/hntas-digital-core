@@ -51,6 +51,7 @@ builder.Services.AddScoped<IArmsKpiService, ArmsKpiService>();
 builder.Services.AddScoped<INotificationHistoryService, NotificationHistoryService>();
 builder.Services.AddScoped<IKpiRuleValidator, KpiRuleValidator>();
 builder.Services.AddScoped<IHeatNetworkValidator, HeatNetworkValidator>();
+builder.Services.AddScoped<IKpiSubmissionAuditService, KpiSubmissionAuditService>();
 
 //Data Migrations
 builder.Services.AddScoped<IDataMigration, SeedCountriesAndTerritories>();

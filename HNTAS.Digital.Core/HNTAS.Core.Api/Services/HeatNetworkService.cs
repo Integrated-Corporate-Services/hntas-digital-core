@@ -285,62 +285,47 @@ namespace HNTAS.Core.Api.Services
             );
 
             var heatNetworks = await _hnCollection.Find(filter).ToListAsync();
-            var assignedAssessors = new List<AssignedAssessor>();
 
-            foreach (var hn in heatNetworks)
-            {
-                foreach (var element in hn.NetworkElements?.Elements ?? Enumerable.Empty<Element>())
-                {
-                    var firstSoaStage = element.SoaStages?.FirstOrDefault();
-                    if (firstSoaStage?.Assessor != null)
-                    {
-                        assignedAssessors.Add(new AssignedAssessor
+            // Flatten heat networks into individual assessor assignments
+            var assignedAssessors = heatNetworks
+                .SelectMany(hn =>
+                    (hn.NetworkElements?.Elements ?? Enumerable.Empty<Element>())
+                        .Where(element => element.SoaStages?.FirstOrDefault()?.Assessor != null)
+                        .Select(element =>
                         {
-                            Name = $"{firstSoaStage.Assessor.FirstName} {firstSoaStage.Assessor.LastName}".Trim(),
-                            Email = firstSoaStage.Assessor.Email,
-                            HeatNetworkName = hn.Name,
-                            ElementsAssigned = element.NetworkElementInstanceName!,
-                            Status = firstSoaStage.Assessor.Status,
-                            AssessorUpdatedAt = firstSoaStage.AssessorUpdatedAt
-                        });
-                    }
-                }
-            }
+                            var soaStage = element.SoaStages!.First();
+                            var assessor = soaStage.Assessor!;
 
-            // Group by HeatNetwork Name and Assessor Email
+                            return new AssignedAssessor
+                            {
+                                Name = $"{assessor.FirstName} {assessor.LastName}".Trim(),
+                                Email = assessor.Email,
+                                HeatNetworkName = hn.Name,
+                                ElementsAssigned = element.NetworkElementInstanceName!,
+                                Status = assessor.Status,
+                                AssessorUpdatedAt = soaStage.AssessorUpdatedAt
+                            };
+                        })
+                )
+                .ToList();
+
+            // Group by HeatNetwork and Assessor, then aggregate element assignments
             var groupedAssessors = assignedAssessors
                 .GroupBy(a => new { a.HeatNetworkName, a.Email })
                 .Select(g => new AssignedAssessor
                 {
                     HeatNetworkName = g.Key.HeatNetworkName,
                     Email = g.Key.Email,
-                    ElementsAssignedList = g.Select(a => a.ElementsAssigned!).ToList(),
+                    Name = g.First().Name,
+                    Status = g.First().Status,
+                    ElementsAssignedList = g.Select(a => a.ElementsAssigned).ToList()!,
                     ElementsAssigned = string.Join(", ", g.Select(a => a.ElementsAssigned)),
-                    Status = g.FirstOrDefault()?.Status,
-                    Name = g.FirstOrDefault()?.Name,
-                    AssessorUpdatedAt = g.Select(a => a.AssessorUpdatedAt).Max() // Get the most recent update time among the grouped items
+                    AssessorUpdatedAt = g.Max(a => a.AssessorUpdatedAt)
                 })
                 .AsQueryable();
 
-            // Apply sorting based on request
-            groupedAssessors = (request.SortBy?.ToLower()) switch
-            {
-                "name" => request.SortDirection == "desc"
-                    ? groupedAssessors.OrderByDescending(a => a.Name)
-                    : groupedAssessors.OrderBy(a => a.Name),
-                "email" => request.SortDirection == "desc"
-                    ? groupedAssessors.OrderByDescending(a => a.Email)
-                    : groupedAssessors.OrderBy(a => a.Email),
-                "heatnetworkname" => request.SortDirection == "desc"
-                    ? groupedAssessors.OrderByDescending(a => a.HeatNetworkName)
-                    : groupedAssessors.OrderBy(a => a.HeatNetworkName),
-                "elementsassigned" => request.SortDirection == "desc"
-                    ? groupedAssessors.OrderByDescending(a => a.ElementsAssigned)
-                    : groupedAssessors.OrderBy(a => a.ElementsAssigned),
-                _ => request.SortDirection == "desc"
-                    ? groupedAssessors.OrderByDescending(a => a.AssessorUpdatedAt)
-                    : groupedAssessors.OrderBy(a => a.AssessorUpdatedAt)
-            };
+            // Apply sorting
+            groupedAssessors = ApplySorting(groupedAssessors, request.SortBy, request.SortDirection);
 
             var totalCount = groupedAssessors.Count();
 
@@ -357,6 +342,36 @@ namespace HNTAS.Core.Api.Services
                 PageSize = request.PageSize,
                 TotalCount = totalCount,
                 TotalPages = (int)Math.Ceiling((double)totalCount / request.PageSize)
+            };
+        }
+
+        private static IQueryable<AssignedAssessor> ApplySorting(
+            IQueryable<AssignedAssessor> query,
+            string? sortBy,
+            string? sortDirection)
+        {
+            var isDescending = string.Equals(sortDirection, "desc", StringComparison.OrdinalIgnoreCase);
+
+            return (sortBy?.ToLower()) switch
+            {
+                "name" => isDescending
+                    ? query.OrderByDescending(a => a.Name)
+                    : query.OrderBy(a => a.Name),
+                "email" => isDescending
+                    ? query.OrderByDescending(a => a.Email)
+                    : query.OrderBy(a => a.Email),
+                "heatnetworkname" => isDescending
+                    ? query.OrderByDescending(a => a.HeatNetworkName)
+                    : query.OrderBy(a => a.HeatNetworkName),
+                "elementsassigned" => isDescending
+                    ? query.OrderByDescending(a => a.ElementsAssigned)
+                    : query.OrderBy(a => a.ElementsAssigned),
+                "status" => isDescending
+                    ? query.OrderByDescending(a => a.Status)
+                    : query.OrderBy(a => a.Status),
+                _ => isDescending
+                    ? query.OrderByDescending(a => a.AssessorUpdatedAt)
+                    : query.OrderBy(a => a.AssessorUpdatedAt)
             };
         }
 

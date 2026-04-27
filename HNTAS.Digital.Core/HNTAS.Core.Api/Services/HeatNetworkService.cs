@@ -278,64 +278,86 @@ namespace HNTAS.Core.Api.Services
 
         public async Task<AssignedAssessorResponse> GetAssignedAssessors(AssignedAssessorRequest request)
         {
-            // get all the heat networks
-            var filter = Builders<HeatNetwork>.Filter.Empty;
-            
-            filter = Builders<HeatNetwork>.Filter.ElemMatch(hn => hn.NetworkElements!.Elements,
-                element => element.SoaStages != null && element.SoaStages.Any(soa => soa.Assessor != null));
-
+            // Build filter for elements with assigned assessors
+            var filter = Builders<HeatNetwork>.Filter.ElemMatch(
+                hn => hn.NetworkElements!.Elements,
+                element => element.SoaStages != null && element.SoaStages.Any(soa => soa.Assessor != null)
+            );
 
             var heatNetworks = await _hnCollection.Find(filter).ToListAsync();
             var assignedAssessors = new List<AssignedAssessor>();
 
             foreach (var hn in heatNetworks)
-            {                
-                    foreach (var element in hn.NetworkElements?.Elements!)
+            {
+                foreach (var element in hn.NetworkElements?.Elements ?? Enumerable.Empty<Element>())
+                {
+                    var firstSoaStage = element.SoaStages?.FirstOrDefault();
+                    if (firstSoaStage?.Assessor != null)
                     {
-                        var firstSoaStage = element.SoaStages?.FirstOrDefault();
-                        if (firstSoaStage != null && firstSoaStage.Assessor != null)
+                        assignedAssessors.Add(new AssignedAssessor
                         {
-                            assignedAssessors.Add(new AssignedAssessor
-                                {
-                                    Name = string.Join(" ", firstSoaStage!.Assessor?.FirstName, firstSoaStage.Assessor?.LastName),
-                                    Email = firstSoaStage.Assessor?.Email,
-                                    HeatNetworkName = hn.Name,
-                                    ElementAssigned = element.NetworkElementInstanceName!,
-                                    Status = firstSoaStage.SoaStatus
-                                });
-                        }
-                    }                
+                            Name = $"{firstSoaStage.Assessor.FirstName} {firstSoaStage.Assessor.LastName}".Trim(),
+                            Email = firstSoaStage.Assessor.Email,
+                            HeatNetworkName = hn.Name,
+                            ElementsAssigned = element.NetworkElementInstanceName!,
+                            Status = firstSoaStage.Assessor.Status,
+                            AssessorUpdatedAt = firstSoaStage.AssessorUpdatedAt
+                        });
+                    }
+                }
             }
 
+            // Group by HeatNetwork Name and Assessor Email
             var groupedAssessors = assignedAssessors
                 .GroupBy(a => new { a.HeatNetworkName, a.Email })
-                .Select(g => new AssignedAssessorData
+                .Select(g => new AssignedAssessor
                 {
                     HeatNetworkName = g.Key.HeatNetworkName,
                     Email = g.Key.Email,
-                    ElementAssigned = g.Select(a => a.ElementAssigned!).ToList(),
-                    Status = g.Select(a => a.Status).FirstOrDefault(), 
-                    Name = g.Select(a => a.Name).FirstOrDefault() // 
+                    ElementsAssignedList = g.Select(a => a.ElementsAssigned!).ToList(),
+                    ElementsAssigned = string.Join(", ", g.Select(a => a.ElementsAssigned)),
+                    Status = g.FirstOrDefault()?.Status,
+                    Name = g.FirstOrDefault()?.Name,
+                    AssessorUpdatedAt = g.Select(a => a.AssessorUpdatedAt).Max() // Get the most recent update time among the grouped items
                 })
-                .ToList();
+                .AsQueryable();
+
+            // Apply sorting based on request
+            groupedAssessors = (request.SortBy?.ToLower()) switch
+            {
+                "name" => request.SortDirection == "desc"
+                    ? groupedAssessors.OrderByDescending(a => a.Name)
+                    : groupedAssessors.OrderBy(a => a.Name),
+                "email" => request.SortDirection == "desc"
+                    ? groupedAssessors.OrderByDescending(a => a.Email)
+                    : groupedAssessors.OrderBy(a => a.Email),
+                "heatnetworkname" => request.SortDirection == "desc"
+                    ? groupedAssessors.OrderByDescending(a => a.HeatNetworkName)
+                    : groupedAssessors.OrderBy(a => a.HeatNetworkName),
+                "elementsassigned" => request.SortDirection == "desc"
+                    ? groupedAssessors.OrderByDescending(a => a.ElementsAssigned)
+                    : groupedAssessors.OrderBy(a => a.ElementsAssigned),
+                _ => request.SortDirection == "desc"
+                    ? groupedAssessors.OrderByDescending(a => a.AssessorUpdatedAt)
+                    : groupedAssessors.OrderBy(a => a.AssessorUpdatedAt)
+            };
+
+            var totalCount = groupedAssessors.Count();
 
             // Apply pagination
             var paginatedResults = groupedAssessors
-                .Skip((request.Page - 1) * request.PageSize)                
+                .Skip((request.Page - 1) * request.PageSize)
                 .Take(request.PageSize)
-                
                 .ToList();
 
-            var assignedAssessorResponse = new AssignedAssessorResponse
+            return new AssignedAssessorResponse
             {
                 Items = paginatedResults,
                 PageNumber = request.Page,
                 PageSize = request.PageSize,
-                TotalCount = groupedAssessors.Count,
-                TotalPages = (int)Math.Ceiling((double)groupedAssessors.Count / request.PageSize)
+                TotalCount = totalCount,
+                TotalPages = (int)Math.Ceiling((double)totalCount / request.PageSize)
             };
-
-            return assignedAssessorResponse;
         }
 
         private IAsyncCursor<HeatNetworkExternalResponse> GetHeatNetworkDetailsPipeline(BsonDocument matchStage)

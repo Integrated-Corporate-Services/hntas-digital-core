@@ -9,14 +9,16 @@ namespace HNTAS.Core.Api.Services
     {
         private readonly IMongoCollection<KpiSubmission> _kpiCollection;
         private readonly IMongoCollection<KpiConfiguration> _configCollection;
+        private readonly IKpiSubmissionAuditService _auditService;
         private readonly ILogger<ArmsKpiService> _logger;
 
-        public ArmsKpiService(ILogger<ArmsKpiService> logger, IMongoDatabase mongoDatabase)
+        public ArmsKpiService(ILogger<ArmsKpiService> logger, IMongoDatabase mongoDatabase, IKpiSubmissionAuditService auditService)
         {
             _logger = logger;
             _kpiCollection = mongoDatabase.GetCollection<KpiSubmission>("KPI_Data");
             _configCollection = mongoDatabase.GetCollection<KpiConfiguration>("KPI_Configurations");
             _logger.LogInformation("ArmsKpiService initialized via Dependency Injection.");
+            _auditService = auditService;
         }
 
         public async Task<string> CreateOrUpdateSubmissionAsync(KpiSubmission submission)
@@ -39,6 +41,11 @@ namespace HNTAS.Core.Api.Services
             }
             else
             {
+
+                // Audit the differences
+                // We pass the 'existing' (old) and 'submission' (new)
+                await _auditService.TrackChangesAsync(existing, submission);
+
                 submission.Id = existing.Id;
                 submission.CreatedAt = existing.CreatedAt;
                 submission.UpdatedAt = DateTime.UtcNow;

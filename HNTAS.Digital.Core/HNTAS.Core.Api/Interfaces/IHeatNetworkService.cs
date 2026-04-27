@@ -1,5 +1,6 @@
 ﻿using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Data.Models.External;
+using HNTAS.Core.Api.Models.AssignedAssessor;
 
 namespace HNTAS.Core.Api.Interfaces
 {
@@ -20,5 +21,6 @@ namespace HNTAS.Core.Api.Interfaces
         Task UpdateMeteringAndMonitoringStrategyAsync(string hnId, NetworkDetailsDocument document);
         Task UpdateAssessmentPlanAsync(string hnId, NetworkDetailsDocument document);
         Task UpdateDesignConstructionLogAsync(string hnId, NetworkDetailsDocument document);
+        Task<AssignedAssessorResponse> GetAssignedAssessors(AssignedAssessorRequest request);
     }
 }

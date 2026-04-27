@@ -834,9 +834,11 @@ public class UsersController : ControllerBase
                     u.HeatNetworks.Any(hn => hn.HnId == (i.HeatNetworks.FirstOrDefault()?.HnId))
                 );
 
+                bool isAccepted = i.Status == InvitationStatus.Accepted.ToString();
+
                 // ONLY show the record if they are NOT registered
                 // This will show "Invited" or "Rejected" status records
-                return !isRegistered;
+                return !isRegistered && !isAccepted;
             })
         .ToList();
 

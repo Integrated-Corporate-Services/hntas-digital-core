@@ -18,6 +18,8 @@ namespace HNTAS.Digital.Core.Tests.Controllers
         private readonly Mock<IHeatNetworkService> _mockHeatNetworkService;
         private readonly Mock<IUserService> _mockUserService;
         private readonly Mock<IAuditService> _mockAuditService;
+        private readonly Mock<INotificationHistoryService> _mockNotificationHistoryService;
+        private readonly Mock<IInvitationService> _mockInvitationService;
 
         private readonly SOAController _controller;
 
@@ -29,7 +31,9 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             _mockHeatNetworkService = new Mock<IHeatNetworkService>();
             _mockUserService = new Mock<IUserService>();
             _mockAuditService = new Mock<IAuditService>();
-            _controller = new SOAController(_mockSoaService.Object, _mockLogger.Object, _mockEmailService.Object, _mockHeatNetworkService.Object, _mockUserService.Object, _mockAuditService.Object);
+            _mockNotificationHistoryService = new Mock<INotificationHistoryService>();
+            _mockInvitationService = new Mock<IInvitationService>();
+            _controller = new SOAController(_mockSoaService.Object, _mockLogger.Object, _mockEmailService.Object, _mockHeatNetworkService.Object, _mockUserService.Object, _mockAuditService.Object, _mockNotificationHistoryService.Object, _mockInvitationService.Object);
         }
 
         [Fact]

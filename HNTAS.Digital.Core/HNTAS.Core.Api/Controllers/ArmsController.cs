@@ -1,30 +1,47 @@
 ﻿using AutoMapper;
 using FluentValidation;
+using HNTAS.Core.Api.Common;
+using HNTAS.Core.Api.Configuration;
 using HNTAS.Core.Api.Data.Models.Arms.Configuration;
 using HNTAS.Core.Api.Data.Models.Arms.Submission;
+using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models.Arms;
+using HNTAS.Core.Api.Validators.Arms;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 using System.Text.RegularExpressions;
 
 namespace HNTAS.Core.Api.Controllers
 {
-    [Route("api/arms/v1/hn")]
+    [Route("arms/v1/hn")]
     [ApiController]
     public class ArmsController : ControllerBase
     {
         private readonly IArmsKpiService _kpiService;
         private readonly ILogger<ArmsController> _logger;
         private readonly IValidator<KpiSubmissionRequest> _validator;
+        private readonly IHeatNetworkValidator _networkValidator;
+        private readonly IKpiRuleValidator _ruleValidator;
         private readonly IMapper _mapper;
+        private readonly ArmsSettings _armsSettings;
 
-        public ArmsController(IArmsKpiService kpiService, ILogger<ArmsController> logger, IValidator<KpiSubmissionRequest> validator, IMapper mapper)
+        public ArmsController(IArmsKpiService kpiService,
+            ILogger<ArmsController> logger,
+            IValidator<KpiSubmissionRequest> validator,
+            IMapper mapper,
+            IOptions<ArmsSettings> armsSettings,
+            IHeatNetworkValidator networkValidator,
+            IKpiRuleValidator kpiRuleValidator)
         {
             _kpiService = kpiService;
             _logger = logger;
             _validator = validator;
             _mapper = mapper;
+            _armsSettings = armsSettings.Value;
+            _networkValidator = networkValidator;
+            _ruleValidator = kpiRuleValidator;
         }
 
         /// <summary>
@@ -52,16 +69,85 @@ namespace HNTAS.Core.Api.Controllers
                     {
                         ModelState.AddModelError(error.PropertyName, error.ErrorMessage);
                     }
-                    return ValidationProblem(ModelState);
+                    var problemDetails = new ValidationProblemDetails(ModelState)
+                    {
+                        Status = StatusCodes.Status400BadRequest,
+                        Title = "Validation Failed",
+                        Detail = "One or more validation errors occurred. See the errors property for details.",
+                        Type = null
+                    };
+
+                    return new BadRequestObjectResult(problemDetails);
                 }
 
                 var dataModel = _mapper.Map<KpiSubmission>(request);
 
+                if (_armsSettings.EnableExtendedValidation)
+                {
+                    _logger.LogInformation("Extended validation is enabled. Performing additional checks for Network: {NetworkId}, Period: {Period}",
+                        request.MetaData.NetworkId,
+                        request.MetaData.PeriodStart);
+
+                    // Registry Validation (HeatNetwork Collection)
+                    var networkResult = await _networkValidator.ValidateAsync(
+                        request.MetaData.NetworkId,
+                        request.Elements
+                    );
+                    if (!networkResult.IsValid)
+                        return StatusCode(networkResult.StatusCode, CreateProblem(networkResult));
+
+                    // Configuration Validation (KPI_Config Collection)
+                    var ruleResult = await _ruleValidator.ValidateAsync(dataModel);
+                    if (!ruleResult.IsValid)
+                        return BadRequest(CreateProblem(ruleResult));
+                }
+
                 var submissionId = await _kpiService.CreateOrUpdateSubmissionAsync(dataModel);
+
+                // Extract warnings from individual elements
+                var elementWarnings = dataModel.Elements
+                    .Select(e => new
+                    {
+                        type = e.Type.ToString(),
+                        elementId = e.ElementId,
+                        kpis = e.Kpis
+                            .Where(k => k.Value.AssessmentStatus == KPIAssessmentStatus.Fail ||
+                                        k.Value.AssessmentStatus == KPIAssessmentStatus.OutsideLimit)
+                            .ToDictionary(
+                                k => k.Key,
+                                k => new { value = k.Value.Value, status = FormatStatus(k.Value.AssessmentStatus) }
+                            )
+                    })
+                    .Where(e => e.kpis.Any())
+                    .ToList<object>();
+
+                // Add aggregated warnings if any (Optional, based on your requirements)
+                if (dataModel.ConsumerConnectionAggregatedKpis != null)
+                {
+                    var aggWarnings = dataModel.ConsumerConnectionAggregatedKpis
+                        .Where(k => k.Value.AssessmentStatus == KPIAssessmentStatus.Fail ||
+                                    k.Value.AssessmentStatus == KPIAssessmentStatus.OutsideLimit)
+                        .ToDictionary(
+                            k => k.Key,
+                            k => new { value = k.Value.Value, status = FormatStatus(k.Value.AssessmentStatus) }
+                        );
+
+                    if (aggWarnings.Any())
+                    {
+                        elementWarnings.Insert(0, new
+                        {
+                            type = "Aggregated",
+                            elementId = "N/A",
+                            kpis = aggWarnings
+                        });
+                    }
+                }
 
                 return Ok(new
                 {
-                    submission_id = submissionId
+                    submission_id = submissionId,
+                    message = elementWarnings.Any() ? "Submission accepted, but some items require review." : "Submission accepted successfully.",
+                    warnings = elementWarnings
                 });
             }
             catch (MongoException ex)
@@ -71,7 +157,8 @@ namespace HNTAS.Core.Api.Controllers
                 return Problem(
                     detail: "Database service temporarily unavailable.",
                     statusCode: 503,
-                    title: "Service Unavailable"
+                    title: "Service Unavailable",
+                    type: null
                 );
             }
             catch (Exception ex)
@@ -81,10 +168,17 @@ namespace HNTAS.Core.Api.Controllers
                 return Problem(
                      detail: "An unexpected error occurred while processing your request.",
                      statusCode: 500,
-                     title: "Internal Server Error"
+                     title: "Internal Server Error",
+                     type: null
                  );
             }
         }
+
+        string FormatStatus(KPIAssessmentStatus status) => status switch
+        {
+            KPIAssessmentStatus.OutsideLimit => "outside limit",
+            _ => status.ToString().ToLower()
+        };
 
 
         /// <summary>
@@ -107,7 +201,8 @@ namespace HNTAS.Core.Api.Controllers
                 {
                     Status = StatusCodes.Status400BadRequest,
                     Title = "Invalid NetworkId",
-                    Detail = "The NetworkId must follow the format: HN followed by 7 digits (e.g., HN1234567)."
+                    Detail = "The NetworkId must follow the format: HN followed by 7 digits (e.g., HN1234567).",
+                    Type = null
                 });
             }
 
@@ -122,7 +217,8 @@ namespace HNTAS.Core.Api.Controllers
                     {
                         Status = StatusCodes.Status404NotFound,
                         Title = "Configuration Not Found",
-                        Detail = $"No KPI configuration could be found for the network ID: {networkId}."
+                        Detail = $"No KPI configuration could be found for the network ID: {networkId}.",
+                        Type = null
                     });
                 }
 
@@ -138,7 +234,8 @@ namespace HNTAS.Core.Api.Controllers
                 {
                     Status = StatusCodes.Status500InternalServerError,
                     Title = "Error retrieving configuration",
-                    Detail = "An unexpected error occurred while fetching the KPI configuration."
+                    Detail = "An unexpected error occurred while fetching the KPI configuration.",
+                    Type = null
                 });
             }
         }
@@ -150,7 +247,7 @@ namespace HNTAS.Core.Api.Controllers
         /// <returns></returns>
         [HttpPost("kpi-config")]
         [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> SaveConfig([FromBody] KpiConfigRequest request)
         {
@@ -159,7 +256,13 @@ namespace HNTAS.Core.Api.Controllers
             if (request == null || string.IsNullOrEmpty(request.NetworkId))
             {
                 _logger.LogWarning("SaveConfig failed: Request body or NetworkId is missing.");
-                return BadRequest("Invalid configuration data.");
+                return StatusCode(StatusCodes.Status400BadRequest, new ProblemDetails
+                {
+                    Status = StatusCodes.Status500InternalServerError,
+                    Title = "An error occurred while processing your request.",
+                    Detail = "Invalid configuration data.",
+                    Type = null
+                });
             }
 
             try
@@ -180,9 +283,38 @@ namespace HNTAS.Core.Api.Controllers
                 {
                     Status = StatusCodes.Status500InternalServerError,
                     Title = "An error occurred while processing your request.",
-                    Detail = ex.Message
+                    Detail = ex.Message,
+                    Type = null
                 });
             }
+        }
+
+
+        // Helper to keep the "Type" link out of our GOV.UK style response
+        private ValidationProblemDetails CreateProblem(ValidationGateResult result)
+        {
+            var problem = new ValidationProblemDetails
+            {
+                Title = "Validation Failed",
+                Status = result.StatusCode,
+                // Use the high-level message for the detail
+                Detail = string.IsNullOrWhiteSpace(result.Message)
+                         ? "One or more validation errors occurred."
+                         : result.Message
+            };
+
+            // If we have specific errors, add them to the errors dictionary
+            if (result.Errors != null && result.Errors.Any())
+            {
+                problem.Errors.Add("ValidationErrors", result.Errors.ToArray());
+            }
+            else if (!string.IsNullOrWhiteSpace(result.Message))
+            {
+                // Fallback: Use the single message if no list is provided
+                problem.Errors.Add("General", new[] { result.Message });
+            }
+
+            return problem;
         }
     }
 }

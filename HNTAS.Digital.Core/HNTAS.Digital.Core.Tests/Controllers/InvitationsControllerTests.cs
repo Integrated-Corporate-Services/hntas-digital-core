@@ -21,6 +21,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
         private readonly Mock<IEmailService> _mockEmailService = new();
         private readonly Mock<IHeatNetworkService> _mockHnService = new();
         private readonly Mock<IOrganisationService> _mockOrganisationService = new();
+        private readonly Mock<INotificationHistoryService> _mockNotificationHistory = new();
         private readonly Mock<IMapper> _mockMapper = new();
 
         private InvitationsController CreateController()
@@ -33,7 +34,8 @@ namespace HNTAS.Digital.Core.Tests.Controllers
                 _mockEmailService.Object,
                 _mockHnService.Object,
                 _mockMapper.Object,
-                _mockOrganisationService.Object
+                _mockOrganisationService.Object,
+                _mockNotificationHistory.Object
             );
         }
 

@@ -18,9 +18,8 @@ namespace HNTAS.Core.Api.Data.Models
 
         [BsonElement("name")]
         public string Name { get; set; } = string.Empty;
-
-        [BsonElement("hnDescription")]
-        public string? HnDescription { get; set; }
+        [BsonElement("additionalDescription")]
+        public string? AdditionalDescription { get; set; }
 
         [BsonElement("address")]
         public RegisteredAddress? Address { get; set; }

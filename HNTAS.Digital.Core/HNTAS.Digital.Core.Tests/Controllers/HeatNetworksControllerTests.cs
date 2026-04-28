@@ -21,6 +21,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
         private readonly Mock<IAuditService> _mockAuditService;
         private readonly Mock<IUserService> _mockUserService;
         private readonly Mock<IEmailService> _mockEmailService;
+        private readonly Mock<INotificationHistoryService> _mockNotificationHistoryService;
         private readonly HeatNetworksController _controller;
 
         public HeatNetworksControllerTests()
@@ -32,9 +33,10 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             _mockAuditService = new Mock<IAuditService>();            
             _mockUserService = new Mock<IUserService>();
             _mockEmailService = new Mock<IEmailService>();
+            _mockNotificationHistoryService = new Mock<INotificationHistoryService>();
 
             // Assuming these dependencies are injected via the constructor in your partial class
-            _controller = new HeatNetworksController(_mockHnService.Object, _mockLogger.Object, _mockCounterService.Object, _mockMapper.Object, _mockUserService.Object, _mockEmailService.Object, _mockAuditService.Object);
+            _controller = new HeatNetworksController(_mockHnService.Object, _mockLogger.Object, _mockCounterService.Object, _mockMapper.Object, _mockUserService.Object, _mockEmailService.Object, _mockAuditService.Object, _mockNotificationHistoryService.Object);
         }
 
         private HeatNetwork SampleHeatNetwork(string id = "1", string? hnId = null)

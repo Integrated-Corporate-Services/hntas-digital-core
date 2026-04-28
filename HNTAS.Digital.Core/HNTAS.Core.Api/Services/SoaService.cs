@@ -120,7 +120,7 @@ namespace HNTAS.Core.Api.Services
 
 
 
-        public async Task UpdateElementLocationsAsync(string hnId, HeatNetworkElementDisplayType elementType, List<string> locations, string updatedBy)
+        public async Task UpdateElementLocationsAsync(string hnId, HeatNetworkElementType elementType, List<string> locations, string updatedBy)
         {
             var enumAsString = elementType.ToString();
 
@@ -143,7 +143,7 @@ namespace HNTAS.Core.Api.Services
 
         public async Task UpdateElementDocumentsAsync(
             string hnId,
-            HeatNetworkElementDisplayType elementType,
+            HeatNetworkElementType elementType,
             List<UploadedDocument> documents,
             string updatedBy)
         {

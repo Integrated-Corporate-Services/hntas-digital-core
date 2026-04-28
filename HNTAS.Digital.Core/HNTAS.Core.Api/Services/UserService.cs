@@ -63,6 +63,16 @@ namespace HNTAS.Core.Api.Services
             return await _usersCollection.Find(filter).ToListAsync();
         }
 
+        public async Task<List<User>> GetUsersAssociatedByHnIdAsync(string hnId)
+        {
+            var filter = Builders<User>.Filter.ElemMatch(
+                u => u.HnRoleMappings,
+                mapping => mapping.HnId == hnId
+            );
+
+            return await _usersCollection.Find(filter).ToListAsync();
+        }
+
         public async Task<User?> GetResponsiblePersonByHnIdAsync(string hnId)
         {
 

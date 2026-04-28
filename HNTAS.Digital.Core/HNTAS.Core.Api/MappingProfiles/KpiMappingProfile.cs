@@ -32,6 +32,7 @@ namespace HNTAS.Core.Api.MappingProfiles
             CreateMap<KpiSubmissionRequest, KpiSubmission>();
             CreateMap<NetworkElementRequest, NetworkElement>();
             CreateMap<KpiValueRequest, KpiValue>();
+            CreateMap<KpiValueAggregatedRequest, KpiValueAggregated>();
         }
     }
 }

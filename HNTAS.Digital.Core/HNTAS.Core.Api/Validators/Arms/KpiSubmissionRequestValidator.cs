@@ -72,14 +72,22 @@ namespace HNTAS.Core.Api.Validators.Arms
                     var kpiKey = kpiEntry.Key;
                     var elementType = networkElement.Type;
 
+                    // 1. Define the mapping logic
+                    var expectedPrefix = elementType switch
+                    {
+                        ElementType.EnergyCentre => "EC",
+                        ElementType.DistrictDistribution => "DD",
+                        ElementType.Substation => "SS",
+                        ElementType.CommunalDistribution => "CD",
+                        ElementType.ConsumerConnection => "CC",
+                        _ => elementType.ToString().Substring(0, 2).ToUpper() // Fallback for others
+                    };
+
                     // This single check validates BOTH the prefix and the specific KPI ID
                     if (AllowedKpisByElement.TryGetValue(elementType, out var allowedKeys))
                     {
                         if (!allowedKeys.Contains(kpiKey))
                         {
-                            // If it's not in the list, it's a failure. 
-                            // We can even tell them what prefix we expected to be helpful.
-                            var expectedPrefix = elementType.ToString().Substring(0, 2).ToUpper();
 
                             context.AddFailure(
                                 $"Kpis[{kpiKey}]",

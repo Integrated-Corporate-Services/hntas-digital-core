@@ -88,9 +88,6 @@ namespace HNTAS.Core.Api.Validators.Arms
                     {
                         if (!allowedKeys.Contains(kpiKey))
                         {
-                            // If it's not in the list, it's a failure. 
-                            // We can even tell them what prefix we expected to be helpful.
-                            var expectedPrefix = elementType.ToString().Substring(0, 2).ToUpper();
 
                             context.AddFailure(
                                 $"Kpis[{kpiKey}]",

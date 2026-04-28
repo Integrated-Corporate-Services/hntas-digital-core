@@ -5,6 +5,7 @@ using HNTAS.Core.Api.Data.Models.External;
 using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
+using HNTAS.Core.Api.Models.AssignedAssessor;
 using Microsoft.Extensions.Options;
 using MongoDB.Bson;
 using MongoDB.Driver;
@@ -273,6 +274,105 @@ namespace HNTAS.Core.Api.Services
 
                 await _hnCollection.UpdateOneAsync(insertFilter, insertUpdate);
             }
+        }
+
+        public async Task<AssignedAssessorResponse> GetAssignedAssessors(AssignedAssessorRequest request)
+        {
+            // Build filter for elements with assigned assessors
+            var filter = Builders<HeatNetwork>.Filter.ElemMatch(
+                hn => hn.NetworkElements!.Elements,
+                element => element.SoaStages != null && element.SoaStages.Any(soa => soa.Assessor != null)
+            );
+
+            var heatNetworks = await _hnCollection.Find(filter).ToListAsync();
+
+            // Flatten heat networks into individual assessor assignments
+            var assignedAssessors = heatNetworks
+                .SelectMany(hn =>
+                    (hn.NetworkElements?.Elements ?? Enumerable.Empty<Element>())
+                        .Where(element => element.SoaStages?.FirstOrDefault()?.Assessor != null)
+                        .Select(element =>
+                        {
+                            var soaStage = element.SoaStages!.First();
+                            var assessor = soaStage.Assessor!;
+
+                            return new AssignedAssessor
+                            {
+                                Name = $"{assessor.FirstName} {assessor.LastName}".Trim(),
+                                Email = assessor.Email,
+                                HeatNetworkName = hn.Name,
+                                ElementsAssigned = element.NetworkElementInstanceName!,
+                                Status = assessor.Status,
+                                AssessorUpdatedAt = soaStage.AssessorUpdatedAt
+                            };
+                        })
+                )
+                .ToList();
+
+            // Group by HeatNetwork and Assessor, then aggregate element assignments
+            var groupedAssessors = assignedAssessors
+                .GroupBy(a => new { a.HeatNetworkName, a.Email })
+                .Select(g => new AssignedAssessor
+                {
+                    HeatNetworkName = g.Key.HeatNetworkName,
+                    Email = g.Key.Email,
+                    Name = g.First().Name,
+                    Status = g.First().Status,
+                    ElementsAssignedList = g.Select(a => a.ElementsAssigned).ToList()!,
+                    ElementsAssigned = string.Join(", ", g.Select(a => a.ElementsAssigned)),
+                    AssessorUpdatedAt = g.Max(a => a.AssessorUpdatedAt)
+                })
+                .AsQueryable();
+
+            // Apply sorting
+            groupedAssessors = ApplySorting(groupedAssessors, request.SortBy, request.SortDirection);
+
+            var totalCount = groupedAssessors.Count();
+
+            // Apply pagination
+            var paginatedResults = groupedAssessors
+                .Skip((request.Page - 1) * request.PageSize)
+                .Take(request.PageSize)
+                .ToList();
+
+            return new AssignedAssessorResponse
+            {
+                Items = paginatedResults,
+                PageNumber = request.Page,
+                PageSize = request.PageSize,
+                TotalCount = totalCount,
+                TotalPages = (int)Math.Ceiling((double)totalCount / request.PageSize)
+            };
+        }
+
+        private static IQueryable<AssignedAssessor> ApplySorting(
+            IQueryable<AssignedAssessor> query,
+            string? sortBy,
+            string? sortDirection)
+        {
+            var isDescending = string.Equals(sortDirection, "desc", StringComparison.OrdinalIgnoreCase);
+
+            return (sortBy?.ToLower()) switch
+            {
+                "name" => isDescending
+                    ? query.OrderByDescending(a => a.Name)
+                    : query.OrderBy(a => a.Name),
+                "email" => isDescending
+                    ? query.OrderByDescending(a => a.Email)
+                    : query.OrderBy(a => a.Email),
+                "heatnetworkname" => isDescending
+                    ? query.OrderByDescending(a => a.HeatNetworkName)
+                    : query.OrderBy(a => a.HeatNetworkName),
+                "elementsassigned" => isDescending
+                    ? query.OrderByDescending(a => a.ElementsAssigned)
+                    : query.OrderBy(a => a.ElementsAssigned),
+                "status" => isDescending
+                    ? query.OrderByDescending(a => a.Status)
+                    : query.OrderBy(a => a.Status),
+                _ => isDescending
+                    ? query.OrderByDescending(a => a.AssessorUpdatedAt)
+                    : query.OrderBy(a => a.AssessorUpdatedAt)
+            };
         }
 
         private IAsyncCursor<HeatNetworkExternalResponse> GetHeatNetworkDetailsPipeline(BsonDocument matchStage)

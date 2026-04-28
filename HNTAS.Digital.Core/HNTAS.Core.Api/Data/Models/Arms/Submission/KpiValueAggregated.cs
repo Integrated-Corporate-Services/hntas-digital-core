@@ -1,4 +1,6 @@
-﻿using MongoDB.Bson.Serialization.Attributes;
+﻿using HNTAS.Core.Api.Enums;
+using MongoDB.Bson;
+using MongoDB.Bson.Serialization.Attributes;
 using System.Text.Json.Serialization;
 
 namespace HNTAS.Core.Api.Data.Models.Arms.Submission
@@ -10,5 +12,10 @@ namespace HNTAS.Core.Api.Data.Models.Arms.Submission
         [JsonPropertyName("value")]
         [BsonElement("value")]
         public double Value { get; set; }
+
+        [JsonPropertyName("assessment_status")]
+        [BsonElement("assessmentStatus")]
+        [BsonRepresentation(BsonType.String)]
+        public KPIAssessmentStatus AssessmentStatus { get; set; }
     }
 }

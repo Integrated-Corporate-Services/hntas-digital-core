@@ -1,7 +1,7 @@
 ﻿
 using HNTAS.Core.Api.Data.Models.Arms.Configuration;
-using HNTAS.Core.Api.Enums;
 using MongoDB.Driver;
+using ElementType = HNTAS.Core.Api.Enums.HeatNetworkElementType;
 
 namespace HNTAS.Core.Api.DataMigrations
 {

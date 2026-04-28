@@ -4,7 +4,7 @@ using System.Text.Json.Serialization;
 namespace HNTAS.Core.Api.Enums
 {
     [JsonConverter(typeof(JsonStringEnumConverter))]
-    public enum HeatNetworkElementDisplayType
+    public enum HeatNetworkElementType
     {
         [Description("Energy centre")]
         EnergyCentre = 1,
@@ -12,13 +12,13 @@ namespace HNTAS.Core.Api.Enums
         [Description("Substation")]
         Substation = 2,
 
-        [Description("District distribution network")]
-        DistrictDistributionNetwork = 3,
-        [Description("Communal distribution network")]
-        CommunalDistributionNetwork = 4,
+        [Description("District distribution")]
+        DistrictDistribution = 3,
 
-        [Description("Consumer connections")]
-        ConsumerConnections = 5,
-        
+        [Description("Communal distribution")]
+        CommunalDistribution = 4,
+
+        [Description("Consumer connection")]
+        ConsumerConnection = 5,
     }
 }

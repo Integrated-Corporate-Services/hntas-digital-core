@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using HNTAS.Core.Api.Constants;
 using HNTAS.Core.Api.Data.Models;
+using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
@@ -23,8 +24,9 @@ namespace HNTAS.Core.Api.Controllers
         private readonly IAuditService _auditService;        
         private readonly IUserService _userService;
         private readonly IEmailService _emailService;
+        private readonly INotificationHistoryService _notificationHistoryService;
 
-        public HeatNetworksController(IHeatNetworkService hnService, ILogger<HeatNetworksController> logger, ICounterService counterService, IMapper mapper, IUserService userService, IEmailService emailService, IAuditService auditService)
+        public HeatNetworksController(IHeatNetworkService hnService, ILogger<HeatNetworksController> logger, ICounterService counterService, IMapper mapper, IUserService userService, IEmailService emailService, IAuditService auditService, INotificationHistoryService notificationHistoryService)
         {
             _hnService = hnService;
             _logger = logger;
@@ -33,6 +35,7 @@ namespace HNTAS.Core.Api.Controllers
             _auditService = auditService;
             _userService = userService;
             _emailService = emailService;
+            _notificationHistoryService = notificationHistoryService;
         }
 
         /// <summary>
@@ -164,7 +167,7 @@ namespace HNTAS.Core.Api.Controllers
                 string hnId = heatNetworkDetails.HnId;
                 string hnName = heatNetworkDetails.Name;
                 await _emailService.TrySendHeatNetworkRegistrationEmailAsync(userEmail, fullName, hnId, hnName);
-
+                await NotificationHistoryForAddingHeatNetwork(heatNetworkDetails, user);
                 return CreatedAtAction(nameof(AddHeatNetwork), new { id = heatNetworkDetails.Id }, heatNetworkDetails);
             }
             catch (Exception ex)
@@ -300,6 +303,41 @@ namespace HNTAS.Core.Api.Controllers
                     request.DocumentType, request.HnId, request.UploadedBy);
                 throw;
             }
+        }
+
+        private async Task NotificationHistoryForAddingHeatNetwork(HeatNetwork heatNetwork, UserDetailsResult user)
+        {
+            var userRole = user.Roles?.FirstOrDefault();
+            var actorIds = new List<string>() { user.Id };
+            var eligibleRoles = new List<string>();
+            var description = $"{heatNetwork.HnId} - {heatNetwork.Name} registered";
+            var notificationType = NotificationHistoryType.NA;
+            var subject = NotificationHistorySubjects.NewBuildNetworkRegistered;
+            if (userRole == UserRole.ResponsiblePerson)
+            {                
+                eligibleRoles.Add(UserRole.ResponsiblePerson.ToString());
+                notificationType = NotificationHistoryType.RpRegistersHeatNetwork;
+            }
+            else
+            {                
+                eligibleRoles.Add(UserRole.ResponsiblePerson.ToString());
+                eligibleRoles.Add(UserRole.NetworkManager.ToString());
+                notificationType = NotificationHistoryType.NetworkManagerRegistersHeatNetwork;
+            }
+            var notificationHistory = new NotificationHistory
+            {
+                NotificationType = notificationType,
+                ActorsId = actorIds,
+                Subject = subject,
+                Description = description,
+                Timestamp = DateTime.UtcNow,
+                Action = NotificationHistoryActions.HeatNetworkDetails,
+                EligibleRoles = eligibleRoles,
+                HeatNetworkId = heatNetwork.HnId,
+                CreatedBy = user.Id
+            };
+    
+            await _notificationHistoryService.CreateAsync(notificationHistory);
         }
 
     }

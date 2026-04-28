@@ -5,6 +5,7 @@ using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
 using HNTAS.Core.Api.Models.Users;
+using HNTAS.Core.Api.Services;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Bson;
 using System.Net.Mime;
@@ -24,6 +25,7 @@ public class UsersController : ControllerBase
     private readonly IEmailService _emailService;
     private readonly IHeatNetworkService _heatNetworkService;
     private readonly IAuditService _auditService;
+    private readonly INotificationHistoryService _notificationHistoryService;
 
 
     public UsersController(IUserService userService,
@@ -34,7 +36,8 @@ public class UsersController : ControllerBase
                            IMapper mapper,
                            IEmailService emailService,
                            IHeatNetworkService heatNetworkService,
-                           IAuditService auditService)
+                           IAuditService auditService,
+                           INotificationHistoryService notificationHistoryService)
     {
         _userService = userService;
         _organisationService = organizationService;
@@ -45,6 +48,7 @@ public class UsersController : ControllerBase
         _mapper = mapper;
         _heatNetworkService = heatNetworkService;
         _auditService = auditService;
+        _notificationHistoryService = notificationHistoryService;
     }
 
     /// <summary>
@@ -599,7 +603,7 @@ public class UsersController : ControllerBase
 
             // Check for existing user
             var invitedUser = await _userService.GetByUserOneLoginIdAsync(request.OneLoginId);
-
+            var heatNetwork = await _heatNetworkService.GetByHnIdAsync(invitation.InvitedHnId!);
             if (invitedUser != null && invitation.InvitedHnId != null)
             {
                 invitedUser.HnRoleMappings = invitedUser.HnRoleMappings ?? new List<HnRoleMapping>();
@@ -632,8 +636,9 @@ public class UsersController : ControllerBase
                 await _invitationService.ExecuteRoleSwapAsync(invitedUser, null, invitation);
 
                 _logger.LogInformation("Existing invited user updated: {UserId})", invitedUser.Id);
-
-                await AuditLogs(invitation, invitedUser.Id!);
+                
+                await AuditLogs(invitation, invitedUser.Id!, heatNetwork);
+                await NotificationHistoryForAcceptingInvite(invitation, invitedUser, heatNetwork);
 
                 return Ok(invitedUser.Id);
             }
@@ -657,7 +662,8 @@ public class UsersController : ControllerBase
                 organisation.RpUserId = invitedUser.Id;
 
                 await _organisationService.UpdateAsync(organisation.Id, organisation);
-                await AuditLogs(invitation, invitedUser.Id!);
+                await AuditLogs(invitation, invitedUser.Id!, heatNetwork);
+                await NotificationHistoryForAcceptingInvite(invitation, invitedUser, heatNetwork);
                 return StatusCode(StatusCodes.Status201Created, invitedUser.Id);
             }
             else
@@ -667,7 +673,8 @@ public class UsersController : ControllerBase
                 await _invitationService.ExecuteRoleSwapAsync(newUser, null, invitation);
                 _logger.LogInformation("New invited user registered: {UserId} (DB Id: {Id})", newUser.OneLoginId, newUser.Id);
 
-                await AuditLogs(invitation, newUser.Id!);
+                await AuditLogs(invitation, newUser.Id!, heatNetwork);
+                await NotificationHistoryForAcceptingInvite(invitation, newUser, heatNetwork);
                 return StatusCode(StatusCodes.Status201Created, newUser.Id);
             }
         }
@@ -793,13 +800,13 @@ public class UsersController : ControllerBase
             var sourceUser = invitedUsersDetail.FirstOrDefault(x => x.Id == ruser.Id);
             ruser.HeatNetworks = MapHeatNetworks(sourceUser);
         }
-        var coordinatorRoleName = UserRole.Coordinator.ToString();
+        var coordinatorRoleName = UserRole.NetworkManager.ToString();
         if (registeredUsers != null && registeredUsers.Any())
         {
             // Exclude the responsible user
             registeredUsers = registeredUsers.Where(ru => ru.EmailId != user.EmailId).ToList();
 
-            // If only network manager are required, include only registered users who have the Coordinator role.
+            // If only network manager are required, include only registered users who have the NetworkManager role.
             if (networkManagersOnly)
             {
                 registeredUsers = registeredUsers
@@ -827,9 +834,11 @@ public class UsersController : ControllerBase
                     u.HeatNetworks.Any(hn => hn.HnId == (i.HeatNetworks.FirstOrDefault()?.HnId))
                 );
 
+                bool isAccepted = i.Status == InvitationStatus.Accepted.ToString();
+
                 // ONLY show the record if they are NOT registered
                 // This will show "Invited" or "Rejected" status records
-                return !isRegistered;
+                return !isRegistered && !isAccepted;
             })
         .ToList();
 
@@ -993,7 +1002,7 @@ public class UsersController : ControllerBase
             { ContributorRole.ContributingOperator, UserRole.Contributor },
             { ContributorRole.Assessor, UserRole.Assessor },
             { ContributorRole.Certifier, UserRole.Certifier },
-            { ContributorRole.Coordinator, UserRole.Coordinator },
+            { ContributorRole.NetworkManager, UserRole.NetworkManager },
             { ContributorRole.ResponsiblePerson, UserRole.ResponsiblePerson }
     };
 
@@ -1027,7 +1036,7 @@ public class UsersController : ControllerBase
         // Define the roles that grant access to the Organisation's full HeatNetwork list
         var rolesGrantingFullAccess = new List<UserRole> {
            UserRole.ResponsiblePerson,
-           UserRole.Coordinator
+           UserRole.NetworkManager
         };
 
         // 1. Check for specific Heat Network role mappings (Highest Priority).
@@ -1041,7 +1050,7 @@ public class UsersController : ControllerBase
 
         if (hasFullAccessRole)
         {
-            // If the user is RP or Coordinator, assign ALL heat networks from the organization.
+            // If the user is RP or NetworkManager, assign ALL heat networks from the organization.
             if (src.Organisation != null && src.Organisation.HeatNetworks != null)
             {
                 return src.Organisation.HeatNetworks.ToList();
@@ -1081,7 +1090,7 @@ public class UsersController : ControllerBase
         return user;
     }
 
-    private async Task AuditLogs(Invitation invitation, string userId)
+    private async Task AuditLogs(Invitation invitation, string userId, HeatNetwork heatNetwork)
     {
         // Log for Audit history
         var isRegistrationEnabledString = Environment.GetEnvironmentVariable("IS_REGISTRATION_ENABLED");
@@ -1089,10 +1098,9 @@ public class UsersController : ControllerBase
                 isRegistrationEnabledString.ToLower() == "true")
 
         {
-            var existingHeatNetwork = await _heatNetworkService.GetByHnIdAsync(invitation.InvitedHnId!);
-            if (existingHeatNetwork != null)
+            if (heatNetwork != null)
             {
-                var phase = existingHeatNetwork.Phase;
+                var phase = heatNetwork.Phase;
                 var stage = HeatNetworkHelper.GetStageFromPhase(phase);
                 var invitedRole = invitation.InvitedRoles.FirstOrDefault();
                 var entryType = "";
@@ -1122,15 +1130,122 @@ public class UsersController : ControllerBase
                 await _auditService.SaveAuditAsync<HeatNetwork>(
                     entryType: entryType,
                     actorId: userId,
-                    entityId: existingHeatNetwork.HnId!,
-                    oldState: existingHeatNetwork,
-                    newState: existingHeatNetwork,
+                    entityId: heatNetwork.HnId!,
+                    oldState: heatNetwork,
+                    newState: heatNetwork,
                     elementName: "NA",
                     phase: phase,
                     stage: stage
                 );
             }
         }
+    }
+
+    private async Task NotificationHistoryForAcceptingInvite(Invitation invitation, User user, HeatNetwork heatNetwork)
+    {
+        var invitedRole = invitation.InvitedRoles.FirstOrDefault();
+        var eligibleRoles = new List<string>() { ContributorRole.ResponsiblePerson.ToString() };
+        var subject = string.Empty;
+        var action = string.Empty;
+        var description = string.Empty;
+        var notificationType = NotificationHistoryType.NA;
+        var actorIds = new List<string>() { invitation.InviterUserId };
+        var heatNetworkName = heatNetwork != null ? heatNetwork.Name : "";
+
+        if (invitedRole == ContributorRole.NetworkManager)
+        {
+            subject = NotificationHistorySubjects.NetworkManagerJoined;
+            action = NotificationHistoryActions.NetworkManagers;
+            description = $"{ user.FirstName } { user.LastName } signed in";
+            notificationType = NotificationHistoryType.NetworkManagerAcceptsInvite;
+        }
+        else if (invitedRole == ContributorRole.DesignatedDesigner)
+        {
+            eligibleRoles.Add(ContributorRole.NetworkManager.ToString());
+            subject = NotificationHistorySubjects.DesignatedDesignerJoined;
+            action = NotificationHistoryActions.DDHAndContributors;
+            description = $"{user.FirstName} {user.LastName} joined {invitation.InvitedHnId}-{heatNetworkName}";
+            notificationType = NotificationHistoryType.DdhAcceptsInviteToHeatNetwork;
+        }
+        else if (invitedRole == ContributorRole.DesignatedContractor)
+        {
+            eligibleRoles.Add(ContributorRole.NetworkManager.ToString());
+            subject = NotificationHistorySubjects.DesignatedContractorJoined;
+            action = NotificationHistoryActions.DDHAndContributors;
+            description = $"{user.FirstName} {user.LastName} joined {invitation.InvitedHnId}-{heatNetworkName}";
+            notificationType = NotificationHistoryType.DdhAcceptsInviteToHeatNetwork;
+        }
+        else if (invitedRole == ContributorRole.DesignatedOperator)
+        {
+            eligibleRoles.Add(ContributorRole.NetworkManager.ToString());
+            subject = NotificationHistorySubjects.DesignatedOperatorJoined;
+            action = NotificationHistoryActions.DDHAndContributors;
+            description = $"{user.FirstName} {user.LastName} joined {invitation.InvitedHnId}-{heatNetworkName}";
+            notificationType = NotificationHistoryType.DdhAcceptsInviteToHeatNetwork;
+        }
+        else if (invitedRole == ContributorRole.ContributingDesigner)
+        {
+            await AddDdhInvitorToActorIds(invitation, actorIds);
+            eligibleRoles.Add(ContributorRole.NetworkManager.ToString());
+            eligibleRoles.Add(ContributorRole.DesignatedDesigner.ToString());
+            subject = NotificationHistorySubjects.ContributingDesignerJoined;
+            action = NotificationHistoryActions.DDHAndContributors;
+            description = $"{user.FirstName} {user.LastName} joined {invitation.InvitedHnId}-{heatNetworkName}";
+            notificationType = NotificationHistoryType.ContributorAcceptsInviteToHeatNetwork;
+        }
+        else if (invitedRole == ContributorRole.ContributingContractor)
+        {
+            await AddDdhInvitorToActorIds(invitation, actorIds);
+            eligibleRoles.Add(ContributorRole.NetworkManager.ToString());
+            eligibleRoles.Add(ContributorRole.DesignatedContractor.ToString());
+            subject = NotificationHistorySubjects.ContributingContractorJoined;
+            action = NotificationHistoryActions.DDHAndContributors;
+            description = $"{user.FirstName} {user.LastName} joined {invitation.InvitedHnId}-{heatNetworkName}";
+            notificationType = NotificationHistoryType.ContributorAcceptsInviteToHeatNetwork;
+        }
+        else if (invitedRole == ContributorRole.ContributingOperator)
+        {
+            await AddDdhInvitorToActorIds(invitation, actorIds);
+            eligibleRoles.Add(ContributorRole.NetworkManager.ToString());
+            eligibleRoles.Add(ContributorRole.DesignatedOperator.ToString());
+            subject = NotificationHistorySubjects.ContributingOperatorJoined;
+            action = NotificationHistoryActions.DDHAndContributors;
+            description = $"{user.FirstName} {user.LastName} joined {invitation.InvitedHnId}-{heatNetworkName}";
+            notificationType = NotificationHistoryType.ContributorAcceptsInviteToHeatNetwork;
+        }
+        var notificationHistory = new NotificationHistory
+            {
+                NotificationType = notificationType,
+                ActorsId = actorIds,
+                Subject = subject,
+                Description = description,
+                Timestamp = DateTime.UtcNow,
+                Action = action,
+                EligibleRoles = eligibleRoles,
+                HeatNetworkId = invitation.InvitedHnId,
+                CreatedBy = user.Id
+            };
+
+        await _notificationHistoryService.CreateAsync(notificationHistory);
+    }
+
+    private async Task AddDdhInvitorToActorIds(Invitation invitation, List<string> actorIds)
+    {
+        var invitorDetailsOfDdh = await _userService.GetByIdAsync(invitation.InviterUserId);
+        if (invitorDetailsOfDdh == null) return;
+
+        var role = invitorDetailsOfDdh.HnRoleMappings
+            .Where(mapping => mapping.HnId == invitation.InvitedHnId)
+            .Select(mapping => mapping.Role)
+            .FirstOrDefault();
+
+        var invitorOfDdh = await _invitationService.GetByInvitedDetailsAsync(
+            invitorDetailsOfDdh.EmailId,
+            invitation.InvitedHnId!,
+            role);
+
+        if (invitorOfDdh != null)
+            actorIds.Add(invitorOfDdh.InviterUserId!);
     }
 
 }

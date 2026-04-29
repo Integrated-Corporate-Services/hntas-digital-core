@@ -13,5 +13,6 @@
         public string HnCarbonCalculationsCollectionName { get; set; } = null!;
         public string AssessorsCollectionName { get; set; } = null!;
         public string NotificationHistoryCollectionName { get; set; } = null!;
+        public string UserStatsCollectionName { get; set; } = null!;
     }
 }

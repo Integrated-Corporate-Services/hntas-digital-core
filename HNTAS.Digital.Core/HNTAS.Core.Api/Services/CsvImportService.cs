@@ -14,9 +14,9 @@ namespace HNTAS.Core.Api.Services
 
     public class CsvImportService : ICsvImportService
     {
-        private readonly IMongoCollection<BsonDocument> _orgCollection;
-        private readonly IMongoCollection<BsonDocument> _heatNetworkCollection;
-        private readonly IMongoCollection<BsonDocument> _usersCollection;
+        private readonly IMongoCollection<Organisation> _orgCollection;
+        private readonly IMongoCollection<HeatNetwork> _heatNetworkCollection;
+        private readonly IMongoCollection<User> _usersCollection;
         private readonly IOrganisationService _organisationService;
         private readonly IUserService _userService;
         private readonly IHeatNetworkService _heatNetworkService;
@@ -31,9 +31,9 @@ namespace HNTAS.Core.Api.Services
             ICounterService orgCounterService,
             ILogger<CsvImportService> logger)
         {
-            _orgCollection = db.GetCollection<BsonDocument>("Organisations");
-            _heatNetworkCollection = db.GetCollection<BsonDocument>("HeatNetworks");
-            _usersCollection = db.GetCollection<BsonDocument>("Users");
+            _orgCollection = db.GetCollection<Organisation>("Organisations");
+            _heatNetworkCollection = db.GetCollection<HeatNetwork>("HeatNetworks");
+            _usersCollection = db.GetCollection<User>("Users");
             _organisationService = organisationService;
             _userService = userService;
             _heatNetworkService = heatNetworkService;
@@ -246,16 +246,16 @@ namespace HNTAS.Core.Api.Services
 
                     // STEP 4: Update User with HN + Role mappings
 
-                    var filter = Builders<BsonDocument>.Filter.And(
-                        Builders<BsonDocument>.Filter.Eq("emailId", emailId),
-                        Builders<BsonDocument>.Filter.Not(
-                            Builders<BsonDocument>.Filter.ElemMatch("hnRoleMappings",
-                                Builders<BsonDocument>.Filter.Eq("hnId", hnId)
+                    var filter = Builders<User>.Filter.And(
+                        Builders<User>.Filter.Eq("emailId", emailId),
+                        Builders<User>.Filter.Not(
+                            Builders<User>.Filter.ElemMatch("hnRoleMappings",
+                                Builders<User>.Filter.Eq("hnId", hnId)
                             )
                         )
                     );
 
-                    var update = Builders<BsonDocument>.Update
+                    var update = Builders<User>.Update
                         .Push("hnRoleMappings", new BsonDocument
                         {
                             { "hnId", hnId },
@@ -279,6 +279,26 @@ namespace HNTAS.Core.Api.Services
             }
 
             return result;
+        }
+
+
+        public async Task GetUploadedHeatNetworkData()
+        {
+            // Filter with createdAt and registrationSource is ofgem to only get the recently uploaded data from CSV import
+            var heatNetworkFilter = Builders<HeatNetwork>.Filter.And(
+                Builders<HeatNetwork>.Filter.Gte("createdAt", DateTime.UtcNow.AddHours(-1)),
+                Builders<HeatNetwork>.Filter.Eq("registrationSource", Enums.RegistrationSource.OFGEM.ToString())
+            );
+            var heatNetworks = await _heatNetworkCollection.Find(heatNetworkFilter).ToListAsync();
+
+            var organisationFilter = Builders<Organisation>.Filter.Gte("createdAt", DateTime.UtcNow.AddHours(-1));
+            var organisations = await _orgCollection.Find(organisationFilter).ToListAsync();
+
+            foreach (var hn in heatNetworks)
+            {
+                // iterate through the orgninsations 
+            }
+
         }
 
         // ------------------------------------------------------------
@@ -320,5 +340,21 @@ namespace HNTAS.Core.Api.Services
                 ? cells[index]
                 : string.Empty;
         }
+    }
+
+    public class OfgemDataModelPostImportForEmail
+    {
+        public OfgemGroupType GroupType { get; set; }
+        public Organisation? Organisation { get; set; }
+        public bool IsExistingOrganisation { get; set; }
+        public User? User { get; set; }
+        public bool IsExistingUser { get; set; }
+        public List<HeatNetwork>? HeatNetworks { get; set; }
+    }
+
+    public enum OfgemGroupType
+    {
+        Organisation,
+        RegulatoryContactEmail
     }
 }

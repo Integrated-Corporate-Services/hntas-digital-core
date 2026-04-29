@@ -88,7 +88,6 @@ namespace HNTAS.Core.Api.Validators.Arms
                     {
                         if (!allowedKeys.Contains(kpiKey))
                         {
-
                             context.AddFailure(
                                 $"Kpis[{kpiKey}]",
                                 $"Invalid KPI ID '{kpiKey}' for {elementType}. " +

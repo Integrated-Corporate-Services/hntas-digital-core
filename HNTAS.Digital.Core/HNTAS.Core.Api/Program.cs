@@ -52,6 +52,7 @@ builder.Services.AddScoped<INotificationHistoryService, NotificationHistoryServi
 builder.Services.AddScoped<IKpiRuleValidator, KpiRuleValidator>();
 builder.Services.AddScoped<IHeatNetworkValidator, HeatNetworkValidator>();
 builder.Services.AddScoped<IKpiSubmissionAuditService, KpiSubmissionAuditService>();
+builder.Services.AddScoped<IUserStatsService, UserStatsService>();
 
 //Data Migrations
 builder.Services.AddScoped<IDataMigration, SeedCountriesAndTerritories>();

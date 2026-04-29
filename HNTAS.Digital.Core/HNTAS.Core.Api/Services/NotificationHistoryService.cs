@@ -40,7 +40,7 @@ namespace HNTAS.Core.Api.Services
                 if (role != UserRole.ResponsiblePerson)
                 {
                     filter = Builders<NotificationHistory>.Filter.AnyEq(nh => nh.ActorsId, notificatoinHistoryRequest.UserId);
-                }                    
+                }
 
                 var totalCount = await _notificationHistoryCollection.CountDocumentsAsync(filter);
 
@@ -91,7 +91,20 @@ namespace HNTAS.Core.Api.Services
                 _logger.LogError(ex, "Error retrieving Notification History for User ID: {userID}", StringFormatter.Sanitize(notificatoinHistoryRequest.UserId!));
                 throw;
             }
-            
+
+        }
+
+        public async Task<int> GetNotificationHistoryCount(string userId, UserRole role)
+        {
+            var filter = Builders<NotificationHistory>.Filter.Empty;
+            if (role != UserRole.ResponsiblePerson)
+            {
+                filter = Builders<NotificationHistory>.Filter.AnyEq(nh => nh.ActorsId, userId);
+            }
+            var count = await _notificationHistoryCollection.CountDocumentsAsync(filter);
+            _logger.LogInformation("Retrieved notification history count for user ID: {UserId}, Count: {Count}",
+                StringFormatter.Sanitize(userId), count);
+            return (int)count;
         }
     }
 }

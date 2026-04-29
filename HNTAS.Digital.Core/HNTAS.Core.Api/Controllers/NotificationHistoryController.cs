@@ -1,4 +1,5 @@
 ﻿using HNTAS.Core.Api.Data.Models;
+using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models.NotificationHistory;
@@ -14,12 +15,14 @@ namespace HNTAS.Core.Api.Controllers
         private readonly ILogger<NotificationHistoryController> _logger;
         private readonly INotificationHistoryService _notificationHistoryService;
         private readonly IUserService _userService;
+        private readonly IUserStatsService _userStatsService;
 
-        public NotificationHistoryController(ILogger<NotificationHistoryController> logger, INotificationHistoryService notificationHistoryService, IUserService userService)
+        public NotificationHistoryController(ILogger<NotificationHistoryController> logger, INotificationHistoryService notificationHistoryService, IUserService userService, IUserStatsService userStatsService)
         {
             _logger = logger;
             _notificationHistoryService = notificationHistoryService;
             _userService = userService;
+            _userStatsService = userStatsService;
         }
         [HttpGet("notification-history")]
         [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(NotificationHistoryResponse))]
@@ -40,6 +43,9 @@ namespace HNTAS.Core.Api.Controllers
                     return NotFound();
                 }
 
+                var notificationHistoryCount = await _notificationHistoryService.GetNotificationHistoryCount(request.UserId!, currentUserRoles);
+                await _userStatsService.UpdateNotificationHistoryCountAsync(request.UserId!, notificationHistoryCount);
+
                 _logger.LogInformation("Notification history(s) are retrieved successfully for the user: {userId}", StringFormatter.Sanitize(request.UserId!));
                 return Ok(result);
             }
@@ -49,6 +55,28 @@ namespace HNTAS.Core.Api.Controllers
                 StringFormatter.Sanitize(request.UserId!));
                 throw;
             }
+        }
+
+        [HttpGet("unread-notification-count")]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(int))]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<int>> UnreadNotificationCount(string userId, UserRole role)
+        {
+            try
+            {
+                var notificationHistoryCount = await _notificationHistoryService.GetNotificationHistoryCount(userId, role);
+                var userStatsNotificatonCount = await _userStatsService.GetNotificationHistoryCountAsync(userId);
+                var unreadNotificationCount = notificationHistoryCount - userStatsNotificatonCount;
+                _logger.LogInformation("Unread Notification Count is retrieved successfully for the user: {userId}", StringFormatter.Sanitize(userId));
+                return Ok(unreadNotificationCount);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to retrieve Unread Notification Count for User ID: {userID}",
+                StringFormatter.Sanitize(userId));
+                throw;
+            }
+            
         }
     }
 }

@@ -24,7 +24,29 @@ namespace HNTAS.Core.Api.Validators.Arms
                 "SS-KPI-14", "SS-KPI-15", "SS-KPI-16", "SS-KPI-17"
             }},
             { ElementType.CommunalDistribution, new HashSet<string> {
-            "CD-KPI-01", "CD-KPI-02", "CD-KPI-03", "CD-KPI-04", "CD-KPI-05", "CD-KPI-06", "CD-KPI-07", "CD-KPI-08", "CD-KPI-09"
+                "CD-KPI-01", "CD-KPI-02", "CD-KPI-03", "CD-KPI-04", "CD-KPI-05", "CD-KPI-06", "CD-KPI-07", "CD-KPI-08", "CD-KPI-09"
+            }},
+            { ElementType.ConsumerConnection, new HashSet<string> {
+                "CC-KPI-04", "CC-KPI-05", "CC-KPI-06", "CC-KPI-07"
+            }}
+        };
+
+
+        private static readonly Dictionary<ElementType, HashSet<string>> MandatoryKpisByElement = new()
+        {
+            { ElementType.EnergyCentre, new HashSet<string> {
+                "EC-KPI-01", "EC-KPI-02", "EC-KPI-03", "EC-KPI-04", "EC-KPI-05", "EC-KPI-06", "EC-KPI-07", "EC-KPI-08",
+                "EC-KPI-11", "EC-KPI-12", "EC-KPI-13", "EC-KPI-14", "EC-KPI-15", "EC-KPI-18"
+            }},
+            { ElementType.DistrictDistribution, new HashSet<string> {
+                "DD-KPI-01", "DD-KPI-02", "DD-KPI-03", "DD-KPI-04", "DD-KPI-05", "DD-KPI-06", "DD-KPI-07", "DD-KPI-08", "DD-KPI-09", "DD-KPI-10"
+            }},
+            { ElementType.Substation, new HashSet<string> {
+                "SS-KPI-01", "SS-KPI-02", "SS-KPI-03", "SS-KPI-04", "SS-KPI-05", "SS-KPI-06", "SS-KPI-07", "SS-KPI-08",
+                "SS-KPI-11", "SS-KPI-12", "SS-KPI-13", "SS-KPI-14", "SS-KPI-15", "SS-KPI-16", "SS-KPI-17"
+            }},
+            { ElementType.CommunalDistribution, new HashSet<string> {
+                "CD-KPI-01", "CD-KPI-02", "CD-KPI-03", "CD-KPI-04", "CD-KPI-05", "CD-KPI-06", "CD-KPI-07", "CD-KPI-08", "CD-KPI-09"
             }},
             { ElementType.ConsumerConnection, new HashSet<string> {
                 "CC-KPI-04", "CC-KPI-05", "CC-KPI-06", "CC-KPI-07"
@@ -72,15 +94,22 @@ namespace HNTAS.Core.Api.Validators.Arms
                     var kpiKey = kpiEntry.Key;
                     var elementType = networkElement.Type;
 
+                    // 1. Define the mapping logic
+                    var expectedPrefix = elementType switch
+                    {
+                        ElementType.EnergyCentre => "EC",
+                        ElementType.DistrictDistribution => "DD",
+                        ElementType.Substation => "SS",
+                        ElementType.CommunalDistribution => "CD",
+                        ElementType.ConsumerConnection => "CC",
+                        _ => elementType.ToString().Substring(0, 2).ToUpper() // Fallback for others
+                    };
+
                     // This single check validates BOTH the prefix and the specific KPI ID
                     if (AllowedKpisByElement.TryGetValue(elementType, out var allowedKeys))
                     {
                         if (!allowedKeys.Contains(kpiKey))
                         {
-                            // If it's not in the list, it's a failure. 
-                            // We can even tell them what prefix we expected to be helpful.
-                            var expectedPrefix = elementType.ToString().Substring(0, 2).ToUpper();
-
                             context.AddFailure(
                                 $"Kpis[{kpiKey}]",
                                 $"Invalid KPI ID '{kpiKey}' for {elementType}. " +
@@ -137,6 +166,16 @@ namespace HNTAS.Core.Api.Validators.Arms
                     var element = elements[i];
                     var submittedKeys = element.Kpis.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase);
                     string path = $"Elements[{i}]";
+
+
+                    if (MandatoryKpisByElement.TryGetValue(element.Type, out var requiredSet))
+                    {
+                        var missing = requiredSet.Where(req => !submittedKeys.Contains(req)).ToList();
+                        if (missing.Any())
+                        {
+                            context.AddFailure(path, $"Element ID '{element.ElementId}' ({element.Type}) is missing mandatory KPIs: {string.Join(", ", missing)}");
+                        }
+                    }
 
                     if (element.Type == ElementType.EnergyCentre)
                     {

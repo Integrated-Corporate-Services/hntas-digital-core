@@ -24,6 +24,10 @@ namespace HNTAS.Core.Api.Services
         public async Task<Organisation> GetByIdAsync(string orgId) =>
             await _organizationsCollection.Find(org => org.Id == orgId).FirstOrDefaultAsync();
 
+        // Get an organization by its Companys House Number
+        public async Task<Organisation> GetByCompanyHouseNumberAsync(string companyHouseNumber) =>
+            await _organizationsCollection.Find(org => org.CompaniesHouseNumber == companyHouseNumber).FirstOrDefaultAsync();
+
         // Get an organization by its OrgID
         public async Task<Organisation> GetByOrgIdAsync(string orgId) =>
             await _organizationsCollection.Find(org => org.OrgId == orgId).FirstOrDefaultAsync();

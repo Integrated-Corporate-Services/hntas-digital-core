@@ -69,6 +69,9 @@ namespace HNTAS.Core.Api.Services
             int lineNumber = 1;
             string? line;
 
+            var ofgemDataModelPostImportList = new List<OfgemDataModelPostImport>();
+            var newRp = string.Empty;
+            var newOrgs = new List<string>();
             while ((line = await reader.ReadLineAsync()) != null)
             {
                 lineNumber++;
@@ -124,47 +127,61 @@ namespace HNTAS.Core.Api.Services
                     result.RowsProcessed++;
                     #endregion
 
+                    var ofgemDataModelPostImport = new OfgemDataModelPostImport
+                    {                        
+                        OrganisationId = "",
+                        UserEmailId = "",
+                        //IsOrganisationExist = false, // to be updated later
+                        //IsUserExist = false // to be updated later
+                    };
+
                     // STEP 1: Create or fetch user (by emailId + oneLoginId)
-                    User existingUser = await _userService.GetByEmailAsync(emailId);
-                    var orgType = hasCompaniesHouseNo ? HNTAS.Core.Api.Enums.OrganisationType.UkCompaniesHouse : HNTAS.Core.Api.Enums.OrganisationType.OtherUkOrganisation;
+                    User existingUserWithRPRole = await _userService.GetRpAsync();
+                    var orgType = hasCompaniesHouseNo ? Enums.OrganisationType.UkCompaniesHouse : Enums.OrganisationType.OtherUkOrganisation;
                     string userId;
                     string userOrgId = "";
+                    string userEmailId = "";
 
-                    if (existingUser == null)
+                    if (existingUserWithRPRole == null)
                     {
                         // Create a minimal user first
                         var newUser = new User
                         {
                             EmailId = emailId,
                             OneLoginId = oneLoginId,
-                            PreferredContactType = HNTAS.Core.Api.Enums.PreferredContactType.Mobile,
+                            PreferredContactType = Enums.PreferredContactType.Mobile,
                             LandlineNumber = null,
                             MobileNumber = phoneNumber,
-                            Roles = new List<HNTAS.Core.Api.Enums.UserRole>(),  // empty for now
+                            Roles = new List<Enums.UserRole>(),  // empty for now
                             HnRoleMappings = new List<HnRoleMapping>(),
-                            Status = HNTAS.Core.Api.Enums.UserStatus.Active,
+                            Status = Enums.UserStatus.Active,
                             CreatedAt = DateTime.UtcNow
                         };
 
                         await _userService.CreateAsync(newUser);                        
                         userId = newUser.Id;
+                        userEmailId = newUser.EmailId;
                         _logger.LogInformation("Created new User {userId}.", userId);
                         result.UsersInserted++;
+                        newRp = userEmailId;
                     }
                     else
                     {
-                        userId = existingUser.Id;
-                        userOrgId = existingUser.OrgId;
+                        userId = existingUserWithRPRole.Id;
+                        userOrgId = existingUserWithRPRole.OrgId;
+                        userEmailId = existingUserWithRPRole.EmailId;
                         _logger.LogInformation("User {userId} already exists.", userId);
                         result.UsersUpdated++;
-                    }                    
-
+                        //ofgemDataModelPostImport.IsUserExist = true;
+                    }
+                    ofgemDataModelPostImport.UserId = userId;
+                    ofgemDataModelPostImport.UserEmailId = userEmailId;
                     // STEP 2.2: Create Organisation
 
                     Organisation existingOrg = null;
-                    if(orgType == HNTAS.Core.Api.Enums.OrganisationType.UkCompaniesHouse)
-                        existingOrg = await _organisationService.GetByIdAsync(companiesHouseNo);
-                    else if(orgType == HNTAS.Core.Api.Enums.OrganisationType.OtherUkOrganisation)
+                    if(orgType == Enums.OrganisationType.UkCompaniesHouse)
+                        existingOrg = await _organisationService.GetByCompanyHouseNumberAsync(companiesHouseNo);
+                    else if(orgType == Enums.OrganisationType.OtherUkOrganisation)
                         existingOrg = await _organisationService.GetByOrgIdOrNameAsync(organisationName);
                     var orgId = "";
                     if (existingOrg == null)
@@ -192,13 +209,17 @@ namespace HNTAS.Core.Api.Services
                         await _organisationService.CreateAsync(newOrg);
                         orgId = newOrg.OrgId;
                         result.OrganisationsInserted++;
+                        newOrgs.Add(orgId);
                         _logger.LogInformation("Inserted Organisation named {organisationName}.", organisationName);
                     }
                     else
                     {
                         orgId = existingOrg.OrgId;
+                        //ofgemDataModelPostImport.IsOrganisationExist = true;
                         _logger.LogInformation("Organisation CHN already exists. Skipping.");
                     }
+
+                    ofgemDataModelPostImport.OrganisationId = orgId;
 
                     if (string.IsNullOrEmpty(userOrgId) && !string.IsNullOrWhiteSpace(orgId))
                     {
@@ -234,42 +255,45 @@ namespace HNTAS.Core.Api.Services
                                 Latitude = string.IsNullOrWhiteSpace(ecLat) ? (decimal?)null : decimal.Parse(ecLat, System.Globalization.CultureInfo.InvariantCulture),
                                 Longitude = string.IsNullOrWhiteSpace(ecLong) ? (decimal?)null : decimal.Parse(ecLong, System.Globalization.CultureInfo.InvariantCulture)
                             },
-                            RegistrationSource = HNTAS.Core.Api.Enums.RegistrationSource.OFGEM,
+                            RegistrationSource = Enums.RegistrationSource.OFGEM,
                             Pathway = null,
                             Soa = null,
                             CreatedBy = userId,
                             CreatedAt = string.IsNullOrWhiteSpace(dateOfHnRegistration) ? DateTime.UtcNow : DateTime.ParseExact(dateOfHnRegistration, new[] { "dd/MM/yyyy", "d/M/yyyy" }, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AssumeUniversal)
                         };
                         await _heatNetworkService.CreateAsync(newHn);
+                        ofgemDataModelPostImport.HeatNetworkId = newHn.HnId;
                         result.HeatNetworksInserted++;
                     }
 
                     // STEP 4: Update User with HN + Role mappings
 
-                    var filter = Builders<User>.Filter.And(
-                        Builders<User>.Filter.Eq("emailId", emailId),
-                        Builders<User>.Filter.Not(
-                            Builders<User>.Filter.ElemMatch("hnRoleMappings",
-                                Builders<User>.Filter.Eq("hnId", hnId)
-                            )
-                        )
-                    );
+                    //var filter = Builders<User>.Filter.And(
+                    //    Builders<User>.Filter.Eq("emailId", userEmailId),
+                    //    Builders<User>.Filter.Not(
+                    //        Builders<User>.Filter.ElemMatch("hnRoleMappings",
+                    //            Builders<User>.Filter.Eq("hnId", hnId)
+                    //        )
+                    //    )
+                    //);
 
-                    var update = Builders<User>.Update
-                        .Push("hnRoleMappings", new BsonDocument
-                        {
-                            { "hnId", hnId },
-                            { "role", "ResponsiblePerson" }
-                        })
-                        // optional: keep hnIds and roles aligned (also append-only)
-                        .AddToSet("roles", "ResponsiblePerson");
+                    //var update = Builders<User>.Update
+                    //    .Push("hnRoleMappings", new BsonDocument
+                    //    {
+                    //        { "hnId", hnId },
+                    //        { "role", "ResponsiblePerson" }
+                    //    })
+                    //    // optional: keep hnIds and roles aligned (also append-only)
+                    //    .AddToSet("roles", "ResponsiblePerson");
 
-                    var res = await _usersCollection.UpdateOneAsync(filter, update, cancellationToken: ct);
+                    //var res = await _usersCollection.UpdateOneAsync(filter, update, cancellationToken: ct);
 
-                    if (res.ModifiedCount > 0)
-                        _logger.LogInformation("Appended hnRoleMapping for user.");
-                    else
-                        _logger.LogInformation("User {userId} already has hnRoleMapping for this heat network skipped", userId, hnId);
+                    //if (res.ModifiedCount > 0)
+                    //    _logger.LogInformation("Appended hnRoleMapping for user.");
+                    //else
+                    //    _logger.LogInformation("User {userId} already has hnRoleMapping for this heat network skipped", userId, hnId);
+
+                    ofgemDataModelPostImportList.Add(ofgemDataModelPostImport);
                 }
                 catch (Exception ex)
                 {
@@ -277,28 +301,38 @@ namespace HNTAS.Core.Api.Services
                     result.Errors.Add($"Line {lineNumber}: {ex.Message}");
                 }
             }
-
+            // TODO: We may need to store the ofgemDataModelPostImportList in a temporary collection for the post-import email step to consume, or (pass it directly - currently doing)
+            GetUploadedHeatNetworkData(ofgemDataModelPostImportList, newRp, newOrgs);
             return result;
         }
 
 
-        public async Task GetUploadedHeatNetworkData()
+        public async Task GetUploadedHeatNetworkData(List<OfgemDataModelPostImport> ofgemDataList, string newRp, List<string> newOrgs)
         {
-            // Filter with createdAt and registrationSource is ofgem to only get the recently uploaded data from CSV import
-            var heatNetworkFilter = Builders<HeatNetwork>.Filter.And(
-                Builders<HeatNetwork>.Filter.Gte("createdAt", DateTime.UtcNow.AddHours(-1)),
-                Builders<HeatNetwork>.Filter.Eq("registrationSource", Enums.RegistrationSource.OFGEM.ToString())
-            );
-            var heatNetworks = await _heatNetworkCollection.Find(heatNetworkFilter).ToListAsync();
+            // iterate through the list and group heatnetwork id by organisation and set the flag to true if user or organisation exist and save to the OfgemDataModelPostImportGroupByOrganisation
+                var groupedByOrg = ofgemDataList
+                    .GroupBy(x => x.OrganisationId)
+                    .Select(g => new OfgemDataModelPostImportGroupByOrganisation
+                    {
+                        OrganisationId = g.Key,
+                        HeatNetworkId = g.Distinct().Where(a => a.HeatNetworkId != null).Select(x => x.HeatNetworkId).ToList(),
+                        IsOrganisationExist = !newOrgs.Contains(g.Key),
+                        UserId = g.FirstOrDefault()?.UserId ?? string.Empty,
+                        UserEmailId = g.FirstOrDefault()?.UserEmailId ?? string.Empty
+                    })
+                    .ToList();
 
-            var organisationFilter = Builders<Organisation>.Filter.Gte("createdAt", DateTime.UtcNow.AddHours(-1));
-            var organisations = await _orgCollection.Find(organisationFilter).ToListAsync();
-
-            foreach (var hn in heatNetworks)
-            {
-                // iterate through the orgninsations 
-            }
-
+            var groupByUserEmailId = ofgemDataList
+                    .GroupBy(x => x.UserEmailId)
+                    .Select(g => new OfgemDataModelPostImportGroupByOrganisation
+                    {
+                        UserEmailId = g.Key,
+                        HeatNetworkId = g.Distinct().Where(a => a.HeatNetworkId != null).Select(x => x.HeatNetworkId).ToList(),
+                        IsUserExist = g.FirstOrDefault(x => x.UserEmailId == newRp) != null,
+                        OrganisationId = g.FirstOrDefault()?.OrganisationId ?? string.Empty,
+                        UserId = g.FirstOrDefault()?.UserId ?? string.Empty
+                    })
+                    .ToList();
         }
 
         // ------------------------------------------------------------
@@ -342,14 +376,24 @@ namespace HNTAS.Core.Api.Services
         }
     }
 
-    public class OfgemDataModelPostImportForEmail
+    public class OfgemDataModelPostImportGroupByOrganisation
     {
-        public OfgemGroupType GroupType { get; set; }
-        public Organisation? Organisation { get; set; }
-        public bool IsExistingOrganisation { get; set; }
-        public User? User { get; set; }
-        public bool IsExistingUser { get; set; }
-        public List<HeatNetwork>? HeatNetworks { get; set; }
+        public string OrganisationId { get; set; }
+        public string UserId { get; set; }
+        public string UserEmailId { get; set; }
+        public List<string> HeatNetworkId { get; set; }
+        public bool IsOrganisationExist { get; set; }
+        public bool IsUserExist { get; set; }
+    }
+
+    public class OfgemDataModelPostImport
+    {
+        public string HeatNetworkId { get; set; }
+        public string OrganisationId { get; set; }
+        public string UserId { get; set; }
+        public string UserEmailId { get; set; }
+        //public bool IsUserExist { get; set; }
+        //public bool IsOrganisationExist { get; set; }
     }
 
     public enum OfgemGroupType

@@ -112,7 +112,8 @@ namespace HNTAS.Core.Api.Controllers
                         elementId = e.ElementId,
                         kpis = e.Kpis
                             .Where(k => k.Value.AssessmentStatus == KPIAssessmentStatus.Fail ||
-                                        k.Value.AssessmentStatus == KPIAssessmentStatus.OutsideLimit)
+                                        k.Value.AssessmentStatus == KPIAssessmentStatus.OutsideLimit ||
+                                        k.Value.AssessmentStatus == KPIAssessmentStatus.Undefined)
                             .ToDictionary(
                                 k => k.Key,
                                 k => new { value = k.Value.Value, status = FormatStatus(k.Value.AssessmentStatus) }
@@ -126,7 +127,8 @@ namespace HNTAS.Core.Api.Controllers
                 {
                     var aggWarnings = dataModel.ConsumerConnectionAggregatedKpis
                         .Where(k => k.Value.AssessmentStatus == KPIAssessmentStatus.Fail ||
-                                    k.Value.AssessmentStatus == KPIAssessmentStatus.OutsideLimit)
+                                    k.Value.AssessmentStatus == KPIAssessmentStatus.OutsideLimit ||
+                                    k.Value.AssessmentStatus == KPIAssessmentStatus.Undefined)
                         .ToDictionary(
                             k => k.Key,
                             k => new { value = k.Value.Value, status = FormatStatus(k.Value.AssessmentStatus) }

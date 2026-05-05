@@ -18,11 +18,7 @@ namespace HNTAS.Core.Api.Services
             _logger = logger;
             _organizationsCollection = mongoDatabase.GetCollection<Organisation>(dbSettings.Value.OrganisationsCollectionName);
             _logger.LogInformation("OrganisationService initialized via Dependency Injection.");
-        }
-
-        // Get an organization by its ID
-        public async Task<Organisation> GetByIdAsync(string orgId) =>
-            await _organizationsCollection.Find(org => org.Id == orgId).FirstOrDefaultAsync();
+        }        
 
         // Get an organization by its Companys House Number
         public async Task<Organisation> GetByCompanyHouseNumberAsync(string companyHouseNumber) =>

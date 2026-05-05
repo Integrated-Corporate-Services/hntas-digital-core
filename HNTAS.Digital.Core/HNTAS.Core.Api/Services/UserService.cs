@@ -202,9 +202,10 @@ namespace HNTAS.Core.Api.Services
             {
                 return await cursor.ToListAsync();
             }
-        }                       
+        }
 
-
+        public async Task<User?> GetRpAsync() =>
+          await _usersCollection.Find(u => u.Roles.Contains(UserRole.ResponsiblePerson)).FirstOrDefaultAsync();
         // --- Private Helper Method for Reusable Pipeline ---
 
         /// <summary>

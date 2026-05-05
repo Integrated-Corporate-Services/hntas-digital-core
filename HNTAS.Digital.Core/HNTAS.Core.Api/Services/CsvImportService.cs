@@ -68,10 +68,11 @@ namespace HNTAS.Core.Api.Services
 
             int lineNumber = 1;
             string? line;
-
-            var ofgemDataModelPostImportList = new List<OfgemDataModelPostImport>();
-            var newRp = string.Empty;
-            var newOrgs = new List<string>();
+            
+            var skipUserAndOrgCheck = false;
+            var ofgemDataModelPostImport = new OfgemDataModelPostImport() { HeatNetworkId = new List<string>()};
+            var orgId = "";
+            string userId = "";
             while ((line = await reader.ReadLineAsync()) != null)
             {
                 lineNumber++;
@@ -125,106 +126,114 @@ namespace HNTAS.Core.Api.Services
                     }
 
                     result.RowsProcessed++;
-                    #endregion
-
-                    var ofgemDataModelPostImport = new OfgemDataModelPostImport
-                    {                        
-                        OrganisationId = "",
-                        UserEmailId = "",
-                        //IsOrganisationExist = false, // to be updated later
-                        //IsUserExist = false // to be updated later
-                    };
+                    #endregion                    
 
                     // STEP 1: Create or fetch user (by emailId + oneLoginId)
-                    User existingUserWithRPRole = await _userService.GetRpAsync();
+                    
                     var orgType = hasCompaniesHouseNo ? Enums.OrganisationType.UkCompaniesHouse : Enums.OrganisationType.OtherUkOrganisation;
-                    string userId;
+                    
                     string userOrgId = "";
-                    string userEmailId = "";
+                    string userEmailId = "";                    
 
-                    if (existingUserWithRPRole == null)
+                    if (!skipUserAndOrgCheck)
                     {
-                        // Create a minimal user first
-                        var newUser = new User
+                        User existingUserWithRPRole = await _userService.GetRpAsync();
+                        if (existingUserWithRPRole == null)
                         {
-                            EmailId = emailId,
-                            OneLoginId = oneLoginId,
-                            PreferredContactType = Enums.PreferredContactType.Mobile,
-                            LandlineNumber = null,
-                            MobileNumber = phoneNumber,
-                            Roles = new List<Enums.UserRole>(),  // empty for now
-                            HnRoleMappings = new List<HnRoleMapping>(),
-                            Status = Enums.UserStatus.Active,
-                            CreatedAt = DateTime.UtcNow
-                        };
-
-                        await _userService.CreateAsync(newUser);                        
-                        userId = newUser.Id;
-                        userEmailId = newUser.EmailId;
-                        _logger.LogInformation("Created new User {userId}.", userId);
-                        result.UsersInserted++;
-                        newRp = userEmailId;
-                    }
-                    else
-                    {
-                        userId = existingUserWithRPRole.Id;
-                        userOrgId = existingUserWithRPRole.OrgId;
-                        userEmailId = existingUserWithRPRole.EmailId;
-                        _logger.LogInformation("User {userId} already exists.", userId);
-                        result.UsersUpdated++;
-                        //ofgemDataModelPostImport.IsUserExist = true;
-                    }
-                    ofgemDataModelPostImport.UserId = userId;
-                    ofgemDataModelPostImport.UserEmailId = userEmailId;
-                    // STEP 2.2: Create Organisation
-
-                    Organisation existingOrg = null;
-                    if(orgType == Enums.OrganisationType.UkCompaniesHouse)
-                        existingOrg = await _organisationService.GetByCompanyHouseNumberAsync(companiesHouseNo);
-                    else if(orgType == Enums.OrganisationType.OtherUkOrganisation)
-                        existingOrg = await _organisationService.GetByOrgIdOrNameAsync(organisationName);
-                    var orgId = "";
-                    if (existingOrg == null)
-                    {
-                        Organisation newOrg = new Organisation
-                        {
-                            Type = orgType,
-                            OrgId = $"ORG{await _orgCounterService.GetNextSequenceValue("orgId_sequence"):D7}",
-                            CompaniesHouseNumber = hasCompaniesHouseNo ? companiesHouseNo : null,
-                            Name = organisationName,
-                            RegisteredAddress = new RegisteredAddress
+                            // Create a minimal user first (RP role)
+                            var newUser = new User
                             {
-                                AddressLine1 = orgStreetAddress,
-                                AddressLine2 = null,
-                                Town = orgTown,
-                                County = null,
-                                Postcode = orgPostcode,
-                                Country = "United Kingdom"
-                            },
-                            HnIds = new List<string> { hnId },
-                            CreatedBy = userId,
-                            CreatedAt = string.IsNullOrWhiteSpace(dateOfOrgRegistration) ? DateTime.UtcNow : DateTime.ParseExact(dateOfHnRegistration, new[] { "dd/MM/yyyy", "d/M/yyyy" }, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AssumeUniversal)
-                        };
+                                EmailId = emailId,
+                                OneLoginId = oneLoginId,
+                                PreferredContactType = Enums.PreferredContactType.Mobile,
+                                LandlineNumber = null,
+                                MobileNumber = phoneNumber,
+                                Roles = new List<Enums.UserRole>() { Enums.UserRole.ResponsiblePerson },
+                                HnRoleMappings = new List<HnRoleMapping>(),
+                                Status = Enums.UserStatus.Active,
+                                CreatedAt = DateTime.UtcNow
+                            };
 
-                        await _organisationService.CreateAsync(newOrg);
-                        orgId = newOrg.OrgId;
-                        result.OrganisationsInserted++;
-                        newOrgs.Add(orgId);
-                        _logger.LogInformation("Inserted Organisation named {organisationName}.", organisationName);
-                    }
-                    else
-                    {
-                        orgId = existingOrg.OrgId;
-                        //ofgemDataModelPostImport.IsOrganisationExist = true;
-                        _logger.LogInformation("Organisation CHN already exists. Skipping.");
-                    }
+                            await _userService.CreateAsync(newUser);
+                            userId = newUser.Id!;
+                            userEmailId = newUser.EmailId;
+                            _logger.LogInformation("Created new User {userId}.", userId);
+                            result.UsersInserted++;
+                            ofgemDataModelPostImport.IsUserExist = false;
+                            ofgemDataModelPostImport.UserEmailId = userEmailId;
+                            ofgemDataModelPostImport.UserId = userId;
+                        }
+                        else
+                        {
+                            userId = existingUserWithRPRole.Id!;
+                            userOrgId = existingUserWithRPRole.OrgId!;
+                            userEmailId = existingUserWithRPRole.EmailId;
+                            _logger.LogInformation("User {userId} already exists.", userId);
+                            result.UsersUpdated++;
+                            ofgemDataModelPostImport.IsUserExist = true;
+                            ofgemDataModelPostImport.UserEmailId = userEmailId;
+                            ofgemDataModelPostImport.UserId = userId;
+                        }
+                        
+                        // STEP 2.2: Check if Org is associated with RP, if not then Create Organisation
 
-                    ofgemDataModelPostImport.OrganisationId = orgId;
+                        Organisation existingOrg = null;
+                        if (orgType == Enums.OrganisationType.UkCompaniesHouse)
+                            existingOrg = await _organisationService.GetByCompanyHouseNumberAsync(companiesHouseNo);
+                        else if (orgType == Enums.OrganisationType.OtherUkOrganisation)
+                            existingOrg = await _organisationService.GetByOrgIdOrNameAsync(organisationName);
+                        
+                        if (!string.IsNullOrEmpty(userOrgId))
+                        {
+                            orgId = userOrgId;
+                            skipUserAndOrgCheck = true;
+                            ofgemDataModelPostImport.IsOrganisationExist = true;
+                            ofgemDataModelPostImport.OrganisationId = orgId;
+                            _logger.LogInformation("Organisation already associated with user. Skipping creation.");
+                        }
+                        else if (existingOrg != null)
+                        {
+                            orgId = existingOrg!.OrgId;
+                            ofgemDataModelPostImport.IsOrganisationExist = true;
+                            ofgemDataModelPostImport.OrganisationId = orgId;
+                            _logger.LogInformation("Organisation already exists. Skipping creation.");
+                            await _userService.UpdateOrgIdAsync(userId!, orgId!);
+                            _logger.LogInformation("Updated new user {userId}.", userId);
+                        }
+                        else
+                        {
+                            Organisation newOrg = new Organisation
+                            {
+                                Type = orgType,
+                                OrgId = $"ORG{await _orgCounterService.GetNextSequenceValue("orgId_sequence"):D7}",
+                                CompaniesHouseNumber = hasCompaniesHouseNo ? companiesHouseNo : null,
+                                Name = organisationName,
+                                RegisteredAddress = new RegisteredAddress
+                                {
+                                    AddressLine1 = orgStreetAddress,
+                                    AddressLine2 = null,
+                                    Town = orgTown,
+                                    County = null,
+                                    Postcode = orgPostcode,
+                                    Country = "United Kingdom"
+                                },
+                                HnIds = new List<string> { hnId },
+                                CreatedBy = userId,
+                                CreatedAt = string.IsNullOrWhiteSpace(dateOfOrgRegistration) ? DateTime.UtcNow : DateTime.ParseExact(dateOfHnRegistration, new[] { "dd/MM/yyyy", "d/M/yyyy" }, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AssumeUniversal)
+                            };
 
-                    if (string.IsNullOrEmpty(userOrgId) && !string.IsNullOrWhiteSpace(orgId))
-                    {
-                        await _userService.UpdateOrgIdAsync(userId, orgId);
-                        _logger.LogInformation("Updated new user {userId}.", userId);
+                            await _organisationService.CreateAsync(newOrg);
+                            orgId = newOrg.OrgId;                            
+                            result.OrganisationsInserted++;
+                            ofgemDataModelPostImport.IsOrganisationExist = false;
+                            ofgemDataModelPostImport.OrganisationId = orgId;
+                            _logger.LogInformation("Inserted Organisation named {organisationName}.", organisationName);
+
+                            await _userService.UpdateOrgIdAsync(userId!, orgId);
+                            _logger.LogInformation("Updated new user {userId}.", userId);                            
+                        }
+                        if (!string.IsNullOrEmpty(userId) && !string.IsNullOrEmpty(orgId))
+                            skipUserAndOrgCheck = true;
                     }
 
                     // STEP 3: Create HeatNetwork
@@ -240,6 +249,7 @@ namespace HNTAS.Core.Api.Services
                         HeatNetwork newHn = new HeatNetwork
                         {
                             HnId = hnId,
+                            UHnId = hnId.Replace("HN", ""),
                             Name = hnName,
                             Address = new RegisteredAddress
                             {
@@ -247,7 +257,7 @@ namespace HNTAS.Core.Api.Services
                                 AddressLine2 = null,
                                 Town = ecTown ?? string.Empty,
                                 County = null,
-                                Postcode =  ecPostcode ?? string.Empty,
+                                Postcode = ecPostcode ?? string.Empty,
                                 Country = "United Kingdom"
                             },
                             ECDetails = new ECDetails
@@ -258,42 +268,17 @@ namespace HNTAS.Core.Api.Services
                             RegistrationSource = Enums.RegistrationSource.OFGEM,
                             Pathway = null,
                             Soa = null,
+                            NetworkElements = null,
                             CreatedBy = userId,
                             CreatedAt = string.IsNullOrWhiteSpace(dateOfHnRegistration) ? DateTime.UtcNow : DateTime.ParseExact(dateOfHnRegistration, new[] { "dd/MM/yyyy", "d/M/yyyy" }, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AssumeUniversal)
                         };
-                        await _heatNetworkService.CreateAsync(newHn);
-                        ofgemDataModelPostImport.HeatNetworkId = newHn.HnId;
+                        await _heatNetworkService.CreateAsync(newHn);                        
+                        ofgemDataModelPostImport.HeatNetworkId.Add(hnId);
                         result.HeatNetworksInserted++;
-                    }
 
-                    // STEP 4: Update User with HN + Role mappings
-
-                    //var filter = Builders<User>.Filter.And(
-                    //    Builders<User>.Filter.Eq("emailId", userEmailId),
-                    //    Builders<User>.Filter.Not(
-                    //        Builders<User>.Filter.ElemMatch("hnRoleMappings",
-                    //            Builders<User>.Filter.Eq("hnId", hnId)
-                    //        )
-                    //    )
-                    //);
-
-                    //var update = Builders<User>.Update
-                    //    .Push("hnRoleMappings", new BsonDocument
-                    //    {
-                    //        { "hnId", hnId },
-                    //        { "role", "ResponsiblePerson" }
-                    //    })
-                    //    // optional: keep hnIds and roles aligned (also append-only)
-                    //    .AddToSet("roles", "ResponsiblePerson");
-
-                    //var res = await _usersCollection.UpdateOneAsync(filter, update, cancellationToken: ct);
-
-                    //if (res.ModifiedCount > 0)
-                    //    _logger.LogInformation("Appended hnRoleMapping for user.");
-                    //else
-                    //    _logger.LogInformation("User {userId} already has hnRoleMapping for this heat network skipped", userId, hnId);
-
-                    ofgemDataModelPostImportList.Add(ofgemDataModelPostImport);
+                        // check the HeatNetworkId in Organisation collection and update the Organisation hnIds
+                        await _organisationService.UpdateAsync(orgId!, hnId);
+                    }                    
                 }
                 catch (Exception ex)
                 {
@@ -301,39 +286,13 @@ namespace HNTAS.Core.Api.Services
                     result.Errors.Add($"Line {lineNumber}: {ex.Message}");
                 }
             }
-            // TODO: We may need to store the ofgemDataModelPostImportList in a temporary collection for the post-import email step to consume, or (pass it directly - currently doing)
-            GetUploadedHeatNetworkData(ofgemDataModelPostImportList, newRp, newOrgs);
+            // TODO: SENDING EMAIL
+            
             return result;
         }
 
 
-        public async Task GetUploadedHeatNetworkData(List<OfgemDataModelPostImport> ofgemDataList, string newRp, List<string> newOrgs)
-        {
-            // iterate through the list and group heatnetwork id by organisation and set the flag to true if user or organisation exist and save to the OfgemDataModelPostImportGroupByOrganisation
-                var groupedByOrg = ofgemDataList
-                    .GroupBy(x => x.OrganisationId)
-                    .Select(g => new OfgemDataModelPostImportGroupByOrganisation
-                    {
-                        OrganisationId = g.Key,
-                        HeatNetworkId = g.Distinct().Where(a => a.HeatNetworkId != null).Select(x => x.HeatNetworkId).ToList(),
-                        IsOrganisationExist = !newOrgs.Contains(g.Key),
-                        UserId = g.FirstOrDefault()?.UserId ?? string.Empty,
-                        UserEmailId = g.FirstOrDefault()?.UserEmailId ?? string.Empty
-                    })
-                    .ToList();
-
-            var groupByUserEmailId = ofgemDataList
-                    .GroupBy(x => x.UserEmailId)
-                    .Select(g => new OfgemDataModelPostImportGroupByOrganisation
-                    {
-                        UserEmailId = g.Key,
-                        HeatNetworkId = g.Distinct().Where(a => a.HeatNetworkId != null).Select(x => x.HeatNetworkId).ToList(),
-                        IsUserExist = g.FirstOrDefault(x => x.UserEmailId == newRp) != null,
-                        OrganisationId = g.FirstOrDefault()?.OrganisationId ?? string.Empty,
-                        UserId = g.FirstOrDefault()?.UserId ?? string.Empty
-                    })
-                    .ToList();
-        }
+        
 
         // ------------------------------------------------------------
         // Helper CSV utilities
@@ -374,31 +333,15 @@ namespace HNTAS.Core.Api.Services
                 ? cells[index]
                 : string.Empty;
         }
-    }
-
-    public class OfgemDataModelPostImportGroupByOrganisation
-    {
-        public string OrganisationId { get; set; }
-        public string UserId { get; set; }
-        public string UserEmailId { get; set; }
-        public List<string> HeatNetworkId { get; set; }
-        public bool IsOrganisationExist { get; set; }
-        public bool IsUserExist { get; set; }
-    }
+    }    
 
     public class OfgemDataModelPostImport
     {
-        public string HeatNetworkId { get; set; }
+        public List<string> HeatNetworkId { get; set; }
         public string OrganisationId { get; set; }
         public string UserId { get; set; }
         public string UserEmailId { get; set; }
-        //public bool IsUserExist { get; set; }
-        //public bool IsOrganisationExist { get; set; }
-    }
-
-    public enum OfgemGroupType
-    {
-        Organisation,
-        RegulatoryContactEmail
+        public bool IsUserExist { get; set; }
+        public bool IsOrganisationExist { get; set; }
     }
 }

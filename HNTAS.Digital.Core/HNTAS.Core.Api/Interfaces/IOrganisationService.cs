@@ -13,5 +13,6 @@ namespace HNTAS.Core.Api.Interfaces
         Task<bool> ExistsByDetailsAsync(string name, string postCode, string country);
         Task<Organisation?> GetByOrgIdOrNameAsync(string searchTerm);
         Task<Organisation> GetByCompanyHouseNumberAsync(string companyHouseNumber);
+        Task UpdateAsync(string orgId, string hnId);
     }
 }

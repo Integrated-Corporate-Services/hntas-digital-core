@@ -5,7 +5,6 @@ using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
 using HNTAS.Core.Api.Models.Users;
-using HNTAS.Core.Api.Services;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Bson;
 using System.Net.Mime;
@@ -93,7 +92,7 @@ public class UsersController : ControllerBase
             var userResponse = _mapper.Map<UserDetailsResponse>(userDetails);
 
             //Manual mapping needed because of the complexity
-            userResponse.HeatNetworks = GetHeatNetworksForUser(userDetails);
+            userResponse.HeatNetworks = UserNetworkHelper.GetAuthorizedNetworks(userDetails);
 
             _logger.LogInformation("Successfully retrieved {UserCount} users.", userResponse?.Id);
             return Ok(userResponse);
@@ -636,7 +635,7 @@ public class UsersController : ControllerBase
                 await _invitationService.ExecuteRoleSwapAsync(invitedUser, null, invitation);
 
                 _logger.LogInformation("Existing invited user updated: {UserId})", invitedUser.Id);
-                
+
                 await AuditLogs(invitation, invitedUser.Id!, heatNetwork);
                 await NotificationHistoryForAcceptingInvite(invitation, invitedUser, heatNetwork);
 
@@ -1023,41 +1022,12 @@ public class UsersController : ControllerBase
 
     private static List<HeatNetworkInfo> MapHeatNetworks(UserDetailsResult user)
     {
-        var heatNetworks = GetHeatNetworksForUser(user);
+        var heatNetworks = UserNetworkHelper.GetAuthorizedNetworks(user);
         return heatNetworks?.Select(x => new HeatNetworkInfo
         {
             HnId = x.HnId,
             Name = x.Name
         }).ToList() ?? new List<HeatNetworkInfo>();
-    }
-
-    private static List<HeatNetworkUserResponse>? GetHeatNetworksForUser(UserDetailsResult src)
-    {
-        // Define the roles that grant access to the Organisation's full HeatNetwork list
-        var rolesGrantingFullAccess = new List<UserRole> {
-           UserRole.ResponsiblePerson,
-           UserRole.NetworkManager
-        };
-
-        // 1. Check for specific Heat Network role mappings (Highest Priority).
-        if (src.HnRoleMappings != null && src.HnRoleMappings.Count > 0)
-        {
-            return src.HnRoleMappings.Select(m => m.HeatNetwork).ToList();
-        }
-
-        bool hasFullAccessRole = src.Roles != null &&
-                                 src.Roles.Any(r => rolesGrantingFullAccess.Contains(r));
-
-        if (hasFullAccessRole)
-        {
-            // If the user is RP or NetworkManager, assign ALL heat networks from the organization.
-            if (src.Organisation != null && src.Organisation.HeatNetworks != null)
-            {
-                return src.Organisation.HeatNetworks.ToList();
-            }
-        }
-
-        return null;
     }
 
     private async Task<User> BuildUserFromInvitation(InvitedUserRequest request, Invitation invitation)
@@ -1156,7 +1126,7 @@ public class UsersController : ControllerBase
         {
             subject = NotificationHistorySubjects.NetworkManagerJoined;
             action = NotificationHistoryActions.NetworkManagers;
-            description = $"{ user.FirstName } { user.LastName } signed in";
+            description = $"{user.FirstName} {user.LastName} signed in";
             notificationType = NotificationHistoryType.NetworkManagerAcceptsInvite;
         }
         else if (invitedRole == ContributorRole.DesignatedDesigner)
@@ -1214,17 +1184,17 @@ public class UsersController : ControllerBase
             notificationType = NotificationHistoryType.ContributorAcceptsInviteToHeatNetwork;
         }
         var notificationHistory = new NotificationHistory
-            {
-                NotificationType = notificationType,
-                ActorsId = actorIds,
-                Subject = subject,
-                Description = description,
-                Timestamp = DateTime.UtcNow,
-                Action = action,
-                EligibleRoles = eligibleRoles,
-                HeatNetworkId = invitation.InvitedHnId,
-                CreatedBy = user.Id
-            };
+        {
+            NotificationType = notificationType,
+            ActorsId = actorIds,
+            Subject = subject,
+            Description = description,
+            Timestamp = DateTime.UtcNow,
+            Action = action,
+            EligibleRoles = eligibleRoles,
+            HeatNetworkId = invitation.InvitedHnId,
+            CreatedBy = user.Id
+        };
 
         await _notificationHistoryService.CreateAsync(notificationHistory);
     }

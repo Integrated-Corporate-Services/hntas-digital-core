@@ -14,6 +14,7 @@ namespace HNTAS.Core.Api.Validators.Arms
         // This handles floating-point precision errors (e.g., 75.0000000001 vs 75)
         private const double GlobalEpsilon = 1e-6;
 
+
         public KpiRuleValidator(IArmsKpiService armsKpiService, ILogger<KpiRuleValidator> logger)
         {
             _armsKpiService = armsKpiService;
@@ -45,6 +46,9 @@ namespace HNTAS.Core.Api.Validators.Arms
                 }
             }
 
+            // Define the aggregated IDs to exclude from element-level checks
+            var aggregatedKpis = new[] { "CC-KPI-01", "CC-KPI-02", "CC-KPI-03" };
+
             // 2. Validate Individual Elements
             foreach (var element in request.Elements)
             {
@@ -55,7 +59,7 @@ namespace HNTAS.Core.Api.Validators.Arms
                 }
 
                 var missingMandatory = elementKpiRules
-                .Where(r => r.Value.IsMandatory && !element.Kpis.ContainsKey(r.Key))
+                .Where(r => r.Value.IsMandatory && !aggregatedKpis.Contains(r.Key) && !element.Kpis.ContainsKey(r.Key))
                 .Select(r => r.Key);
 
                 foreach (var missingKey in missingMandatory)
@@ -125,7 +129,7 @@ namespace HNTAS.Core.Api.Validators.Arms
                     }
                     break;
 
-                case string t when string.Equals(t, "equal", StringComparison.OrdinalIgnoreCase):
+                case string t when string.Equals(t, "eq", StringComparison.OrdinalIgnoreCase):
                     metTarget = Math.Abs(value - (threshold.Value ?? 0)) < GlobalEpsilon;
                     break;
 

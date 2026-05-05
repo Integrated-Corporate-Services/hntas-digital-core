@@ -1,6 +1,7 @@
 ﻿using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Data.Models.Arms.Submission;
 using HNTAS.Core.Api.Interfaces;
+using HNTAS.Core.Api.Models.Arms.Dashboard;
 using MongoDB.Driver;
 
 namespace HNTAS.Core.Api.Services
@@ -13,6 +14,55 @@ namespace HNTAS.Core.Api.Services
         {
             _auditCollection = mongoDatabase.GetCollection<KpiSubmissionAudit>("Audit_KpiSubmission");
         }
+
+
+        public async Task<IEnumerable<KpiHistoryResponse>> GetHistoryBySubmissionIdAsync(string submissionId)
+        {
+            // 1. Fetch ALL audit logs for this submission, not just the first one
+            var auditLogs = await _auditCollection
+                .Find(x => x.SubmissionId == submissionId)
+                .ToListAsync();
+
+            if (auditLogs == null || !auditLogs.Any())
+                return Enumerable.Empty<KpiHistoryResponse>();
+
+            // 2. Use SelectMany to flatten the documents and their changes
+            return auditLogs.SelectMany(doc =>
+                doc.Changes
+                    // 3. Group by Element, KPI, and Timestamp to merge "Value" and "Status" rows
+                    .GroupBy(c => new { c.ElementId, c.KpiId, c.Aggregated })
+                    .Select(g => new KpiHistoryResponse
+                    {
+                        Timestamp = doc.Timestamp, // Use the timestamp from the parent document
+                        SourceSystem = doc.SourceSystem,
+                        KpiId = g.Key.KpiId,
+                        ElementId = g.Key.ElementId ?? "Aggregated",
+                        IsAggregated = g.Key.Aggregated,
+
+                        // Combine the "Value" property change
+                        OldValue = g.FirstOrDefault(x => x.Property == "Value")?.Old?.ToString(),
+                        NewValue = g.FirstOrDefault(x => x.Property == "Value")?.New?.ToString(),
+
+                        // Combine the "AssessmentStatus" property change
+                        OldStatus = TranslateStatus(g.FirstOrDefault(x => x.Property == "AssessmentStatus")?.Old),
+                        NewStatus = TranslateStatus(g.FirstOrDefault(x => x.Property == "AssessmentStatus")?.New),
+
+                        IsImputed = (bool?)g.FirstOrDefault(x => x.Property == "IsKpiImputed")?.New ?? false
+                    })
+            )
+            .OrderByDescending(x => x.Timestamp) // Show newest changes at the top
+            .ToList();
+        }
+
+        private string TranslateStatus(object status) => status?.ToString() switch
+        {
+            "1" => "Pass",
+            "2" => "Fail",
+            "3" => "Outside Limit",
+            "0" => "Undefined",
+            _ => "N/A"
+        };
+
         public async Task TrackChangesAsync(KpiSubmission existing, KpiSubmission incoming)
         {
             var deltas = new List<KpiDeltaAudit>();
@@ -46,7 +96,7 @@ namespace HNTAS.Core.Api.Services
                 var auditDoc = new KpiSubmissionAudit
                 {
                     NetworkId = incoming.MetaData.NetworkId,
-                    SubmissionId = incoming.Id!,
+                    SubmissionId = existing.Id!,
                     Timestamp = DateTime.UtcNow,
                     SourceSystem = incoming.MetaData.SourceSystem,
                     PeriodStart = incoming.MetaData.PeriodStart,

@@ -1,0 +1,216 @@
+﻿using AutoMapper;
+using HNTAS.Core.Api.Data.Models.Arms.Submission;
+using HNTAS.Core.Api.Helpers;
+using HNTAS.Core.Api.Interfaces;
+using HNTAS.Core.Api.Models.Arms.Dashboard;
+using Microsoft.AspNetCore.Mvc;
+
+namespace HNTAS.Core.Api.Controllers
+{
+    [Route("api/[controller]")]
+    [ApiController]
+    public class ArmsDashboardController : ControllerBase
+    {
+        private readonly IUserService _userService;
+        private readonly IHeatNetworkService _networkService;
+        private readonly IArmsKpiService _armsKpiService;
+        private readonly IMapper _mapper;
+        private readonly IKpiSubmissionAuditService _auditService;
+        public ArmsDashboardController(IUserService userService, IHeatNetworkService networkService, IArmsKpiService armsKpiService, IMapper mapper, IKpiSubmissionAuditService auditService)
+        {
+            _userService = userService;
+            _networkService = networkService;
+            _armsKpiService = armsKpiService;
+            _mapper = mapper;
+            _auditService = auditService;
+        }
+
+        [HttpGet("get-kpi-networks-by-rp-user")]
+        [ProducesResponseType(typeof(HeatNetworkDashboardResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<HeatNetworkDashboardResponse>> GetKpiNetworksByRpUser(
+        [FromQuery] string userId,
+        [FromQuery] int? month,
+        [FromQuery] int year,
+        [FromQuery] int pageNumber = 1)
+        {
+            const int pageSize = 10;
+
+            // 1. Validate User and Role
+            var userDetails = await _userService.GetUserWithDetailsAsync(userId);
+            if (userDetails == null) return NotFound("User not found");
+
+            bool isRpUser = userDetails.Roles?.Contains(HNTAS.Core.Api.Enums.UserRole.ResponsiblePerson) ?? false;
+            if (!isRpUser)
+            {
+                return BadRequest("Only Responsible Person users can access this endpoint");
+            }
+
+            // 2. Get the full list of Authorized Networks (The Master List)
+            var authorizedNetworks = UserNetworkHelper.GetAuthorizedNetworks(userDetails);
+            if (authorizedNetworks == null || !authorizedNetworks.Any())
+            {
+                return Ok(new HeatNetworkDashboardResponse());
+            }
+
+            // 3. Prepare Period String
+            // If month is null, periodStr becomes "2026", triggering the Regex search
+            string periodStr = month.HasValue
+                ? $"{year}-{month.Value:D2}"
+                : $"{year}";
+
+            var allowedHnids = authorizedNetworks.Select(n => n.HnId).ToList();
+
+            // 1. Fetch submissions (if any)
+            var submissions = await _armsKpiService.GetSubmissionsAsync(allowedHnids, periodStr)
+                              ?? new List<KpiSubmission>();
+
+            // 2. Merge Data - One loop handles both "Has Submissions" and "Zero Submissions"
+            // Declaring 'allRows' outside the blocks so it is accessible for pagination
+            var allRows = submissions.Select(submission =>
+            {
+                // Find the network name from your authorized list based on the submission's ID
+                var network = authorizedNetworks.FirstOrDefault(n => n.HnId == submission.MetaData.NetworkId);
+
+                string formattedPeriod = "N/A";
+                if (DateTime.TryParse(submission.MetaData.PeriodStart, out DateTime periodDate))
+                {
+                    formattedPeriod = periodDate.ToString("MMMM yyyy");
+                }
+
+                return new HeatNetworkDashboardRow
+                {
+                    HnId = submission.MetaData.NetworkId,
+                    NetworkName = network?.Name ?? "Unknown Network", // Fallback if name isn't found
+                    Provider = submission.MetaData?.SourceSystem ?? "N/A",
+                    DataPeriod = formattedPeriod,
+                    SubmissionId = submission.Id.ToString(),
+                    LastUpdated = submission.UpdatedAt
+                };
+            }).ToList();
+
+            // 3. Calculate Pagination Metadata (allRows is now in scope)
+            int totalCount = allRows.Count;
+            int totalPages = (int)Math.Ceiling((double)totalCount / pageSize);
+
+            // 4. Slice the data for the requested page
+            var items = allRows
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToList();
+
+            return Ok(new HeatNetworkDashboardResponse
+            {
+                Items = items,
+                TotalCount = totalCount,
+                TotalPages = totalPages,
+                CurrentPage = pageNumber
+            });
+        }
+
+        [HttpGet("get-kpi-network-details")]
+        [ProducesResponseType(typeof(HeatNetworkDetailsResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<HeatNetworkDetailsResponse>> GetKpiNetworkDetailsByRpUser(
+        [FromQuery] string submissionId,
+        [FromQuery] List<string>? statusFilter,
+        [FromQuery] List<string>? typeFilter,
+        [FromQuery] int page = 1)
+        {
+            const int pageSize = 10;
+
+            var submission = await _armsKpiService.GetSubmissionByIdAsync(submissionId);
+            if (submission == null) return NotFound("Submission not found");
+
+            // 2. Clean the statusFilter
+            // This removes the "null" entry seen in your screenshot
+            var activeFilters = statusFilter?.Where(f => !string.IsNullOrWhiteSpace(f)).ToList();
+
+            // If the list is now empty, set it to null so the API skips filtering
+            if (activeFilters != null && activeFilters.Count == 0) activeFilters = null;
+
+            var activeTypeFilters = typeFilter?.Where(f => !string.IsNullOrWhiteSpace(f)).ToList();
+            if (activeTypeFilters?.Count == 0) activeTypeFilters = null;
+
+            int displayYear = DateTime.Now.Year;
+            int displayMonth = DateTime.Now.Month;
+
+            if (!string.IsNullOrEmpty(submission.MetaData.PeriodStart))
+            {
+                var parts = submission.MetaData.PeriodStart.Split('-');
+                if (parts.Length == 2)
+                {
+                    int.TryParse(parts[0], out displayYear);
+                    int.TryParse(parts[1], out displayMonth);
+                }
+            }
+
+            var networkInfo = await _networkService.GetByHnIdAsync(submission.MetaData.NetworkId);
+            if (networkInfo == null) return NotFound("Network info not found");
+
+            // 1. Map NetworkElements to our DTO while applying the status filter
+            var allElements = submission.Elements
+                .Where(e => activeTypeFilters == null || activeTypeFilters.Contains(e.Type.ToString()))
+                .Select(e => new ElementGroupDto
+                {
+                    ElementId = e.ElementId,
+                    ElementType = e.Type.ToString(),
+                    Kpis = e.Kpis
+                    .Where(kvp => activeFilters == null || !activeFilters.Any() || activeFilters.Contains(kvp.Value.AssessmentStatus.ToString()))
+                    .Select(kvp => new KpiDetailDto
+                    {
+                        KpiName = kvp.Key,
+                        Value = kvp.Value.Value,
+                        Status = kvp.Value.AssessmentStatus.ToString(),
+                        IsImputed = kvp.Value.IsKpiImputed,
+                        ImputationDetails = kvp.Value.KpiImputationDetails
+                    }).ToList()
+                })
+            // Only include elements that actually have KPIs after filtering
+            .Where(e => e.Kpis.Any())
+            .OrderBy(e => e.ElementId)
+            .ToList();
+
+            // 2. Pagination
+            int totalElements = allElements.Count;
+            int totalPages = (int)Math.Ceiling(totalElements / (double)pageSize);
+
+            var pagedElements = allElements
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToList();
+
+            return Ok(new HeatNetworkDetailsResponse
+            {
+                HnId = networkInfo.HnId,
+                NetworkName = networkInfo.Name,
+                SelectedMonth = displayMonth,
+                SelectedYear = displayYear,
+                GroupedElements = pagedElements,
+                CurrentPage = page,
+                TotalPages = totalPages,
+                TotalElements = totalElements
+            });
+        }
+
+        [HttpGet("{submissionId}/history")]
+        [ProducesResponseType(typeof(IEnumerable<KpiHistoryResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetSubmissionHistory(string submissionId)
+        {
+            // Validate that the submissionId is a valid format if necessary
+            if (string.IsNullOrEmpty(submissionId))
+            {
+                return BadRequest("Submission ID is required.");
+            }
+
+            var history = await _auditService.GetHistoryBySubmissionIdAsync(submissionId);
+
+            // If no history exists, it might just mean no changes have happened yet.
+            // Returning an empty list is usually better for UI tabs than a 404.
+            return Ok(history);
+        }
+    }
+}

@@ -115,8 +115,8 @@ namespace HNTAS.Core.Api.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<ActionResult<HeatNetworkDetailsResponse>> GetKpiNetworkDetailsByRpUser(
         [FromQuery] string submissionId,
-        [FromQuery] List<string>? statusFilter,
-        [FromQuery] List<string>? typeFilter,
+        [FromQuery] string? statusFilter,
+        [FromQuery] string? typeFilter,
         [FromQuery] int page = 1)
         {
             const int pageSize = 10;
@@ -124,14 +124,18 @@ namespace HNTAS.Core.Api.Controllers
             var submission = await _armsKpiService.GetSubmissionByIdAsync(submissionId);
             if (submission == null) return NotFound("Submission not found");
 
-            // 2. Clean the statusFilter
-            // This removes the "null" entry seen in your screenshot
-            var activeFilters = statusFilter?.Where(f => !string.IsNullOrWhiteSpace(f)).ToList();
+            // 1. Process Comma-Separated Status Filters
+            var activeStatusFilters = statusFilter?
+                .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                .Select(s => s.Trim())
+                .ToList();
+            if (activeStatusFilters?.Count == 0) activeStatusFilters = null;
 
-            // If the list is now empty, set it to null so the API skips filtering
-            if (activeFilters != null && activeFilters.Count == 0) activeFilters = null;
-
-            var activeTypeFilters = typeFilter?.Where(f => !string.IsNullOrWhiteSpace(f)).ToList();
+            // 2. Process Comma-Separated Type Filters
+            var activeTypeFilters = typeFilter?
+                .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                .Select(s => s.Trim())
+                .ToList();
             if (activeTypeFilters?.Count == 0) activeTypeFilters = null;
 
             int displayYear = DateTime.Now.Year;
@@ -158,7 +162,7 @@ namespace HNTAS.Core.Api.Controllers
                     ElementId = e.ElementId,
                     ElementType = e.Type.ToString(),
                     Kpis = e.Kpis
-                    .Where(kvp => activeFilters == null || !activeFilters.Any() || activeFilters.Contains(kvp.Value.AssessmentStatus.ToString()))
+                    .Where(kvp => activeStatusFilters == null || !activeStatusFilters.Any() || activeStatusFilters.Contains(kvp.Value.AssessmentStatus.ToString()))
                     .Select(kvp => new KpiDetailDto
                     {
                         KpiName = kvp.Key,

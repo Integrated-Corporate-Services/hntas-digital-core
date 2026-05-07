@@ -13,12 +13,15 @@ namespace HNTAS.Core.Api.Enums
         Substation = 2,
 
         [Description("District distribution")]
-        DistrictDistribution = 3,
-
+        DistrictDistribution = 3,        
+        
         [Description("Communal distribution")]
         CommunalDistribution = 4,
 
         [Description("Consumer connection")]
         ConsumerConnection = 5,
+
+        [Description("Communal substation")]
+        CommunalSubstation = 6,
     }
 }

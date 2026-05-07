@@ -63,7 +63,7 @@ namespace HNTAS.Core.Api.Services
                     ActorsId = nh.ActorsId,
                     Subject = nh.Subject,
                     Description = nh.Description,
-                    Timestamp = nh.Timestamp.ToLocalTime(),
+                    Timestamp = nh.Timestamp,
                     Action = nh.Action,
                     EligibleRoles = nh.EligibleRoles,
                     HeatNetworkId = nh.HeatNetworkId,

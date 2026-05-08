@@ -1,5 +1,6 @@
 ﻿using HNTAS.Core.Api.Common;
 using HNTAS.Core.Api.Interfaces;
+using HNTAS.Core.Api.Models;
 using HNTAS.Core.Api.Models.Arms;
 
 namespace HNTAS.Core.Api.Validators.Arms
@@ -20,7 +21,20 @@ namespace HNTAS.Core.Api.Validators.Arms
 
             if (network == null)
             {
-                return new ValidationGateResult(false, $"Network ID '{networkId}' is not registered.", 404);
+                return new ValidationGateResult(
+                     IsValid: false,
+                     Message: "Validation Failed",
+                     Detail: $"Network ID '{networkId}' is not registered.",
+                     StatusCode: 404,
+                     Errors: new List<KpiSubmissionApiError>
+                     {
+                        new KpiSubmissionApiError
+                        {
+                            Code = "NETWORK_NOT_REGISTERED",
+                            Message = $"Network ID '{networkId}' is not registered."
+                        }
+                     }
+                 );
             }
 
             // Safely handle cases where Elements might be null
@@ -28,32 +42,42 @@ namespace HNTAS.Core.Api.Validators.Arms
                 .ToDictionary(e => e.ElementId, e => e.Type.ToString())
                 ?? new Dictionary<string, string>();
 
-            var invalidElements = new List<string>();
+            var apiErrors = new List<KpiSubmissionApiError>();
 
             foreach (var element in elements)
             {
                 // 1. Check if ID exists
                 if (!registeredElements.TryGetValue(element.ElementId, out var registeredType))
                 {
-                    invalidElements.Add($"Element ID '{element.ElementId}' not found.");
+                    apiErrors.Add(new KpiSubmissionApiError
+                    {
+                        Code = "ELEMENT_NOT_FOUND",
+                        Message = "The provided Element ID is not associated with this network.",
+                        ElementId = element.ElementId
+                    });
                     continue;
                 }
 
                 // 2. Check if Type matches
                 if (registeredType != element.Type.ToString())
                 {
-                    invalidElements.Add($"Element ID '{element.ElementId}' type mismatch: Expected '{registeredType}', but found '{element.Type}'.");
+                    apiErrors.Add(new KpiSubmissionApiError
+                    {
+                        Code = "ELEMENT_TYPE_MISMATCH",
+                        Message = $"Element type mismatch. Expected '{registeredType}', but received '{element.Type}'.",
+                        ElementId = element.ElementId
+                    });
                 }
             }
 
-            // Return the list of errors separately from the summary message
-            if (invalidElements.Any())
+            if (apiErrors.Any())
             {
                 return new ValidationGateResult(
                     IsValid: false,
-                    Message: "Registry mismatch detected.", // High-level summary
+                    Message: "Validation Failed",
+                    Detail: "One or more elements do not match the heat network registry.",
                     StatusCode: 400,
-                    Errors: invalidElements // The specific list of mismatches
+                    Errors: apiErrors
                 );
             }
 

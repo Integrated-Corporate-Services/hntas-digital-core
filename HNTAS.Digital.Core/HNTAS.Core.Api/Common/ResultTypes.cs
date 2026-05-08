@@ -1,9 +1,12 @@
-﻿namespace HNTAS.Core.Api.Common;
+﻿using HNTAS.Core.Api.Models;
+
+namespace HNTAS.Core.Api.Common;
 
 public record ValidationGateResult(
-    bool IsValid,
-    string Message = "",
-    int StatusCode = 400,
-    IEnumerable<string>? Errors = null
+  bool IsValid,
+    string? Message = null,
+    string? Detail = null,
+    int StatusCode = 200,
+    List<KpiSubmissionApiError>? Errors = null
 );
 

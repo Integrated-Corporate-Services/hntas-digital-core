@@ -1,5 +1,4 @@
-﻿using HNTAS.Core.Api.Enums;
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 
 namespace HNTAS.Core.Api.Models.Arms
 {
@@ -10,8 +9,7 @@ namespace HNTAS.Core.Api.Models.Arms
         public required string ElementId { get; set; }
 
         [JsonPropertyName("type")]
-        [JsonConverter(typeof(JsonStringEnumConverter))]
-        public required HeatNetworkElementType Type { get; set; }
+        public required string Type { get; set; }
 
         [JsonPropertyName("kpis")]
         public Dictionary<string, KpiValueRequest> Kpis { get; set; } = new();

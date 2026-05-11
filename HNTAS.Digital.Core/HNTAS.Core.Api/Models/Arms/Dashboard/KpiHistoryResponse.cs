@@ -7,7 +7,7 @@
         public string KpiId { get; set; }
         public string ElementId { get; set; }
         public bool IsAggregated { get; set; }
-        public string OldValue { get; set; }
+        public string? OldValue { get; set; }
         public string NewValue { get; set; }
         public string OldStatus { get; set; }
         public string NewStatus { get; set; }

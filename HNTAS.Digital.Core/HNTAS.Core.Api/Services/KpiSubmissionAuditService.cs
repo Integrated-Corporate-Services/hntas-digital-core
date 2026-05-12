@@ -32,9 +32,9 @@ namespace HNTAS.Core.Api.Services
                     .GroupBy(c => new { c.ElementId, c.KpiId, c.Aggregated })
                     .Select(g =>
                     {
-                        var valueChange = g.FirstOrDefault(x => x.Property == "Value");
-                        var statusChange = g.FirstOrDefault(x => x.Property == "AssessmentStatus");
-                        var imputationChange = g.FirstOrDefault(x => x.Property == "IsKpiImputed");
+                        var valueChange = g.FirstOrDefault(x => string.Equals(x.Property, "value", StringComparison.OrdinalIgnoreCase));
+                        var statusChange = g.FirstOrDefault(x => string.Equals(x.Property, "assessmentStatus", StringComparison.OrdinalIgnoreCase));
+                        var imputationChange = g.FirstOrDefault(x => string.Equals(x.Property, "isKpiImputed", StringComparison.OrdinalIgnoreCase));
 
                         return new KpiHistoryResponse
                         {

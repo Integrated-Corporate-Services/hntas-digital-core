@@ -15,15 +15,20 @@ namespace HNTAS.Core.Api.Controllers
         private readonly IUserService _userService;
         private readonly IHeatNetworkService _networkService;
         private readonly IArmsKpiService _armsKpiService;
-        private readonly IMapper _mapper;
         private readonly IKpiSubmissionAuditService _auditService;
-        public ArmsDashboardController(IUserService userService, IHeatNetworkService networkService, IArmsKpiService armsKpiService, IMapper mapper, IKpiSubmissionAuditService auditService)
+        private readonly ILogger<ArmsDashboardController> _logger;
+        public ArmsDashboardController(IUserService userService,
+            IHeatNetworkService networkService,
+            IArmsKpiService armsKpiService,
+            IMapper mapper,
+            IKpiSubmissionAuditService auditService,
+            ILogger<ArmsDashboardController> logger)
         {
             _userService = userService;
             _networkService = networkService;
             _armsKpiService = armsKpiService;
-            _mapper = mapper;
             _auditService = auditService;
+            _logger = logger;
         }
 
         [HttpGet("get-kpi-networks-by-rp-user")]
@@ -187,6 +192,15 @@ namespace HNTAS.Core.Api.Controllers
                 .Take(pageSize)
                 .ToList();
 
+            var aggregatedKpis = submission.ConsumerConnectionAggregatedKpis?
+                .Where(kvp => activeStatusFilters == null || !activeStatusFilters.Any() || activeStatusFilters.Contains(kvp.Value.AssessmentStatus.ToString()))
+                .Select(kvp => new AggregatedKpi
+                {
+                    KpiName = kvp.Key,
+                    Value = kvp.Value.Value,
+                    Status = kvp.Value.AssessmentStatus.GetDescription()
+                }).ToList() ?? null;
+
             return Ok(new HeatNetworkDetailsResponse
             {
                 HnId = networkInfo.HnId,
@@ -196,26 +210,44 @@ namespace HNTAS.Core.Api.Controllers
                 GroupedElements = pagedElements,
                 CurrentPage = page,
                 TotalPages = totalPages,
-                TotalElements = totalElements
+                TotalElements = totalElements,
+                AggregatedKpis = aggregatedKpis
             });
         }
 
         [HttpGet("{submissionId}/history")]
         [ProducesResponseType(typeof(IEnumerable<KpiHistoryResponse>), StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetSubmissionHistory(string submissionId)
         {
-            // Validate that the submissionId is a valid format if necessary
+            // 1. Log the incoming request
+            _logger.LogInformation("Received request for KPI history. SubmissionId: {SubmissionId}", submissionId);
+
             if (string.IsNullOrEmpty(submissionId))
             {
+                _logger.LogWarning("GetSubmissionHistory called with null or empty SubmissionId.");
                 return BadRequest("Submission ID is required.");
             }
 
-            var history = await _auditService.GetHistoryBySubmissionIdAsync(submissionId);
+            try
+            {
+                var history = await _auditService.GetHistoryBySubmissionIdAsync(submissionId);
 
-            // If no history exists, it might just mean no changes have happened yet.
-            // Returning an empty list is usually better for UI tabs than a 404.
-            return Ok(history);
+                var historyCount = history?.Count() ?? 0;
+
+                _logger.LogInformation("Successfully retrieved {Count} history records for SubmissionId: {SubmissionId}",
+                    historyCount, submissionId);
+
+                return Ok(history);
+            }
+            catch (Exception ex)
+            {
+                // 4. Capture the exact exception causing the red error in your logs
+                _logger.LogError(ex, "Unhandled error fetching KPI history for SubmissionId: {SubmissionId}. Message: {Message}",
+                    submissionId, ex.Message);
+
+                return StatusCode(StatusCodes.Status500InternalServerError, "An error occurred while retrieving history.");
+            }
         }
     }
 }

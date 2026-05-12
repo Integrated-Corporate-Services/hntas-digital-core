@@ -17,9 +17,9 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonElement("noOfNonDomesticConsumer")]
         public int? NoOfNonDomesticConsumer { get; set; }
         [BsonElement("isDownstreamDistrictHeatNetworkConnections")]
-        public bool IsDownstreamDistrictHeatNetworkConnections { get; set; }
+        public bool IsOtherDistrictNetwork { get; set; }
         [BsonElement("noOfDownstreamDistrictHeatNetworkConnections")]
-        public int? NoOfDownstreamDistrictHeatNetworkConnections { get; set; }        
+        public int? NoOfOtherDistrictNetwork { get; set; }        
 
         public HeatNetworkConnections()
         {
@@ -29,8 +29,8 @@ namespace HNTAS.Core.Api.Data.Models
             NoOfDomesticConsumer = null;
             IsNonDomesticConsumer = false;
             NoOfNonDomesticConsumer = null;
-            IsDownstreamDistrictHeatNetworkConnections = false;
-            NoOfDownstreamDistrictHeatNetworkConnections = null;           
+            IsOtherDistrictNetwork = false;
+            NoOfOtherDistrictNetwork = null;           
         }
     }
 }

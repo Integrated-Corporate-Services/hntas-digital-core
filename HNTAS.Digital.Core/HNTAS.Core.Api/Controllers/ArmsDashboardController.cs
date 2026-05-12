@@ -1,5 +1,6 @@
 ﻿using AutoMapper;
 using HNTAS.Core.Api.Data.Models.Arms.Submission;
+using HNTAS.Core.Api.Extensions;
 using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models.Arms.Dashboard;
@@ -167,7 +168,7 @@ namespace HNTAS.Core.Api.Controllers
                     {
                         KpiName = kvp.Key,
                         Value = kvp.Value.Value,
-                        Status = kvp.Value.AssessmentStatus.ToString(),
+                        Status = kvp.Value.AssessmentStatus.GetDescription(),
                         IsImputed = kvp.Value.IsKpiImputed,
                         ImputationDetails = kvp.Value.KpiImputationDetails
                     }).ToList()

@@ -18,7 +18,7 @@ namespace HNTAS.Core.Api.Services
 
         public async Task<IEnumerable<KpiHistoryResponse>> GetHistoryBySubmissionIdAsync(string submissionId)
         {
-            // 1. Fetch ALL audit logs for this submission, not just the first one
+            // 1. Fetch ALL audit logs for this submission
             var auditLogs = await _auditCollection
                 .Find(x => x.SubmissionId == submissionId)
                 .ToListAsync();
@@ -26,31 +26,36 @@ namespace HNTAS.Core.Api.Services
             if (auditLogs == null || !auditLogs.Any())
                 return Enumerable.Empty<KpiHistoryResponse>();
 
-            // 2. Use SelectMany to flatten the documents and their changes
+            // 2. Flatten and Group
             return auditLogs.SelectMany(doc =>
                 doc.Changes
-                    // 3. Group by Element, KPI, and Timestamp to merge "Value" and "Status" rows
                     .GroupBy(c => new { c.ElementId, c.KpiId, c.Aggregated })
-                    .Select(g => new KpiHistoryResponse
+                    .Select(g =>
                     {
-                        Timestamp = doc.Timestamp, // Use the timestamp from the parent document
-                        SourceSystem = doc.SourceSystem,
-                        KpiId = g.Key.KpiId,
-                        ElementId = g.Key.ElementId ?? "Aggregated",
-                        IsAggregated = g.Key.Aggregated,
+                        var valueChange = g.FirstOrDefault(x => x.Property == "Value");
+                        var statusChange = g.FirstOrDefault(x => x.Property == "AssessmentStatus");
+                        var imputationChange = g.FirstOrDefault(x => x.Property == "IsKpiImputed");
 
-                        // Combine the "Value" property change
-                        OldValue = g.FirstOrDefault(x => x.Property == "Value")?.Old?.ToString(),
-                        NewValue = g.FirstOrDefault(x => x.Property == "Value")?.New?.ToString(),
+                        return new KpiHistoryResponse
+                        {
+                            Timestamp = doc.Timestamp,
+                            SourceSystem = doc.SourceSystem,
+                            KpiId = g.Key.KpiId,
+                            ElementId = g.Key.ElementId ?? "Aggregated",
+                            IsAggregated = g.Key.Aggregated,
 
-                        // Combine the "AssessmentStatus" property change
-                        OldStatus = TranslateStatus(g.FirstOrDefault(x => x.Property == "AssessmentStatus")?.Old),
-                        NewStatus = TranslateStatus(g.FirstOrDefault(x => x.Property == "AssessmentStatus")?.New),
+                            OldValue = valueChange?.Old?.ToString(),
+                            NewValue = valueChange?.New?.ToString(),
 
-                        IsImputed = (bool?)g.FirstOrDefault(x => x.Property == "IsKpiImputed")?.New ?? false
+                            // FIX: If statusChange is null, the status didn't change during this edit
+                            OldStatus = statusChange == null ? "No Change" : TranslateStatus(statusChange.Old),
+                            NewStatus = statusChange == null ? "No Change" : TranslateStatus(statusChange.New),
+
+                            IsImputed = (bool?)imputationChange?.New ?? false
+                        };
                     })
             )
-            .OrderByDescending(x => x.Timestamp) // Show newest changes at the top
+            .OrderByDescending(x => x.Timestamp)
             .ToList();
         }
 
@@ -60,6 +65,7 @@ namespace HNTAS.Core.Api.Services
             "2" => "Fail",
             "3" => "Outside Limit",
             "0" => "Undefined",
+            null => "N/A",
             _ => "N/A"
         };
 

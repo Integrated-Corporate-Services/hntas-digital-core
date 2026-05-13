@@ -343,8 +343,8 @@ namespace HNTAS.Core.Api.Controllers
                 return BadRequest(ModelState);
             }
 
-            _logger.LogInformation("Saving status - {SoaStatuses} for HN ID: {HnId}, Element:{ElementId}, Stage: {Stage}, UpdatedBy: {UpdatedBy}",
-                request.SoaStatuses, StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(request.ElementId!), request.Stage, StringFormatter.Sanitize(request.SoaStatusUpdatedBy!));
+            _logger.LogInformation("Saving statuses for HN ID: {HnId}, Element:{ElementId}, Stage: {Stage}, UpdatedBy: {UpdatedBy}",
+                 StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(request.ElementId!), request.Stage, StringFormatter.Sanitize(request.SoaStatusUpdatedBy!));
 
             try
             {
@@ -357,8 +357,8 @@ namespace HNTAS.Core.Api.Controllers
 
                 await _soaService.UpdateSoaStatus(request.HnId, request.ElementId!, request.Stage, request.SoaStatuses!, request.SoaStatusUpdatedBy!, request.ElementSoaStatus);
 
-                _logger.LogInformation("Updated status - {SoaStatuses} successfully for HN ID: {HnId}, Element:{ElementId}, Stage: {Stage}, UpdatedBy: {UpdatedBy}",
-                request.SoaStatuses, StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(request.ElementId!), request.Stage, StringFormatter.Sanitize(request.SoaStatusUpdatedBy!));
+                _logger.LogInformation("Updated statuses successfully for HN ID: {HnId}, Element:{ElementId}, Stage: {Stage}, UpdatedBy: {UpdatedBy}",
+                 StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(request.ElementId!), request.Stage, StringFormatter.Sanitize(request.SoaStatusUpdatedBy!));
 
                 var isRegistrationEnabledString = Environment.GetEnvironmentVariable("IS_REGISTRATION_ENABLED");
                 if (!string.IsNullOrEmpty(isRegistrationEnabledString) &&
@@ -383,8 +383,8 @@ namespace HNTAS.Core.Api.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to update status - {SoaStatuses} for HN ID: {HnId}, Element:{ElementId}, Stage: {Stage}, UpdatedBy: {UpdatedBy}",
-                request.SoaStatuses, StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(request.ElementId!), request.Stage, StringFormatter.Sanitize(request.SoaStatusUpdatedBy!));
+                _logger.LogError(ex, "Failed to update statuses for HN ID: {HnId}, Element:{ElementId}, Stage: {Stage}, UpdatedBy: {UpdatedBy}",
+                 StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(request.ElementId!), request.Stage, StringFormatter.Sanitize(request.SoaStatusUpdatedBy!));
                 throw;
             }
         }

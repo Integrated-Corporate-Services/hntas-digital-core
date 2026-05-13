@@ -372,7 +372,7 @@ namespace HNTAS.Core.Api.Services
                         var isNetworkElementToUpdate = request.ElementIds.Contains(networkElement.ElementId!);
                         if (isNetworkElementToUpdate)
                         {
-                            networkElementsName.Add(networkElement.NetworkElementInstanceName!);
+                            
                             var stages = HeatNetworkHelper.GetStagesForPhase(phase);
 
                             foreach (var stage in stages)

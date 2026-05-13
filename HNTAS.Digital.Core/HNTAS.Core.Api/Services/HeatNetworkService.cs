@@ -300,8 +300,7 @@ namespace HNTAS.Core.Api.Services
                             {
                                 Name = $"{assessor.FirstName} {assessor.LastName}".Trim(),
                                 Email = assessor.Email,
-                                HeatNetworkName = hn.Name,
-                                ElementsAssigned = element.NetworkElementInstanceName!,
+                                HeatNetworkName = hn.Name,                                
                                 Status = assessor.Status,
                                 AssessorUpdatedAt = soaStage.AssessorUpdatedAt
                             };

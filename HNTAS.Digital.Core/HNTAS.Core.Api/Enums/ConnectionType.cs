@@ -7,16 +7,16 @@ namespace HNTAS.Core.Api.Enums
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public enum ConnectionType
     {
-        [Description("Child connections")]
-        ChildConnections = 1,
+        [Description("All communal buildings")]
+        CommunalBuildings = 1,
 
-        [Description("Communal heat network connection")]
-        CommunalHeatNetworkConnection = 2,
+        [Description("Individual homes")]
+        IndividualHomes = 2,
 
-        [Description("Commercial connection")]
+        [Description("Non-domestic consumers")]
         CommercialConnection = 3,
 
-        [Description("Parent connection")]
-        ParentConnection = 4
+        [Description("Other district networks")]
+        OtherDistrictNetwork = 4
     }
 }

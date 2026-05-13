@@ -339,6 +339,5 @@ namespace HNTAS.Core.Api.Controllers
     
             await _notificationHistoryService.CreateAsync(notificationHistory);
         }
-
     }
 }

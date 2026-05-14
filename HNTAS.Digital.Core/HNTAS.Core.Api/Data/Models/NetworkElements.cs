@@ -16,6 +16,5 @@ namespace HNTAS.Core.Api.Data.Models
 
         [BsonElement("elements")]
         public List<Element> Elements { get; set; } = [];        
-    }
-    
+    }    
 }

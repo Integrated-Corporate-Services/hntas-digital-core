@@ -259,7 +259,7 @@ namespace HNTAS.Core.Api.Services
             }
         }
 
-        public async Task UpdateSoaStatus(string hnId, string elementId, SoaStage stage, string soaStatus, string updatedBy, NetworkDetailsStatus elementSoaStatus)
+        public async Task UpdateSoaStatus(string hnId, string elementId, SoaStage stage, List<SoaStatusWithCount> soaStatuses, string updatedBy, NetworkDetailsStatus elementSoaStatus)
         {
             try
             {
@@ -286,7 +286,7 @@ namespace HNTAS.Core.Api.Services
                 );
 
                 var update = Builders<HeatNetwork>.Update
-                    .Set("networkElements.elements.$[element].soaStages.$[stage].soaStatus", soaStatus)
+                    .Set("networkElements.elements.$[element].soaStages.$[stage].soaStatuses", soaStatuses)
                     .Set("networkElements.elements.$[element].soaStages.$[stage].soaStatusUpdatedAt", DateTime.UtcNow)
                     .Set("networkElements.elements.$[element].soaStages.$[stage].soaStatusUpdatedBy", updatedBy)
                     .Set(hn => hn.NetworkElements!.ElementSoaStatus, elementSoaStatus);
@@ -311,7 +311,7 @@ namespace HNTAS.Core.Api.Services
                         .Push("networkElements.elements.$[element].soaStages", new SoaStages
                         {
                             StageId = stage,
-                            SoaStatus = soaStatus,
+                            SoaStatuses = soaStatuses,
                             SoaStatusUpdatedAt = DateTime.UtcNow,
                             SoaStatusUpdatedBy = updatedBy                            
                         })
@@ -372,7 +372,7 @@ namespace HNTAS.Core.Api.Services
                         var isNetworkElementToUpdate = request.ElementIds.Contains(networkElement.ElementId!);
                         if (isNetworkElementToUpdate)
                         {
-                            networkElementsName.Add(networkElement.NetworkElementInstanceName!);
+                            
                             var stages = HeatNetworkHelper.GetStagesForPhase(phase);
 
                             foreach (var stage in stages)

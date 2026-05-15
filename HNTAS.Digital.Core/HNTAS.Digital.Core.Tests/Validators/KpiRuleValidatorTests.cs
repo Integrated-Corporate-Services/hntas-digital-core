@@ -26,7 +26,7 @@ namespace HNTAS.Digital.Core.Tests.Validators
         public async Task ValidateAsync_WhenConfigNotFound_ReturnsFailure()
         {
             // Arrange
-            var networkId = "HN123";
+            var networkId = "HN1234";
             var request = CreateSubmissionStub(networkId);
             _mockKpiService.Setup(s => s.GetConfigurationAsync(networkId))
                 .ReturnsAsync((KpiConfiguration)null);

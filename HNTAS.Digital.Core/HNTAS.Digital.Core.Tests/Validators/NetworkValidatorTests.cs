@@ -25,7 +25,7 @@ namespace HNTAS.Digital.Core.Tests.Validators
             var hnid = "HN400219";
             var request = new List<NetworkElementRequest>
             {
-                new() { ElementId = "00001", Type = HeatNetworkElementType.EnergyCentre }
+                new() { ElementId = "00001", Type = HeatNetworkElementType.EnergyCentre.ToString() }
             };
 
             _mockService.Setup(s => s.GetByHnIdAsync(hnid))
@@ -36,6 +36,7 @@ namespace HNTAS.Digital.Core.Tests.Validators
 
             // Assert
             Assert.True(result.IsValid);
+            Assert.Null(result.Errors);
         }
 
         [Fact]
@@ -44,10 +45,9 @@ namespace HNTAS.Digital.Core.Tests.Validators
             // Arrange
             var hnid = "HN400219";
             var elementId = "00001";
-            // ID 00001 is an EnergyCentre in the DB, but we send it as a Substation
             var request = new List<NetworkElementRequest>
             {
-                new() { ElementId = elementId, Type = HeatNetworkElementType.Substation }
+                new() { ElementId = elementId, Type = HeatNetworkElementType.Substation.ToString() }
             };
 
             _mockService.Setup(s => s.GetByHnIdAsync(hnid))
@@ -58,9 +58,10 @@ namespace HNTAS.Digital.Core.Tests.Validators
 
             // Assert
             Assert.False(result.IsValid);
-            Assert.Contains(result.Errors, e => e.Contains($"Element ID '{elementId}' type mismatch"));
-            Assert.Contains(result.Errors, e => e.Contains("Expected 'EnergyCentre'"));
-            Assert.Contains(result.Errors, e => e.Contains("found 'Substation'"));
+            // Check the Code and Message properties of the KpiSubmissionApiError objects
+            Assert.Contains(result.Errors, e => e.Code == "ELEMENT_TYPE_MISMATCH");
+            Assert.Contains(result.Errors, e => e.Message.Contains("Expected 'EnergyCentre'"));
+            Assert.Contains(result.Errors, e => e.Message.Contains("received 'Substation'"));
         }
 
         [Fact]
@@ -70,7 +71,7 @@ namespace HNTAS.Digital.Core.Tests.Validators
             var hnid = "HN400219";
             var request = new List<NetworkElementRequest>
             {
-                new() { ElementId = "99999", Type = HeatNetworkElementType.EnergyCentre }
+                new() { ElementId = "99999", Type = HeatNetworkElementType.EnergyCentre.ToString() }
             };
 
             _mockService.Setup(s => s.GetByHnIdAsync(hnid))
@@ -81,7 +82,8 @@ namespace HNTAS.Digital.Core.Tests.Validators
 
             // Assert
             Assert.False(result.IsValid);
-            Assert.Contains(result.Errors, e => e.Contains("Element ID '99999' not found"));
+            Assert.Contains(result.Errors, e => e.Code == "ELEMENT_NOT_FOUND");
+            Assert.Equal("99999", result.Errors.First(e => e.Code == "ELEMENT_NOT_FOUND").ElementId);
         }
 
         private HeatNetwork GetMockNetwork(string hnid)
@@ -89,13 +91,13 @@ namespace HNTAS.Digital.Core.Tests.Validators
             return new HeatNetwork
             {
                 HnId = hnid,
-                NetworkElements = new NetworkElements
+                NetworkElements = new NetworkElements // Changed to match common naming convention
                 {
                     Elements = new List<Element>
-                    {
-                        new() { ElementId = "00001", Type = HeatNetworkElementType.EnergyCentre },
-                        new() { ElementId = "00003", Type = HeatNetworkElementType.Substation }
-                    }
+                {
+                    new() { ElementId = "00001", Type = HeatNetworkElementType.EnergyCentre },
+                    new() { ElementId = "00003", Type = HeatNetworkElementType.Substation }
+                }
                 }
             };
         }

@@ -26,8 +26,9 @@ namespace HNTAS.Digital.Core.Tests.Validators
         public async Task ValidateAsync_WhenConfigNotFound_ReturnsFailure()
         {
             // Arrange
-            var request = CreateSubmissionStub("HN123");
-            _mockKpiService.Setup(s => s.GetConfigurationAsync("HN123"))
+            var networkId = "HN123";
+            var request = CreateSubmissionStub(networkId);
+            _mockKpiService.Setup(s => s.GetConfigurationAsync(networkId))
                 .ReturnsAsync((KpiConfiguration)null);
 
             // Act
@@ -35,7 +36,8 @@ namespace HNTAS.Digital.Core.Tests.Validators
 
             // Assert
             Assert.False(result.IsValid);
-            Assert.Equal("KPI Configuration not found for this network.", result.Message);
+            Assert.Equal(404, result.StatusCode);
+            Assert.Equal("KPI Configuration not found for this network.", result.Detail);
         }
 
         [Fact]
@@ -166,6 +168,7 @@ namespace HNTAS.Digital.Core.Tests.Validators
             Assert.Equal(KPIAssessmentStatus.Pass, request.Elements.First().Kpis[kpiId].AssessmentStatus);
         }
 
+
         [Fact]
         public async Task ValidateAsync_WhenNoRuleMatches_SetsStatusToUndefined()
         {
@@ -236,7 +239,7 @@ namespace HNTAS.Digital.Core.Tests.Validators
             // Assert
             Assert.False(result.IsValid);
             Assert.Equal(400, result.StatusCode);
-            Assert.Contains(result.Errors, e => e.Contains($"Element ID 'E001' validation error: Missing mandatory KPI '{mandatoryKpiId}'"));
+            Assert.Contains(result.Errors, e => e.Code == "MISSING_MANDATORY_KPI" && e.ElementId == "E001");
         }
 
 

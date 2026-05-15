@@ -71,7 +71,7 @@ namespace HNTAS.Digital.Core.Tests.Validators
             var hnid = "HN400219";
             var request = new List<NetworkElementRequest>
             {
-                new() { ElementId = "99999", Type = HeatNetworkElementType.EnergyCentre.ToString() }
+                new() { ElementId = "99989", Type = HeatNetworkElementType.EnergyCentre.ToString() }
             };
 
             _mockService.Setup(s => s.GetByHnIdAsync(hnid))
@@ -83,7 +83,7 @@ namespace HNTAS.Digital.Core.Tests.Validators
             // Assert
             Assert.False(result.IsValid);
             Assert.Contains(result.Errors, e => e.Code == "ELEMENT_NOT_FOUND");
-            Assert.Equal("99999", result.Errors.First(e => e.Code == "ELEMENT_NOT_FOUND").ElementId);
+            Assert.Equal("99989", result.Errors.First(e => e.Code == "ELEMENT_NOT_FOUND").ElementId);
         }
 
         private HeatNetwork GetMockNetwork(string hnid)

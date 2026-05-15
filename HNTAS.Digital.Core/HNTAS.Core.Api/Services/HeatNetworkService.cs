@@ -280,7 +280,7 @@ namespace HNTAS.Core.Api.Services
         {
             // Build filter for elements with assigned assessors
             var filter = Builders<HeatNetwork>.Filter.ElemMatch(
-                hn => hn.NetworkElements!.Elements,
+                hn => hn.NetworkElements!.ElementsGroup,
                 element => element.SoaStages != null && element.SoaStages.Any(soa => soa.Assessor != null)
             );
 
@@ -290,7 +290,7 @@ namespace HNTAS.Core.Api.Services
                 // Flatten heat networks into individual assessor assignments
                 var assignedAssessors = heatNetworks
                     .SelectMany(hn =>
-                        (hn.NetworkElements?.Elements ?? Enumerable.Empty<Element>())
+                        (hn.NetworkElements?.ElementsGroup ?? Enumerable.Empty<ElementGroup>())
                             .Where(element => element.SoaStages?.FirstOrDefault()?.Assessor != null)
                             .Select(element =>
                             {

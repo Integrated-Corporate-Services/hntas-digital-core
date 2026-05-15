@@ -21,7 +21,7 @@ namespace HNTAS.Core.Api.Enums
         [Description("Consumer connection")]
         ConsumerConnection = 5,
 
-        [Description("Communal substation")]
-        CommunalSubstation = 6,
+        //[Description("Communal substation")]
+        //CommunalSubstation = 6,
     }
 }

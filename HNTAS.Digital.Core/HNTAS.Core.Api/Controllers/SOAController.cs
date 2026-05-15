@@ -355,7 +355,7 @@ namespace HNTAS.Core.Api.Controllers
                     return NotFound($"No heat network found for HnId '{request.HnId}'.");
                 }
 
-                await _soaService.UpdateSoaStatus(request.HnId, request.ElementId!, request.Stage, request.SoaStatuses!, request.SoaStatusUpdatedBy!, request.ElementSoaStatus);
+                await _soaService.UpdateSoaStatus(request.HnId, request.ElementType!, request.Stage, request.SoaStatuses!, request.SoaStatusUpdatedBy!, request.ElementSoaStatus);
 
                 _logger.LogInformation("Updated statuses successfully for HN ID: {HnId}, Element:{ElementId}, Stage: {Stage}, UpdatedBy: {UpdatedBy}",
                  StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(request.ElementId!), request.Stage, StringFormatter.Sanitize(request.SoaStatusUpdatedBy!));

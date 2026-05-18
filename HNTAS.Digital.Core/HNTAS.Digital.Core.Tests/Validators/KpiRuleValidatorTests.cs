@@ -168,7 +168,6 @@ namespace HNTAS.Digital.Core.Tests.Validators
             Assert.Equal(KPIAssessmentStatus.Pass, request.Elements.First().Kpis[kpiId].AssessmentStatus);
         }
 
-
         [Fact]
         public async Task ValidateAsync_WhenNoRuleMatches_SetsStatusToUndefined()
         {

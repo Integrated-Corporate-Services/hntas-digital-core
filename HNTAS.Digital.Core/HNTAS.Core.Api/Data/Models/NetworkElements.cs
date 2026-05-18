@@ -15,7 +15,8 @@ namespace HNTAS.Core.Api.Data.Models
         public NetworkDetailsStatus ElementSoaStatus { get; set; }
 
         [BsonElement("elements")]
-        public List<Element> Elements { get; set; } = [];        
-    }
-    
+        public List<Element>? Elements { get; set; } = [];
+        [BsonElement("elementsGroup")]
+        public List<ElementGroup> ElementsGroup { get; set; } = [];
+    }    
 }

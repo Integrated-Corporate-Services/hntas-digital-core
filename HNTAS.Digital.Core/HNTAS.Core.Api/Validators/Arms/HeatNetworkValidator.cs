@@ -37,9 +37,13 @@ namespace HNTAS.Core.Api.Validators.Arms
                  );
             }
 
+            // TODO: Introduce a new mapping
             // Safely handle cases where Elements might be null
-            var registeredElements = network.NetworkElements?.Elements?
-                .ToDictionary(e => e.ElementId, e => e.Type.ToString())
+            //var registeredElements = network.NetworkElements?.Elements?
+            //    .ToDictionary(e => e.ElementId, e => e.Type.ToString())
+            //    ?? new Dictionary<string, string>();
+            var registeredElements = network.NetworkElements?.ElementsGroup?
+                .ToDictionary(e => e.ElementType, e => e.ElementDisplayType.ToString())
                 ?? new Dictionary<string, string>();
 
             var apiErrors = new List<KpiSubmissionApiError>();

@@ -343,8 +343,8 @@ namespace HNTAS.Core.Api.Controllers
                 return BadRequest(ModelState);
             }
 
-            _logger.LogInformation("Saving status - {SoaStatus} for HN ID: {HnId}, Element:{ElementId}, Stage: {Stage}, UpdatedBy: {UpdatedBy}",
-                request.SoaStatus, StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(request.ElementId!), request.Stage, StringFormatter.Sanitize(request.SoaStatusUpdatedBy!));
+            _logger.LogInformation("Saving statuses for HN ID: {HnId}, Element:{ElementId}, Stage: {Stage}, UpdatedBy: {UpdatedBy}",
+                 StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(request.ElementId!), request.Stage, StringFormatter.Sanitize(request.SoaStatusUpdatedBy!));
 
             try
             {
@@ -355,10 +355,10 @@ namespace HNTAS.Core.Api.Controllers
                     return NotFound($"No heat network found for HnId '{request.HnId}'.");
                 }
 
-                await _soaService.UpdateSoaStatus(request.HnId, request.ElementId!, request.Stage, request.SoaStatus!, request.SoaStatusUpdatedBy!, request.ElementSoaStatus);
+                await _soaService.UpdateSoaStatus(request.HnId, request.ElementType!, request.Stage, request.SoaStatuses!, request.SoaStatusUpdatedBy!, request.ElementSoaStatus);
 
-                _logger.LogInformation("Updated status - {SoaStatus} successfully for HN ID: {HnId}, Element:{ElementId}, Stage: {Stage}, UpdatedBy: {UpdatedBy}",
-                request.SoaStatus, StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(request.ElementId!), request.Stage, StringFormatter.Sanitize(request.SoaStatusUpdatedBy!));
+                _logger.LogInformation("Updated statuses successfully for HN ID: {HnId}, Element:{ElementId}, Stage: {Stage}, UpdatedBy: {UpdatedBy}",
+                 StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(request.ElementId!), request.Stage, StringFormatter.Sanitize(request.SoaStatusUpdatedBy!));
 
                 var isRegistrationEnabledString = Environment.GetEnvironmentVariable("IS_REGISTRATION_ENABLED");
                 if (!string.IsNullOrEmpty(isRegistrationEnabledString) &&
@@ -367,7 +367,7 @@ namespace HNTAS.Core.Api.Controllers
                     var updatedHeatNetwork = await _heatNetworkService.GetByHnIdAsync(request.HnId);
 
                     await _auditService.SaveAuditAsync<HeatNetwork>(
-                        entryType: "SOA - " + request.SoaStatus,
+                        entryType: "SOA - " + request.SoaStatuses,
                         actorId: request.SoaStatusUpdatedBy!,
                         entityId: existingHeatNetwork.HnId!,
                         oldState: existingHeatNetwork,
@@ -383,8 +383,8 @@ namespace HNTAS.Core.Api.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to update status - {SoaStatus} for HN ID: {HnId}, Element:{ElementId}, Stage: {Stage}, UpdatedBy: {UpdatedBy}",
-                request.SoaStatus, StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(request.ElementId!), request.Stage, StringFormatter.Sanitize(request.SoaStatusUpdatedBy!));
+                _logger.LogError(ex, "Failed to update statuses for HN ID: {HnId}, Element:{ElementId}, Stage: {Stage}, UpdatedBy: {UpdatedBy}",
+                 StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(request.ElementId!), request.Stage, StringFormatter.Sanitize(request.SoaStatusUpdatedBy!));
                 throw;
             }
         }
@@ -507,8 +507,8 @@ namespace HNTAS.Core.Api.Controllers
                 return NotFound();
             }
 
-            if (request.Status == SoaStatus.Submitted)
-            {
+            //if (request.Status == SoaStatus.Submitted)
+            //{
                 //send email
                 await _emailService.TrySendAssessorEmailAsync(
                          emailAddress: assessor.EmailId,
@@ -516,7 +516,7 @@ namespace HNTAS.Core.Api.Controllers
                          hnId: request.HnId,
                          contributorName: user?.FullName
                      );
-            }
+            //}
 
             return NoContent();
         }

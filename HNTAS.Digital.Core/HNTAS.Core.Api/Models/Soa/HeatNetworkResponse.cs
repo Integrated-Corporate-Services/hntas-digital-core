@@ -108,7 +108,7 @@ namespace HNTAS.Core.Api.Models.Soa
         public NetworkDetailsStatus NetworkElementStatus { get; set; }
         public NetworkDetailsStatus ElementSoaStatus { get; set; }
         //public string? ElementType { get; set; }
-        public List<Element> Elements { get; set; } = [];
+        public List<ElementGroup> ElementsGroup { get; set; } = [];
     }
     public class MeteringAndMonitoringStrategyResponse : NetworkDetailsResponseBase {
         public NetworkDetailsStatus Status { get; set; }

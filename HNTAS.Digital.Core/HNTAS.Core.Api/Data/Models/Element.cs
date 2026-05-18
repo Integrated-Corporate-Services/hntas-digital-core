@@ -4,23 +4,14 @@ using MongoDB.Bson.Serialization.Attributes;
 
 namespace HNTAS.Core.Api.Data.Models
 {
-    public class Element
-    {
+    public class Element : ElementBase
+    {        
         [BsonElement("elementId")]
-        public string? ElementId { get; set; }
+        public string? ElementId { get; set; }        
 
-        [BsonElement("elementType")]
-        public string? ElementType { get; set; }
-
-        [BsonElement("networkElementDisplayType")]
+        [BsonElement("networkElementInstanceName")]
         [BsonRepresentation(BsonType.String)]
-        public HeatNetworkElementType Type { get; set; }
+        public string? NetworkElementInstanceName { get; set; }
         
-        [BsonElement("count")]
-        [BsonRepresentation(BsonType.Int32)]
-        public int? Count { get; set; }        
-
-        [BsonElement("soaStages")]
-        public List<SoaStages>? SoaStages { get; set; } = [];
     }    
 }

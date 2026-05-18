@@ -259,42 +259,42 @@ namespace HNTAS.Core.Api.Services
             }
         }
 
-        public async Task UpdateSoaStatus(string hnId, string elementId, SoaStage stage, List<SoaStatusWithCount> soaStatuses, string updatedBy, NetworkDetailsStatus elementSoaStatus)
+        public async Task UpdateSoaStatus(string hnId, string elementType, SoaStage stage, List<SoaStatusWithCount> soaStatuses, string updatedBy, NetworkDetailsStatus elementSoaStatus)
         {
             try
             {
                 // First, ensure SoaStages is initialized
                 var initFilter = Builders<HeatNetwork>.Filter.And(
                     Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
-                    Builders<HeatNetwork>.Filter.ElemMatch(hn => hn.NetworkElements!.Elements,
-                        e => e.ElementId == elementId && e.SoaStages == null)
+                    Builders<HeatNetwork>.Filter.ElemMatch(hn => hn.NetworkElements!.ElementsGroup,
+                        e => e.ElementType == elementType && e.SoaStages == null)
                 );
 
-                var initUpdate = Builders<HeatNetwork>.Update.Set("networkElements.elements.$.soaStages", new List<SoaStages>());
+                var initUpdate = Builders<HeatNetwork>.Update.Set("networkElements.elementsGroup.$.soaStages", new List<SoaStages>());
 
                 await _heatNetworkCollection.UpdateOneAsync(initFilter, initUpdate);
 
                 // Try to update existing status for the specific stage and element
                 var updateFilter = Builders<HeatNetwork>.Filter.And(
                     Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
-                    Builders<HeatNetwork>.Filter.ElemMatch<Element>("networkElements.elements",
+                    Builders<HeatNetwork>.Filter.ElemMatch<ElementGroup>("networkElements.elementsGroup",
                         new MongoDB.Bson.BsonDocument
                         {
-                            { "elementId", elementId },
+                            { "elementType", elementType },
                             { "soaStages.stageId", stage.ToString() }
                         })
                 );
 
                 var update = Builders<HeatNetwork>.Update
-                    .Set("networkElements.elements.$[element].soaStages.$[stage].soaStatuses", soaStatuses)
-                    .Set("networkElements.elements.$[element].soaStages.$[stage].soaStatusUpdatedAt", DateTime.UtcNow)
-                    .Set("networkElements.elements.$[element].soaStages.$[stage].soaStatusUpdatedBy", updatedBy)
+                    .Set("networkElements.elementsGroup.$[element].soaStages.$[stage].soaStatuses", soaStatuses)
+                    .Set("networkElements.elementsGroup.$[element].soaStages.$[stage].soaStatusUpdatedAt", DateTime.UtcNow)
+                    .Set("networkElements.elementsGroup.$[element].soaStages.$[stage].soaStatusUpdatedBy", updatedBy)
                     .Set(hn => hn.NetworkElements!.ElementSoaStatus, elementSoaStatus);
 
                 var arrayFilters = new[]
                 {
                     new BsonDocumentArrayFilterDefinition<MongoDB.Bson.BsonDocument>(
-                        new MongoDB.Bson.BsonDocument("element.elementId", elementId)),
+                        new MongoDB.Bson.BsonDocument("element.elementType", elementType)),
                     new BsonDocumentArrayFilterDefinition<MongoDB.Bson.BsonDocument>(
                         new MongoDB.Bson.BsonDocument("stage.stageId", stage.ToString()))
                 };
@@ -308,7 +308,7 @@ namespace HNTAS.Core.Api.Services
                     var pushFilter = Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId);
 
                     var pushUpdate = Builders<HeatNetwork>.Update
-                        .Push("networkElements.elements.$[element].soaStages", new SoaStages
+                        .Push("networkElements.elementsGroup.$[element].soaStages", new SoaStages
                         {
                             StageId = stage,
                             SoaStatuses = soaStatuses,
@@ -320,7 +320,7 @@ namespace HNTAS.Core.Api.Services
                     var pushArrayFilters = new[]
                     {
                         new BsonDocumentArrayFilterDefinition<MongoDB.Bson.BsonDocument>(
-                            new MongoDB.Bson.BsonDocument("element.elementId", elementId))
+                            new MongoDB.Bson.BsonDocument("element.elementType", elementType))
                     };
 
                     var pushOptions = new UpdateOptions { ArrayFilters = pushArrayFilters };
@@ -328,16 +328,16 @@ namespace HNTAS.Core.Api.Services
 
                     if (result.ModifiedCount > 0)
                     {
-                        _logger.LogInformation("Added document to existing element for HN ID: {HnId}, Stage: {Stage}, Element: {Element}", StringFormatter.Sanitize(hnId), stage, StringFormatter.Sanitize(elementId));
+                        _logger.LogInformation("Added document to existing element for HN ID: {HnId}, Stage: {Stage}, Element: {elementType}", StringFormatter.Sanitize(hnId), stage, StringFormatter.Sanitize(elementType));
                         return;
                     }
                 }
 
-                _logger.LogInformation("Updated ElementSoa document for HN ID: {HnId}, Stage: {Stage}, Element: {Element}", StringFormatter.Sanitize(hnId), stage, StringFormatter.Sanitize(elementId));
+                _logger.LogInformation("Updated ElementSoa document for HN ID: {HnId}, Stage: {Stage}, Element: {elementType}", StringFormatter.Sanitize(hnId), stage, StringFormatter.Sanitize(elementType));
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error updating SOA document for HN ID: {HnId}, Element: {Element}, Stage: {Stage}", StringFormatter.Sanitize(hnId), StringFormatter.Sanitize(elementId), stage);
+                _logger.LogError(ex, "Error updating SOA document for HN ID: {HnId}, Element: {elementType}, Stage: {Stage}", StringFormatter.Sanitize(hnId), StringFormatter.Sanitize(elementType), stage);
                 throw;
             }
 
@@ -355,8 +355,8 @@ namespace HNTAS.Core.Api.Services
                         // First, ensure SoaStages is initialized
                         var initFilter = Builders<HeatNetwork>.Filter.And(
                             Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, request.HnId),
-                            Builders<HeatNetwork>.Filter.ElemMatch(hn => hn.NetworkElements!.Elements,
-                                e => e.ElementId == elementId && e.SoaStages == null)
+                            Builders<HeatNetwork>.Filter.ElemMatch(hn => hn.NetworkElements!.ElementsGroup,
+                                e => e.ElementType == "TODO: GetType" && e.SoaStages == null)
                         );
 
                         var initUpdate = Builders<HeatNetwork>.Update.Set("networkElements.elements.$.soaStages", new List<SoaStages>());
@@ -367,9 +367,10 @@ namespace HNTAS.Core.Api.Services
                 }
                 else
                 {
-                    foreach (var networkElement in networkElements.Elements)
+                    foreach (var networkElement in networkElements.ElementsGroup)
                     {
-                        var isNetworkElementToUpdate = request.ElementIds.Contains(networkElement.ElementId!);
+                        //var isNetworkElementToUpdate = request.ElementIds.Contains(networkElement.ElementId!);
+                        var isNetworkElementToUpdate = request.ElementIds.Contains(networkElement.ElementType!);//"TODO: GetType"
                         if (isNetworkElementToUpdate)
                         {
                             

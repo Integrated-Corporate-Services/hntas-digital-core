@@ -93,10 +93,10 @@ namespace HNTAS.Digital.Core.Tests.Validators
                 HnId = hnid,
                 NetworkElements = new NetworkElements // Changed to match common naming convention
                 {
-                    Elements = new List<Element>
+                    ElementsGroup = new List<ElementGroup>
                 {
-                    new() { ElementId = "00001", Type = HeatNetworkElementType.EnergyCentre },
-                    new() { ElementId = "00003", Type = HeatNetworkElementType.Substation }
+                    new() { ElementType = "00001", ElementDisplayType = HeatNetworkElementType.EnergyCentre },
+                    new() { ElementType = "00003", ElementDisplayType = HeatNetworkElementType.Substation }
                 }
                 }
             };

@@ -32,16 +32,12 @@ namespace HNTAS.Core.Api.Services
             _logger.LogInformation("Notification history inserted...");
         }
 
-        public async Task<NotificationHistoryResponse> GetNotificationHistory(NotificationHistoryRequest notificatoinHistoryRequest, UserRole role)
+        public async Task<NotificationHistoryResponse> GetNotificationHistory(NotificationHistoryRequest notificatoinHistoryRequest)
         {
             try
             {
-                var filter = Builders<NotificationHistory>.Filter.Empty;
-                if (role != UserRole.ResponsiblePerson)
-                {
-                    filter = Builders<NotificationHistory>.Filter.AnyEq(nh => nh.ActorsId, notificatoinHistoryRequest.UserId);
-                }
-
+                var filter = Builders<NotificationHistory>.Filter.AnyEq(nh => nh.ActorsId, notificatoinHistoryRequest.UserId);
+                
                 var totalCount = await _notificationHistoryCollection.CountDocumentsAsync(filter);
 
                 var sortDirection = notificatoinHistoryRequest.SortDirection?.ToLowerInvariant() ?? "desc";
@@ -94,13 +90,9 @@ namespace HNTAS.Core.Api.Services
 
         }
 
-        public async Task<int> GetNotificationHistoryCount(string userId, UserRole role)
+        public async Task<int> GetNotificationHistoryCount(string userId)
         {
-            var filter = Builders<NotificationHistory>.Filter.Empty;
-            if (role != UserRole.ResponsiblePerson)
-            {
-                filter = Builders<NotificationHistory>.Filter.AnyEq(nh => nh.ActorsId, userId);
-            }
+            var filter = Builders<NotificationHistory>.Filter.AnyEq(nh => nh.ActorsId, userId);            
             var count = await _notificationHistoryCollection.CountDocumentsAsync(filter);
             _logger.LogInformation("Retrieved notification history count for user ID: {UserId}, Count: {Count}",
                 StringFormatter.Sanitize(userId), count);

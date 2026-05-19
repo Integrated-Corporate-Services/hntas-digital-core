@@ -632,6 +632,21 @@ namespace HNTAS.Core.Api.Controllers
 
         private async Task NotificationHistoryForAssigningAssessor(ElementSoaAssignAssessorRequest request, HeatNetwork heatNetwork)
         {
+            // Get user's email and role
+            var currentUser = await _userService.GetUserWithDetailsAsync(request.UpdatedBy);
+            var rpUserId = "";
+            var nmUserId = "";
+            if (currentUser.Roles!.Contains(UserRole.ResponsiblePerson))
+            {
+                rpUserId = currentUser.Id!;
+            }
+            else
+            {
+                var invitaions = await _invitationService.GetByInvitedEmailAsync(currentUser.EmailId!);
+                nmUserId = currentUser.Id!;
+                rpUserId = invitaions.InviterUserId;
+            }
+
             var users = await _userService.GetUsersAssociatedByHnIdAsync(request.HnId);
             // get distinct user emailIds from the list of users
             var emailIds = users.Select(u => u.EmailId).Distinct().ToList();
@@ -642,8 +657,13 @@ namespace HNTAS.Core.Api.Controllers
 
             // merge userIds and invitorUserIds and get distinct list of userIds to be notified
             var actors = userIds.Union(invitorUserIds).Distinct().ToList();
+            actors.Add(rpUserId);
+            if (!string.IsNullOrEmpty(nmUserId))
+            {
+                actors.Add(nmUserId);
+            }
             // check if request.UpdatedBy is in actors list, if not add to the list
-            actors = actors.Contains(request.UpdatedBy) ? actors : actors.Append(request.UpdatedBy).ToList();
+            //actors = actors.Contains(request.UpdatedBy) ? actors : actors.Append(request.UpdatedBy).ToList();
 
             var description = $"{request.AssessorFirstName} {request.AssessorLastName} Assigned to {heatNetwork.HnId}-{heatNetwork.Name}";
             var eligibleRoles = new List<string> { ContributorRole.ResponsiblePerson.ToString()

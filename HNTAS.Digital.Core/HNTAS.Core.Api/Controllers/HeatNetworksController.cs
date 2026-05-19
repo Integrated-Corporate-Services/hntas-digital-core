@@ -27,8 +27,9 @@ namespace HNTAS.Core.Api.Controllers
         private readonly IUserService _userService;
         private readonly IEmailService _emailService;
         private readonly INotificationHistoryService _notificationHistoryService;
+        private readonly IInvitationService _intivationService;
 
-        public HeatNetworksController(IHeatNetworkService hnService, ILogger<HeatNetworksController> logger, ICounterService counterService, IMapper mapper, IUserService userService, IEmailService emailService, IAuditService auditService, INotificationHistoryService notificationHistoryService)
+        public HeatNetworksController(IHeatNetworkService hnService, ILogger<HeatNetworksController> logger, ICounterService counterService, IMapper mapper, IUserService userService, IEmailService emailService, IAuditService auditService, INotificationHistoryService notificationHistoryService, IInvitationService intivationService)
         {
             _hnService = hnService;
             _logger = logger;
@@ -38,6 +39,7 @@ namespace HNTAS.Core.Api.Controllers
             _userService = userService;
             _emailService = emailService;
             _notificationHistoryService = notificationHistoryService;
+            _intivationService = intivationService;
         }
 
         /// <summary>
@@ -323,7 +325,10 @@ namespace HNTAS.Core.Api.Controllers
                 notificationType = NotificationHistoryType.RpRegistersHeatNetwork;
             }
             else
-            {                
+            {
+                var invitation = await _intivationService.GetByInvitedEmailAsync(user.EmailId!);
+                if (invitation != null)
+                    actorIds.Add(invitation.InviterUserId);
                 eligibleRoles.Add(UserRole.ResponsiblePerson.ToString());
                 eligibleRoles.Add(UserRole.NetworkManager.ToString());
                 notificationType = NotificationHistoryType.NetworkManagerRegistersHeatNetwork;

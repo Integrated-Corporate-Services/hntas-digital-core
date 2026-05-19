@@ -1131,6 +1131,16 @@ public class UsersController : ControllerBase
         }
         else if (invitedRole == ContributorRole.DesignatedDesigner)
         {
+            // check if the invitor is Network Manager, if yes then add RP to actorIds
+            var invitorDetailsOfNM = await _userService.GetByIdAsync(invitation.InviterUserId);
+            if (invitorDetailsOfNM != null && invitorDetailsOfNM.Roles.Contains(UserRole.NetworkManager))
+            {
+                // Get the RP user details and add to actorIds
+                var invitaions = await _invitationService.GetByInvitedEmailAsync(invitorDetailsOfNM.EmailId!);
+                if (invitaions != null)
+                    actorIds.AddRange(invitaions.InviterUserId);
+            }
+
             eligibleRoles.Add(ContributorRole.NetworkManager.ToString());
             subject = NotificationHistorySubjects.DesignatedDesignerJoined;
             action = NotificationHistoryActions.DDHAndContributors;
@@ -1139,6 +1149,14 @@ public class UsersController : ControllerBase
         }
         else if (invitedRole == ContributorRole.DesignatedContractor)
         {
+            var invitorDetailsOfNM = await _userService.GetByIdAsync(invitation.InviterUserId);
+            if (invitorDetailsOfNM != null && invitorDetailsOfNM.Roles.Contains(UserRole.NetworkManager))
+            {
+                // Get the RP user details and add to actorIds
+                var invitaions = await _invitationService.GetByInvitedEmailAsync(invitorDetailsOfNM.EmailId!);
+                if (invitaions != null)
+                    actorIds.AddRange(invitaions.InviterUserId);
+            }
             eligibleRoles.Add(ContributorRole.NetworkManager.ToString());
             subject = NotificationHistorySubjects.DesignatedContractorJoined;
             action = NotificationHistoryActions.DDHAndContributors;
@@ -1147,6 +1165,14 @@ public class UsersController : ControllerBase
         }
         else if (invitedRole == ContributorRole.DesignatedOperator)
         {
+            var invitorDetailsOfNM = await _userService.GetByIdAsync(invitation.InviterUserId);
+            if (invitorDetailsOfNM != null && invitorDetailsOfNM.Roles.Contains(UserRole.NetworkManager))
+            {
+                // Get the RP user details and add to actorIds
+                var invitaions = await _invitationService.GetByInvitedEmailAsync(invitorDetailsOfNM.EmailId!);
+                if (invitaions != null)
+                    actorIds.AddRange(invitaions.InviterUserId);
+            }
             eligibleRoles.Add(ContributorRole.NetworkManager.ToString());
             subject = NotificationHistorySubjects.DesignatedOperatorJoined;
             action = NotificationHistoryActions.DDHAndContributors;
@@ -1155,7 +1181,7 @@ public class UsersController : ControllerBase
         }
         else if (invitedRole == ContributorRole.ContributingDesigner)
         {
-            await AddDdhInvitorToActorIds(invitation, actorIds);
+            await AddAssociatedNetworkManagerAndRpIds(invitation, actorIds);
             eligibleRoles.Add(ContributorRole.NetworkManager.ToString());
             eligibleRoles.Add(ContributorRole.DesignatedDesigner.ToString());
             subject = NotificationHistorySubjects.ContributingDesignerJoined;
@@ -1165,7 +1191,7 @@ public class UsersController : ControllerBase
         }
         else if (invitedRole == ContributorRole.ContributingContractor)
         {
-            await AddDdhInvitorToActorIds(invitation, actorIds);
+            await AddAssociatedNetworkManagerAndRpIds(invitation, actorIds);
             eligibleRoles.Add(ContributorRole.NetworkManager.ToString());
             eligibleRoles.Add(ContributorRole.DesignatedContractor.ToString());
             subject = NotificationHistorySubjects.ContributingContractorJoined;
@@ -1175,7 +1201,7 @@ public class UsersController : ControllerBase
         }
         else if (invitedRole == ContributorRole.ContributingOperator)
         {
-            await AddDdhInvitorToActorIds(invitation, actorIds);
+            await AddAssociatedNetworkManagerAndRpIds(invitation, actorIds);
             eligibleRoles.Add(ContributorRole.NetworkManager.ToString());
             eligibleRoles.Add(ContributorRole.DesignatedOperator.ToString());
             subject = NotificationHistorySubjects.ContributingOperatorJoined;
@@ -1199,7 +1225,7 @@ public class UsersController : ControllerBase
         await _notificationHistoryService.CreateAsync(notificationHistory);
     }
 
-    private async Task AddDdhInvitorToActorIds(Invitation invitation, List<string> actorIds)
+    private async Task AddAssociatedNetworkManagerAndRpIds(Invitation invitation, List<string> actorIds)
     {
         var invitorDetailsOfDdh = await _userService.GetByIdAsync(invitation.InviterUserId);
         if (invitorDetailsOfDdh == null) return;
@@ -1215,7 +1241,18 @@ public class UsersController : ControllerBase
             role);
 
         if (invitorOfDdh != null)
+        {
             actorIds.Add(invitorOfDdh.InviterUserId!);
+            // check if the invitor is Network Manager, if yes then add RP to actorIds
+            var invitorDetailsOfNM = await _userService.GetByIdAsync(invitorOfDdh!.InviterUserId);
+            if (invitorDetailsOfNM != null && invitorDetailsOfNM.Roles.Contains(UserRole.NetworkManager))
+            {
+                // Get the RP user details and add to actorIds
+                var invitaions = await _invitationService.GetByInvitedEmailAsync(invitorDetailsOfNM.EmailId!);
+                if (invitaions != null)
+                    actorIds.AddRange(invitaions.InviterUserId);
+            }
+        }
     }
 
 }

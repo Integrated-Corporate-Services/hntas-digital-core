@@ -37,39 +37,53 @@ namespace HNTAS.Core.Api.Validators.Arms
                  );
             }
 
-            // TODO: Introduce a new mapping
-            // Safely handle cases where Elements might be null
-            //var registeredElements = network.NetworkElements?.Elements?
-            //    .ToDictionary(e => e.ElementId, e => e.Type.ToString())
-            //    ?? new Dictionary<string, string>();
             var registeredElements = network.NetworkElements?.ElementsGroup?
-                .ToDictionary(e => e.ElementType, e => e.ElementDisplayType.ToString())
-                ?? new Dictionary<string, string>();
+              .ToDictionary(e => e.ElementDisplayType.ToString(), e => e.Count)
+              ?? new Dictionary<string, int?>();
 
             var apiErrors = new List<KpiSubmissionApiError>();
 
-            foreach (var element in elements)
-            {
-                // 1. Check if ID exists
-                if (!registeredElements.TryGetValue(element.ElementId, out var registeredType))
-                {
-                    apiErrors.Add(new KpiSubmissionApiError
-                    {
-                        Code = "ELEMENT_NOT_FOUND",
-                        Message = "The provided Element ID is not associated with this network.",
-                        ElementId = element.ElementId
-                    });
-                    continue;
-                }
+            // 1. Check for any duplicate ElementIds across the entire payload first
+            var duplicateElementIds = elements
+                .Where(e => !string.IsNullOrWhiteSpace(e.ElementId))
+                .GroupBy(e => e.ElementId)
+                .Where(g => g.Count() > 1)
+                .Select(g => g.Key)
+                .ToList();
 
-                // 2. Check if Type matches
-                if (registeredType != element.Type.ToString())
+            if (duplicateElementIds.Any())
+            {
+                foreach (var dupId in duplicateElementIds)
                 {
                     apiErrors.Add(new KpiSubmissionApiError
                     {
-                        Code = "ELEMENT_TYPE_MISMATCH",
-                        Message = $"Element type mismatch. Expected '{registeredType}', but received '{element.Type}'.",
-                        ElementId = element.ElementId
+                        Code = "DUPLICATE_ELEMENT_ID",
+                        Message = $"The submission contains duplicate element ID '{dupId}'. Each element must have a unique identifier."
+                    });
+                }
+            }
+
+            // Group incoming elements by Type upfront to avoid redundant scans and duplicate errors
+            var incomingElementCounts = elements
+                .GroupBy(e => e.Type.ToString())
+                .ToDictionary(g => g.Key, g => new { Count = g.Count(), FirstElementId = g.First().ElementId });
+
+            // Loop through the registered requirements to check for matches
+            foreach (var registeredType in registeredElements.Keys)
+            {
+                var registeredCount = registeredElements[registeredType] ?? 0;
+
+                // Get the actual count received (default to 0 if none of this type were provided)
+                incomingElementCounts.TryGetValue(registeredType, out var incomingData);
+                int receivedCount = incomingData?.Count ?? 0;
+
+                // Check if the received count does not match the registry exactly
+                if (receivedCount != registeredCount)
+                {
+                    apiErrors.Add(new KpiSubmissionApiError
+                    {
+                        Code = "ELEMENT_COUNT_NOT_MATCHED",
+                        Message = $"Element count mismatch for type '{registeredType}'. Expected '{registeredCount}', but received '{receivedCount}'.",
                     });
                 }
             }

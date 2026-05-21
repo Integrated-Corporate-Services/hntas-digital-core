@@ -534,7 +534,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             var invitation = new Invitation
             {
                 InvitedHnId = "hn-123",
-                InvitedRoles = new List<ContributorRole> { ContributorRole.DesignatedContractor }
+                InvitedRoles = new List<ContributorRole> { ContributorRole.DesignatedDutyHolder }
             };
             var existingUser = new User { Id = "user-001", HnRoleMappings = new List<HnRoleMapping>() };
 

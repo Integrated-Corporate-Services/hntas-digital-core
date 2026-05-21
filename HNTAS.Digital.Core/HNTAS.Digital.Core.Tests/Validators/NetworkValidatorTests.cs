@@ -19,13 +19,15 @@ namespace HNTAS.Digital.Core.Tests.Validators
         }
 
         [Fact]
-        public async Task ValidateAsync_WhenAllElementsMatch_ReturnsSuccess()
+        public async Task ValidateAsync_WhenAllElementCountsMatchExactly_ReturnsSuccess()
         {
             // Arrange
             var hnid = "HN400219";
             var request = new List<NetworkElementRequest>
             {
-                new() { ElementId = "00001", Type = HeatNetworkElementType.EnergyCentre.ToString() }
+                new() { ElementId = "00001", Type = HeatNetworkElementType.EnergyCentre.ToString() },
+                new() { ElementId = "00002", Type = HeatNetworkElementType.Substation.ToString() },
+                new() { ElementId = "00003", Type = HeatNetworkElementType.Substation.ToString() }
             };
 
             _mockService.Setup(s => s.GetByHnIdAsync(hnid))
@@ -40,14 +42,16 @@ namespace HNTAS.Digital.Core.Tests.Validators
         }
 
         [Fact]
-        public async Task ValidateAsync_WhenTypeIsWrong_ReturnsFailure()
+        public async Task ValidateAsync_WhenElementCountMismatches_ReturnsFailure()
         {
             // Arrange
             var hnid = "HN400219";
-            var elementId = "00001";
+            // Expected registry counts from mock data: EnergyCentre = 1, Substation = 2
+            // Act: Sending only 1 Substation instead of 2
             var request = new List<NetworkElementRequest>
             {
-                new() { ElementId = elementId, Type = HeatNetworkElementType.Substation.ToString() }
+                new() { ElementId = "00001", Type = HeatNetworkElementType.EnergyCentre.ToString() },
+                new() { ElementId = "00002", Type = HeatNetworkElementType.Substation.ToString() }
             };
 
             _mockService.Setup(s => s.GetByHnIdAsync(hnid))
@@ -58,20 +62,26 @@ namespace HNTAS.Digital.Core.Tests.Validators
 
             // Assert
             Assert.False(result.IsValid);
-            // Check the Code and Message properties of the KpiSubmissionApiError objects
-            Assert.Contains(result.Errors, e => e.Code == "ELEMENT_TYPE_MISMATCH");
-            Assert.Contains(result.Errors, e => e.Message.Contains("Expected 'EnergyCentre'"));
-            Assert.Contains(result.Errors, e => e.Message.Contains("received 'Substation'"));
+            Assert.NotNull(result.Errors);
+
+            var error = Assert.Single(result.Errors);
+            Assert.Equal("ELEMENT_COUNT_NOT_MATCHED", error.Code);
+            Assert.Contains("Element count mismatch for type 'Substation'", error.Message);
+            Assert.Contains("Expected '2', but received '1'", error.Message);
+            Assert.Null(error.ElementId); // Verified that ElementId remains null for count mismatches
         }
 
         [Fact]
-        public async Task ValidateAsync_WhenIdDoesNotExist_ReturnsFailure()
+        public async Task ValidateAsync_WhenPayloadContainsDuplicateElementIds_ReturnsFailure()
         {
             // Arrange
             var hnid = "HN400219";
+            // Act: Sending duplicate elementId "00002"
             var request = new List<NetworkElementRequest>
             {
-                new() { ElementId = "99989", Type = HeatNetworkElementType.EnergyCentre.ToString() }
+                new() { ElementId = "00001", Type = HeatNetworkElementType.EnergyCentre.ToString() },
+                new() { ElementId = "00002", Type = HeatNetworkElementType.Substation.ToString() },
+                new() { ElementId = "00002", Type = HeatNetworkElementType.Substation.ToString() }
             };
 
             _mockService.Setup(s => s.GetByHnIdAsync(hnid))
@@ -82,8 +92,12 @@ namespace HNTAS.Digital.Core.Tests.Validators
 
             // Assert
             Assert.False(result.IsValid);
-            Assert.Contains(result.Errors, e => e.Code == "ELEMENT_NOT_FOUND");
-            Assert.Equal("99989", result.Errors.First(e => e.Code == "ELEMENT_NOT_FOUND").ElementId);
+            Assert.NotNull(result.Errors);
+
+            // Should catch the DUPLICATE_ELEMENT_ID error
+            Assert.Contains(result.Errors, e => e.Code == "DUPLICATE_ELEMENT_ID");
+            var dupError = result.Errors.First(e => e.Code == "DUPLICATE_ELEMENT_ID");
+            Assert.Contains("contains duplicate element ID '00002'", dupError.Message);
         }
 
         private HeatNetwork GetMockNetwork(string hnid)
@@ -91,13 +105,14 @@ namespace HNTAS.Digital.Core.Tests.Validators
             return new HeatNetwork
             {
                 HnId = hnid,
-                NetworkElements = new NetworkElements // Changed to match common naming convention
+                NetworkElements = new NetworkElements
                 {
                     ElementsGroup = new List<ElementGroup>
-                {
-                    new() { ElementType = "00001", ElementDisplayType = HeatNetworkElementType.EnergyCentre },
-                    new() { ElementType = "00003", ElementDisplayType = HeatNetworkElementType.Substation }
-                }
+                    {
+                        // Setting up targeted baseline counts for testing
+                        new() { Count = 1, ElementDisplayType = HeatNetworkElementType.EnergyCentre },
+                        new() { Count = 2, ElementDisplayType = HeatNetworkElementType.Substation }
+                    }
                 }
             };
         }

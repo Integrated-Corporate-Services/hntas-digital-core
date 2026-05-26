@@ -1,4 +1,5 @@
 ﻿using FluentValidation;
+using FluentValidation.Results;
 using HNTAS.Core.Api.Models.Arms;
 using ElementType = HNTAS.Core.Api.Enums.HeatNetworkElementType;
 
@@ -60,41 +61,55 @@ namespace HNTAS.Core.Api.Validators.Arms
 
             // elements array must have >= 1 items
             RuleFor(x => x.Elements)
-                .NotEmpty()
-                .WithMessage("The 'elements' array must contain at least one item.")
-                .Must(list => list.Count >= 1);
+                  .NotEmpty()
+                  .WithErrorCode("EMPTY_SUBMISSION")
+                  .WithMessage("The 'elements' array must contain at least one item.");
 
+            // 1. Validate Individual Element Schema
             RuleForEach(x => x.Elements).ChildRules(element =>
             {
-                // Validate the 5-digit ID (Matches Image 3)
                 element.RuleFor(e => e.ElementId)
                     .NotEmpty()
                     .Matches(@"^\d{5}$")
-                    .WithMessage("Element ID must be exactly 5 digits (e.g., 00001).");
+                    .WithErrorCode("INVALID_ELEMENT_ID")
+                    .WithMessage("Element ID must be exactly 5 digits (e.g., 00001).")
+                    .WithState(e => new { elementId = e.ElementId, kpis = (string)null });
 
-                // Validate the Enum Type
-                element.RuleFor(e => e.Type)
-                    .IsInEnum()
-                    .WithMessage("Invalid element type provided.");
+                //element.RuleFor(e => e.Type)
+                //    .IsInEnum()
+                //    .WithErrorCode("INVALID_ELEMENT_TYPE")
+                //    .WithMessage("Invalid element type provided.")
+                //    .WithState(e => new { elementId = e.ElementId, kpis = (string)null });
 
-                // Validate that KPIs are actually provided
-                element.RuleFor(e => e.Kpis)
-                    .NotEmpty()
-                    .WithMessage("Each element must have at least one KPI reported.");
+                //element.RuleFor(e => e.Kpis)
+                //    .NotEmpty()
+                //    .WithErrorCode("MISSING_KPI_DATA")
+                //    .WithMessage("Each element must have at least one KPI reported.")
+                //    .WithState(e => new { elementId = e.ElementId, kpi = "All" });
             });
 
-            //Validate KPI’s are submitted under their respective elements
-            RuleForEach(x => x.Elements).ChildRules(element =>
+            /// Validate KPI’s are submitted under their respective elements
+            RuleFor(x => x.Elements).Custom((elements, context) =>
             {
-                element.RuleForEach(e => e.Kpis).Custom((kpiEntry, context) =>
+                if (elements == null) return;
+
+                for (int i = 0; i < elements.Count; i++)
                 {
-                    var networkElement = context.InstanceToValidate as NetworkElementRequest;
-                    if (networkElement == null) return;
+                    var element = elements[i];
+                    bool isValidEnum = Enum.TryParse<ElementType>(element.Type, true, out var elementType);
 
-                    var kpiKey = kpiEntry.Key;
-                    var elementType = networkElement.Type;
+                    if (!isValidEnum)
+                    {
+                        // If the string doesn't match any enum member, stop and report the error
+                        context.AddFailure(new ValidationFailure($"Elements[{i}].Type", "Invalid element type provided.")
+                        {
+                            ErrorCode = "INVALID_ELEMENT_TYPE",
+                            CustomState = new { elementId = element.ElementId, kpis = (List<string>)null }
+                        });
+                        continue; // Move to the next element
+                    }
 
-                    // 1. Define the mapping logic
+                    // 1. Determine the expected prefix
                     var expectedPrefix = elementType switch
                     {
                         ElementType.EnergyCentre => "EC",
@@ -102,122 +117,201 @@ namespace HNTAS.Core.Api.Validators.Arms
                         ElementType.Substation => "SS",
                         ElementType.CommunalDistribution => "CD",
                         ElementType.ConsumerConnection => "CC",
-                        _ => elementType.ToString().Substring(0, 2).ToUpper() // Fallback for others
+                        _ => "XX"
                     };
 
-                    // This single check validates BOTH the prefix and the specific KPI ID
+                    // 2. Validate individual KPIs
                     if (AllowedKpisByElement.TryGetValue(elementType, out var allowedKeys))
                     {
-                        if (!allowedKeys.Contains(kpiKey))
+
+                        var invalidKeys = element.Kpis.Keys
+                                    .Where(kpiKey => !allowedKeys.Contains(kpiKey))
+                                    .ToList();
+
+                        if (invalidKeys.Any())
                         {
-                            context.AddFailure(
-                                $"Kpis[{kpiKey}]",
-                                $"Invalid KPI ID '{kpiKey}' for {elementType}. " +
-                                $"KPIs for this element must be from the allowed spec list (starting with {expectedPrefix}-)."
-                            );
+                            // 2. Build the path (pointing to the collection)
+                            var propertyPath = $"Elements[{i}].Kpis";
+
+                            var failure = new ValidationFailure(propertyPath,
+                                $"One or more KPI IDs are invalid for {elementType}. Must start with {expectedPrefix}-.")
+                            {
+                                ErrorCode = "INVALID_KPI_FOR_TYPE",
+                                CustomState = new
+                                {
+                                    elementId = element.ElementId,
+                                    // 3. Pass the entire list of bad keys
+                                    kpis = invalidKeys
+                                }
+                            };
+
+                            context.AddFailure(failure);
                         }
                     }
-                });
+                }
             });
 
             RuleFor(x => x).Custom((request, context) =>
             {
-                bool hasConsumerElements = request.Elements?.Any(e => e.Type == ElementType.ConsumerConnection) ?? false;
-                bool hasAggregatedData = request.ConsumerConnectionAggregatedKpis?.Any() ?? false;
+                var requiredKeys = new[] { "CC-KPI-01", "CC-KPI-02", "CC-KPI-03" };
+                var aggregatedKpis = request.ConsumerConnectionAggregatedKpis ?? new Dictionary<string, KpiValueAggregatedRequest>();
 
-                // Check A: Aggregated data exists but no elements found
+                bool hasConsumerElements = request.Elements?.Any(e => e.Type == ElementType.ConsumerConnection.ToString()) ?? false;
+                bool hasAggregatedData = aggregatedKpis.Any();
+
+                // 1. Check for UNEXPECTED data
                 if (!hasConsumerElements && hasAggregatedData)
                 {
-                    context.AddFailure("ConsumerConnectionAggregatedKpis", "Aggregated KPIs (CC-KPI-01 to 03) must not be included if no 'ConsumerConnection' elements are present.");
+                    context.AddFailure(new ValidationFailure("ConsumerConnectionAggregatedKpis", "Aggregated KPIs must not be included if no 'ConsumerConnection' elements are present.")
+                    {
+                        ErrorCode = "UNEXPECTED_AGGREGATED_DATA",
+                        CustomState = new
+                        {
+                            elementId = "Aggregated",
+                            kpis = aggregatedKpis.Keys.ToList() // Grouped list of unexpected keys
+                        }
+                    });
                 }
 
-                // Check B: Elements found but no aggregated data provided
-                if (hasConsumerElements && !hasAggregatedData)
+                // 2. Check for MISSING data (GROUPED VERSION)
+                if (hasConsumerElements)
                 {
-                    context.AddFailure("ConsumerConnectionAggregatedKpis", "Aggregated KPIs (CC-KPI-01 to 03) are mandatory when 'ConsumerConnection' elements are present.");
+                    var missingKeys = requiredKeys.Where(key => !aggregatedKpis.ContainsKey(key)).ToList();
+
+                    if (missingKeys.Any())
+                    {
+                        context.AddFailure(new ValidationFailure("ConsumerConnectionAggregatedKpis", "Missing mandatory aggregated KPIs.")
+                        {
+                            ErrorCode = "MISSING_MANDATORY_KPI",
+                            CustomState = new
+                            {
+                                elementId = "Aggregated",
+                                kpis = missingKeys // This is your List<string>
+                            }
+                        });
+                    }
                 }
 
-                // Check C: Validate specific keys in the Aggregated section
+                // 3. Check for INVALID keys (GROUPED VERSION)
                 if (hasAggregatedData)
                 {
-                    var requiredKeys = new[] { "CC-KPI-01", "CC-KPI-02", "CC-KPI-03" };
-                    var submittedKeys = request.ConsumerConnectionAggregatedKpis.Keys;
+                    var invalidKeys = aggregatedKpis.Keys.Where(k => !requiredKeys.Contains(k)).ToList();
 
-                    foreach (var key in requiredKeys)
+                    if (invalidKeys.Any())
                     {
-                        if (!submittedKeys.Contains(key))
+                        context.AddFailure(new ValidationFailure("ConsumerConnectionAggregatedKpis", "Invalid KPIs found in aggregated section.")
                         {
-                            context.AddFailure("ConsumerConnectionAggregatedKpis", $"Missing mandatory aggregated KPI: {key}");
-                        }
-                    }
-
-                    var invalidKeys = submittedKeys.Where(k => !requiredKeys.Contains(k));
-                    foreach (var extra in invalidKeys)
-                    {
-                        context.AddFailure("ConsumerConnectionAggregatedKpis", $"KPI '{extra}' should be reported per-element, not in the aggregated section.");
+                            ErrorCode = "INVALID_AGGREGATED_KPI",
+                            CustomState = new
+                            {
+                                elementId = "Aggregated",
+                                kpis = invalidKeys
+                            }
+                        });
                     }
                 }
             });
 
             RuleFor(x => x.Elements).Custom((elements, context) =>
             {
+                if (elements == null) return;
+
                 for (int i = 0; i < elements.Count; i++)
                 {
                     var element = elements[i];
                     var submittedKeys = element.Kpis.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase);
-                    string path = $"Elements[{i}]";
+                    string path = $"Elements[{i}].Kpis";
+                    Enum.TryParse<ElementType>(element.Type, true, out var elementType);
 
-
-                    if (MandatoryKpisByElement.TryGetValue(element.Type, out var requiredSet))
+                    // 1. Mandatory KPI Check (GROUPED)
+                    if (MandatoryKpisByElement.TryGetValue(elementType, out var requiredSet))
                     {
                         var missing = requiredSet.Where(req => !submittedKeys.Contains(req)).ToList();
+
                         if (missing.Any())
                         {
-                            context.AddFailure(path, $"Element ID '{element.ElementId}' ({element.Type}) is missing mandatory KPIs: {string.Join(", ", missing)}");
+                            context.AddFailure(new ValidationFailure(path, "Missing mandatory KPIs for this element.")
+                            {
+                                ErrorCode = "MISSING_MANDATORY_KPI",
+                                // Using 'kpis' (plural) to match your grouped model
+                                CustomState = new { elementId = element.ElementId, kpis = missing }
+                            });
                         }
                     }
 
-                    if (element.Type == ElementType.EnergyCentre)
+                    // 2. Business Rules (These helpers should also be updated to return lists in CustomState)
+                    if (element.Type == ElementType.EnergyCentre.ToString())
                     {
-                        // 1. Check for Mutual Exclusivity (Only one of)
-                        if (submittedKeys.Contains("EC-KPI-09A") && submittedKeys.Contains("EC-KPI-09B"))
-                        {
-                            context.AddFailure(path, $"Element ID '{element.ElementId}' validation error: Reported both 'EC-KPI-09A' and 'EC-KPI-09B', but only one is allowed.");
-                        }
+                        ValidateExclusivity(element, submittedKeys, context, i, "EC-KPI-09A", "EC-KPI-09B");
+                        ValidateExclusivity(element, submittedKeys, context, i, "EC-KPI-10A", "EC-KPI-10B");
 
-                        if (submittedKeys.Contains("EC-KPI-10A") && submittedKeys.Contains("EC-KPI-10B"))
-                        {
-                            context.AddFailure(path, $"Element ID '{element.ElementId}' validation error: Reported both 'EC-KPI-10A' and 'EC-KPI-10B', but only one is allowed.");
-                        }
-
-                        // 2. Check for Mandatory Groups (At least one of)
                         var group16 = new[] { "EC-KPI-16A", "EC-KPI-16B", "EC-KPI-16C", "EC-KPI-16D", "EC-KPI-16E", "EC-KPI-16F" };
-                        if (!group16.Any(k => submittedKeys.Contains(k)))
-                        {
-                            context.AddFailure(path, $"Element ID '{element.ElementId}' validation error: At least one KPI from the group 'EC-KPI-16A' to '16F' must be reported.");
-                        }
+                        ValidateAtLeastOne(element, submittedKeys, context, i, "EC-KPI-16", group16);
 
                         var group17 = new[] { "EC-KPI-17A", "EC-KPI-17B", "EC-KPI-17C", "EC-KPI-17D", "EC-KPI-17E", "EC-KPI-17F" };
-                        if (!group17.Any(k => submittedKeys.Contains(k)))
-                        {
-                            context.AddFailure(path, $"Element ID '{element.ElementId}' validation error: At least one KPI from the group 'EC-KPI-17A' to '17F' must be reported.");
-                        }
+                        ValidateAtLeastOne(element, submittedKeys, context, i, "EC-KPI-17", group17);
                     }
-                    else if (element.Type == ElementType.Substation)
+                    else if (element.Type == ElementType.Substation.ToString())
                     {
-                        // 1. Check for Mutual Exclusivity (Only one of)
-                        if (submittedKeys.Contains("SS-KPI-09A") && submittedKeys.Contains("SS-KPI-09B"))
-                        {
-                            context.AddFailure(path, $"Element ID '{element.ElementId}' validation error: Reported both 'SS-KPI-09A' and 'SS-KPI-09B', but only one is allowed.");
-                        }
-
-                        if (submittedKeys.Contains("SS-KPI-10A") && submittedKeys.Contains("SS-KPI-10B"))
-                        {
-                            context.AddFailure(path, $"Element ID '{element.ElementId}' validation error: Reported both 'SS-KPI-10A' and 'SS-KPI-10B', but only one is allowed.");
-                        }
+                        ValidateExclusivity(element, submittedKeys, context, i, "SS-KPI-09A", "SS-KPI-09B");
+                        ValidateExclusivity(element, submittedKeys, context, i, "SS-KPI-10A", "SS-KPI-10B");
                     }
                 }
             });
+        }
+
+
+        private void ValidateExclusivity(NetworkElementRequest element, HashSet<string> submitted, ValidationContext<KpiSubmissionRequest> context, int index, string kpiA, string kpiB)
+        {
+            var path = $"Elements[{index}]";
+            bool hasA = submitted.Contains(kpiA);
+            bool hasB = submitted.Contains(kpiB);
+
+            // 1. Both provided (Mutual Exclusivity)
+            if (hasA && hasB)
+            {
+                context.AddFailure(new ValidationFailure(path, $"Reported both '{kpiA}' and '{kpiB}', but only one is allowed.")
+                {
+                    ErrorCode = "MUTUALLY_EXCLUSIVE_KPI",
+                    CustomState = new
+                    {
+                        elementId = element.ElementId,
+                        kpis = new List<string> { kpiA, kpiB } // Grouped list
+                    }
+                });
+            }
+            // 2. Neither provided (Mandatory Choice)
+            else if (!hasA && !hasB)
+            {
+                context.AddFailure(new ValidationFailure(path, $"Either '{kpiA}' or '{kpiB}' must be reported.")
+                {
+                    ErrorCode = "MISSING_MANDATORY_KPI",
+                    CustomState = new
+                    {
+                        elementId = element.ElementId,
+                        kpis = new List<string> { kpiA, kpiB } // Grouped list
+                    }
+                });
+            }
+        }
+
+        private void ValidateAtLeastOne(NetworkElementRequest element, HashSet<string> submitted, ValidationContext<KpiSubmissionRequest> context, int index, string groupName, string[] groupKeys)
+        {
+            // Only apply group mandatory checks if the type is Energy Centre
+            if (element.Type == ElementType.EnergyCentre.ToString() && !groupKeys.Any(k => submitted.Contains(k)))
+            {
+                var path = $"Elements[{index}]";
+                context.AddFailure(new ValidationFailure(path, $"At least one KPI from the group '{groupKeys.First()}' to '{groupKeys.Last()}' must be reported.")
+                {
+                    ErrorCode = "MISSING_MANDATORY_GROUP",
+                    CustomState = new
+                    {
+                        elementId = element.ElementId,
+                        // Return the whole group so the frontend knows which fields to highlight
+                        kpis = groupKeys.ToList()
+                    }
+                });
+            }
         }
     }
 }

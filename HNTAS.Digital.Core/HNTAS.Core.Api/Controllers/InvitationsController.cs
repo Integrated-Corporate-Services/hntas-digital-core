@@ -268,21 +268,11 @@ namespace HNTAS.Core.Api.Controllers
                     ContributorRole.ResponsiblePerson.ToString(),                    
                 };
 
-                if (invitedRole == ContributorRole.DesignatedDesigner)
+                if (invitedRole == ContributorRole.DesignatedDutyHolder)
                 {
-                    subject = NotificationHistorySubjects.DesignatedDesignerInvited;
+                    subject = NotificationHistorySubjects.DesignatedDutyHolderInvited;
                     notificationType = NotificationHistoryType.RpInvitesDdhToHeatNetwork;
-                }
-                else if (invitedRole == ContributorRole.DesignatedContractor)
-                {
-                    subject = NotificationHistorySubjects.DesignatedContractorInvited;
-                    notificationType = NotificationHistoryType.RpInvitesDdhToHeatNetwork;
-                }
-                else if (invitedRole == ContributorRole.DesignatedOperator)
-                {
-                    subject = NotificationHistorySubjects.DesignatedOperatorInvited;
-                    notificationType = NotificationHistoryType.RpInvitesDdhToHeatNetwork;
-                }
+                }                
                 else if (invitedRole == ContributorRole.NetworkManager)
                 {
                     subject = NotificationHistorySubjects.NetworkManagerInvited;
@@ -291,28 +281,27 @@ namespace HNTAS.Core.Api.Controllers
             }
             else if (inviterRole == UserRole.NetworkManager) // Network Manager
             {
+                // Add the Responsible Person as an actor for the notification
+                var nmInvitation = await _invitationService.GetByInvitedEmailAsync(user.EmailId);
+                var rpId = nmInvitation?.InviterUserId;
+                if (rpId != null && !actorIds.Contains(rpId))
+                {
+                    actorIds.Add(rpId);
+                }
                 eligibleRoles = new List<string>
                 {
                     ContributorRole.ResponsiblePerson.ToString(),
                     ContributorRole.NetworkManager.ToString()
                 };
                 notificationType = NotificationHistoryType.NetworkManagerInvitesDdhToHeatNetwork;
-                if (invitedRole == ContributorRole.DesignatedDesigner)
+                if (invitedRole == ContributorRole.DesignatedDutyHolder)
                 {
-                    subject = NotificationHistorySubjects.DesignatedDesignerInvited;                    
-                }
-                else if (invitedRole == ContributorRole.DesignatedContractor)
-                {
-                    subject = NotificationHistorySubjects.DesignatedContractorInvited;                    
-                }
-                else if (invitedRole == ContributorRole.DesignatedOperator)
-                {
-                    subject = NotificationHistorySubjects.DesignatedOperatorInvited;                    
+                    subject = NotificationHistorySubjects.DesignatedDutyHolderInvited;
                 }                
             }
             else if (inviterRole == UserRole.DesignatedDutyHolder)
             {
-                await AddDdhInvitorToActorIds(invitation, actorIds);
+                await AddAssociatedNetworkManagerAndRpIds(invitation, actorIds);
 
                 eligibleRoles = new List<string>
                 {
@@ -321,21 +310,11 @@ namespace HNTAS.Core.Api.Controllers
                 };
                 notificationType = NotificationHistoryType.DdhInvitesContributorToHeatNetwork;
 
-                if (invitedRole == ContributorRole.ContributingDesigner)
+                if (invitedRole == ContributorRole.Contributor)
                 {
-                    eligibleRoles.Add(ContributorRole.DesignatedDesigner.ToString());
-                    subject = NotificationHistorySubjects.ContributingDesignerInvited;                    
-                }
-                else if (invitedRole == ContributorRole.ContributingContractor)
-                {
-                    eligibleRoles.Add(ContributorRole.DesignatedContractor.ToString());
-                    subject = NotificationHistorySubjects.ContributingContractorInvited;                    
-                }
-                else if (invitedRole == ContributorRole.ContributingOperator)
-                {
-                    eligibleRoles.Add(ContributorRole.DesignatedOperator.ToString());
-                    subject = NotificationHistorySubjects.ContributingOperatorInvited;                    
-                }
+                    eligibleRoles.Add(ContributorRole.Contributor.ToString());
+                    subject = NotificationHistorySubjects.ContributorInvited;                    
+                }                
             }            
 
             var notificationHistory = new NotificationHistory
@@ -367,48 +346,27 @@ namespace HNTAS.Core.Api.Controllers
             description = $"{invitation.FirstName} {invitation.LastName} rejected, please take alternate action";
             var actorIds = new List<string>() { invitation.InviterUserId };
 
-            if (invitedRole == ContributorRole.DesignatedDesigner)
+            if (invitedRole == ContributorRole.DesignatedDutyHolder)
             {
+                // check if the invitor is Network Manager, if yes then add RP to actorIds
+                var invitorDetailsOfNM = await _userService.GetByIdAsync(invitation.InviterUserId);
+                if (invitorDetailsOfNM != null && invitorDetailsOfNM.Roles.Contains(UserRole.NetworkManager))
+                {
+                    // Get the RP user details and add to actorIds
+                    var invitaions = await _invitationService.GetByInvitedEmailAsync(invitorDetailsOfNM.EmailId!);
+                    if (invitaions != null)
+                        actorIds.AddRange(invitaions.InviterUserId);
+                }
                 eligibleRoles.Add(ContributorRole.NetworkManager.ToString());
-                subject = NotificationHistorySubjects.DesignatedDesignerRejected;
+                subject = NotificationHistorySubjects.DesignatedDutyHolderRejected;
                 notificationType = NotificationHistoryType.DdhRejectsInviteToHeatNetwork;
                 action = NotificationHistoryActions.DDHAndContributors;
-            }
-            else if (invitedRole == ContributorRole.DesignatedContractor)
+            }            
+            else if (invitedRole == ContributorRole.Contributor)
             {
+                await AddAssociatedNetworkManagerAndRpIds(invitation, actorIds);
                 eligibleRoles.Add(ContributorRole.NetworkManager.ToString());
-                subject = NotificationHistorySubjects.DesignatedContractorRejected;
-                notificationType = NotificationHistoryType.DdhRejectsInviteToHeatNetwork;
-                action = NotificationHistoryActions.DDHAndContributors;
-            }
-            else if (invitedRole == ContributorRole.DesignatedOperator)
-            {
-                eligibleRoles.Add(ContributorRole.NetworkManager.ToString());
-                subject = NotificationHistorySubjects.DesignatedOperatorRejected;
-                notificationType = NotificationHistoryType.DdhRejectsInviteToHeatNetwork;
-                action = NotificationHistoryActions.DDHAndContributors;
-            }
-            else if (invitedRole == ContributorRole.ContributingDesigner)
-            {
-                await AddDdhInvitorToActorIds(invitation, actorIds);
-                eligibleRoles.Add(ContributorRole.NetworkManager.ToString());
-                subject = NotificationHistorySubjects.ContributingDesignerRejected;
-                notificationType = NotificationHistoryType.ContributorRejectsInviteToHeatNetwork;
-                action = NotificationHistoryActions.DDHAndContributors;
-            }
-            else if (invitedRole == ContributorRole.ContributingContractor)
-            {
-                await AddDdhInvitorToActorIds(invitation, actorIds);
-                eligibleRoles.Add(ContributorRole.NetworkManager.ToString());
-                subject = NotificationHistorySubjects.ContributingContractorRejected;
-                notificationType = NotificationHistoryType.ContributorRejectsInviteToHeatNetwork;
-                action = NotificationHistoryActions.DDHAndContributors;
-            }
-            else if (invitedRole == ContributorRole.ContributingOperator)
-            {
-                await AddDdhInvitorToActorIds(invitation, actorIds);
-                eligibleRoles.Add(ContributorRole.NetworkManager.ToString());
-                subject = NotificationHistorySubjects.ContributingOperatorRejected;
+                subject = NotificationHistorySubjects.ContributorRejected;
                 notificationType = NotificationHistoryType.ContributorRejectsInviteToHeatNetwork;
                 action = NotificationHistoryActions.DDHAndContributors;
             }
@@ -434,7 +392,7 @@ namespace HNTAS.Core.Api.Controllers
             await _notificationHistoryService.CreateAsync(notificationHistory);
         }
 
-        private async Task AddDdhInvitorToActorIds(Invitation invitation, List<string> actorIds)
+        private async Task AddAssociatedNetworkManagerAndRpIds(Invitation invitation, List<string> actorIds)
         {
             var invitorDetailsOfDdh = await _userService.GetByIdAsync(invitation.InviterUserId);
             if (invitorDetailsOfDdh == null) return;
@@ -450,7 +408,18 @@ namespace HNTAS.Core.Api.Controllers
                 role);
 
             if (invitorOfDdh != null)
+            {
                 actorIds.Add(invitorOfDdh.InviterUserId!);
+                // check if the invitor is Network Manager, if yes then add RP to actorIds
+                var invitorDetailsOfNM = await _userService.GetByIdAsync(invitorOfDdh!.InviterUserId);
+                if (invitorDetailsOfNM != null && invitorDetailsOfNM.Roles.Contains(UserRole.NetworkManager))
+                {
+                    // Get the RP user details and add to actorIds
+                    var invitaions = await _invitationService.GetByInvitedEmailAsync(invitorDetailsOfNM.EmailId!);
+                    if (invitaions != null)
+                        actorIds.AddRange(invitaions.InviterUserId);
+                }
+            }
         }
     }
 }

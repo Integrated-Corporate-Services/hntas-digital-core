@@ -6,6 +6,7 @@ using HNTAS.Core.Api.Data.Models.Arms.Configuration;
 using HNTAS.Core.Api.Data.Models.Arms.Submission;
 using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Interfaces;
+using HNTAS.Core.Api.Models;
 using HNTAS.Core.Api.Models.Arms;
 using HNTAS.Core.Api.Validators.Arms;
 using Microsoft.AspNetCore.Mvc;
@@ -50,7 +51,7 @@ namespace HNTAS.Core.Api.Controllers
         /// </summary>
         [HttpPost("kpis")]
         [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(KpiSubmissionApiErrorResponse), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status503ServiceUnavailable)]
         public async Task<IActionResult> SubmitKpis([FromBody] KpiSubmissionRequest request)
@@ -61,23 +62,32 @@ namespace HNTAS.Core.Api.Controllers
 
             try
             {
-                var result = await _validator.ValidateAsync(request);
+                var schemaResult = await _validator.ValidateAsync(request);
 
-                if (!result.IsValid)
+                if (!schemaResult.IsValid)
                 {
-                    foreach (var error in result.Errors)
+                    var apiErrors = schemaResult.Errors.Select(e =>
                     {
-                        ModelState.AddModelError(error.PropertyName, error.ErrorMessage);
-                    }
-                    var problemDetails = new ValidationProblemDetails(ModelState)
-                    {
-                        Status = StatusCodes.Status400BadRequest,
-                        Title = "Validation Failed",
-                        Detail = "One or more validation errors occurred. See the errors property for details.",
-                        Type = null
-                    };
+                        // Access the custom state we tucked away in the validator
+                        var state = e.CustomState as dynamic;
 
-                    return new BadRequestObjectResult(problemDetails);
+                        return new KpiSubmissionApiError
+                        {
+                            Code = e.ErrorCode,
+                            Message = e.ErrorMessage,
+                            // Pull directly from state if it exists, otherwise fallback to null
+                            ElementId = state?.elementId?.ToString(),
+                            Kpis = state?.kpis is List<string> list ? list : null
+                        };
+                    }).ToList();
+
+                    return BadRequest(new KpiSubmissionApiErrorResponse
+                    {
+                        Title = "Validation Failed",
+                        Status = 400,
+                        Detail = "The request format is invalid.",
+                        Errors = apiErrors
+                    });
                 }
 
                 var dataModel = _mapper.Map<KpiSubmission>(request);
@@ -99,55 +109,48 @@ namespace HNTAS.Core.Api.Controllers
                     // Configuration Validation (KPI_Config Collection)
                     var ruleResult = await _ruleValidator.ValidateAsync(dataModel);
                     if (!ruleResult.IsValid)
-                        return BadRequest(CreateProblem(ruleResult));
+                        return StatusCode(ruleResult.StatusCode, CreateProblem(ruleResult));
                 }
 
                 var submissionId = await _kpiService.CreateOrUpdateSubmissionAsync(dataModel);
 
-                // Extract warnings from individual elements
-                var elementWarnings = dataModel.Elements
-                    .Select(e => new
-                    {
-                        type = e.Type.ToString(),
-                        elementId = e.ElementId,
-                        kpis = e.Kpis
-                            .Where(k => k.Value.AssessmentStatus == KPIAssessmentStatus.Fail ||
-                                        k.Value.AssessmentStatus == KPIAssessmentStatus.OutsideLimit)
-                            .ToDictionary(
-                                k => k.Key,
-                                k => new { value = k.Value.Value, status = FormatStatus(k.Value.AssessmentStatus) }
-                            )
-                    })
-                    .Where(e => e.kpis.Any())
-                    .ToList<object>();
+                // 1. Extract flattened warnings, filtering OUT "pass" statuses
+                var warnings = dataModel.Elements
+                    .SelectMany(e => e.Kpis
+                        .Where(k => k.Value.AssessmentStatus != KPIAssessmentStatus.Pass) // Exclude Pass
+                        .Select(k => new
+                        {
+                            code = "KPI_EVALUATION",
+                            elementId = e.ElementId,
+                            kpi = k.Key,
+                            status = FormatStatus(k.Value.AssessmentStatus)
+                        }))
+                    .ToList();
 
-                // Add aggregated warnings if any (Optional, based on your requirements)
+                // 2. Add flattened warnings from aggregated KPIs (excluding Pass)
                 if (dataModel.ConsumerConnectionAggregatedKpis != null)
                 {
                     var aggWarnings = dataModel.ConsumerConnectionAggregatedKpis
-                        .Where(k => k.Value.AssessmentStatus == KPIAssessmentStatus.Fail ||
-                                    k.Value.AssessmentStatus == KPIAssessmentStatus.OutsideLimit)
-                        .ToDictionary(
-                            k => k.Key,
-                            k => new { value = k.Value.Value, status = FormatStatus(k.Value.AssessmentStatus) }
-                        );
-
-                    if (aggWarnings.Any())
-                    {
-                        elementWarnings.Insert(0, new
+                        .Where(k => k.Value.AssessmentStatus != KPIAssessmentStatus.Pass) // Exclude Pass
+                        .Select(k => new
                         {
-                            type = "Aggregated",
-                            elementId = "N/A",
-                            kpis = aggWarnings
+                            code = "KPI_EVALUATION",
+                            elementId = "Aggregated",
+                            kpi = k.Key,
+                            status = FormatStatus(k.Value.AssessmentStatus)
                         });
-                    }
+
+                    warnings.AddRange(aggWarnings);
                 }
 
+                // 3. Return the response
                 return Ok(new
                 {
                     submission_id = submissionId,
-                    message = elementWarnings.Any() ? "Submission accepted, but some items require review." : "Submission accepted successfully.",
-                    warnings = elementWarnings
+                    message = warnings.Any()
+                        ? "Submission accepted, but some items require review."
+                        : "Submission accepted successfully.",
+                    warnings = warnings
                 });
             }
             catch (MongoException ex)
@@ -172,6 +175,13 @@ namespace HNTAS.Core.Api.Controllers
                      type: null
                  );
             }
+        }
+
+        private string? ExtractId(string propertyName)
+        {
+            // Simple logic to pull numbers/IDs out of brackets like [0] or [CC-KPI-03]
+            var match = System.Text.RegularExpressions.Regex.Match(propertyName, @"\[(.*?)\]");
+            return match.Success ? match.Groups[1].Value : null;
         }
 
         string FormatStatus(KPIAssessmentStatus status) => status switch
@@ -291,30 +301,19 @@ namespace HNTAS.Core.Api.Controllers
 
 
         // Helper to keep the "Type" link out of our GOV.UK style response
-        private ValidationProblemDetails CreateProblem(ValidationGateResult result)
+        private object CreateProblem(ValidationGateResult result)
         {
-            var problem = new ValidationProblemDetails
+            // We return a plain object or a custom class to avoid the 
+            // default Dictionary behavior of ValidationProblemDetails
+            return new KpiSubmissionApiErrorResponse
             {
                 Title = "Validation Failed",
                 Status = result.StatusCode,
-                // Use the high-level message for the detail
-                Detail = string.IsNullOrWhiteSpace(result.Message)
-                         ? "One or more validation errors occurred."
-                         : result.Message
+                Detail = !string.IsNullOrWhiteSpace(result.Detail)
+                         ? result.Detail
+                         : result.Message ?? "One or more validation errors occurred.",
+                Errors = result.Errors ?? new List<KpiSubmissionApiError>()
             };
-
-            // If we have specific errors, add them to the errors dictionary
-            if (result.Errors != null && result.Errors.Any())
-            {
-                problem.Errors.Add("ValidationErrors", result.Errors.ToArray());
-            }
-            else if (!string.IsNullOrWhiteSpace(result.Message))
-            {
-                // Fallback: Use the single message if no list is provided
-                problem.Errors.Add("General", new[] { result.Message });
-            }
-
-            return problem;
         }
     }
 }

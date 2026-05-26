@@ -47,7 +47,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
                 Stage = SoaStage.Stage1,
                 ElementSoaStatus = NetworkDetailsStatus.InProgress,
                 SoaStatusUpdatedBy = "testuser",
-                SoaStatus = "In Progress"
+                SoaStatuses = new List<SoaStatusWithCount>()
             };
 
             _mockSoaService
@@ -55,7 +55,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
                     It.IsAny<string>(),
                     It.IsAny<string>(),                    
                     It.IsAny<SoaStage>(),
-                    It.IsAny<string>(),
+                    It.IsAny<List<SoaStatusWithCount>>(),
                     It.IsAny<string>(),
                     It.IsAny<NetworkDetailsStatus>()))
                 .Returns(Task.CompletedTask);

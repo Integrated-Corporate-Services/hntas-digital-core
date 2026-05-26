@@ -7,7 +7,7 @@ namespace HNTAS.Core.Api.Interfaces
     public interface INotificationHistoryService
     {
         Task CreateAsync(NotificationHistory notificationHistory);
-        Task<NotificationHistoryResponse> GetNotificationHistory(NotificationHistoryRequest notificatoinHistoryRequest, UserRole role);
-        Task<int> GetNotificationHistoryCount(string userId, UserRole role);
+        Task<NotificationHistoryResponse> GetNotificationHistory(NotificationHistoryRequest notificatoinHistoryRequest);
+        Task<int> GetNotificationHistoryCount(string userId);
     }
 }

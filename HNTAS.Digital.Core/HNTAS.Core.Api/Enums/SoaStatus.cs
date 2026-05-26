@@ -7,19 +7,15 @@ namespace HNTAS.Core.Api.Enums
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public enum SoaStatus 
     {
+        [Description("Not started")]
+        NotStarted = 1,
         [Description("In Progress")]
-        InProgress = 1,
-        [Description("Submitted")]
-        Submitted = 2,
-        [Description("Complete")]
-        Complete = 3,
-        [Description("Archived")]
-        Archived = 4,
-        [Description("Ready to start")]
-        ReadyToStart = 5,
-        [Description("Cannot start yet")]
-        CannotStartYet = 6,
-        [Description("Incomplete")]
-        Incomplete = 7,
+        InProgress = 2,
+        [Description("SoA completed")]
+        SoACompleted = 3,
+        [Description("SoA agreed")]
+        SoAAgreed = 4,
+        [Description("Being assessed")]
+        BeingAssessed = 5,        
     }
 }

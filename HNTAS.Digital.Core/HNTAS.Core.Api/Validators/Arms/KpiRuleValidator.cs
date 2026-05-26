@@ -3,6 +3,8 @@ using HNTAS.Core.Api.Data.Models.Arms.Configuration;
 using HNTAS.Core.Api.Data.Models.Arms.Submission;
 using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Interfaces;
+using HNTAS.Core.Api.Models;
+using System.Data;
 
 namespace HNTAS.Core.Api.Validators.Arms
 {
@@ -13,6 +15,7 @@ namespace HNTAS.Core.Api.Validators.Arms
 
         // This handles floating-point precision errors (e.g., 75.0000000001 vs 75)
         private const double GlobalEpsilon = 1e-6;
+
 
         public KpiRuleValidator(IArmsKpiService armsKpiService, ILogger<KpiRuleValidator> logger)
         {
@@ -27,11 +30,19 @@ namespace HNTAS.Core.Api.Validators.Arms
             if (config == null)
             {
                 _logger.LogWarning("KPI Submission failed: No config for Network: {NetworkId}", request.MetaData.NetworkId);
-                return new ValidationGateResult(false, "KPI Configuration not found for this network.");
+                return new ValidationGateResult(
+                     IsValid: false,
+                     Message: "Validation Failed",
+                     Detail: "KPI Configuration not found for this network.",
+                     StatusCode: 404,
+                     Errors: new List<KpiSubmissionApiError>
+                     {
+                            new KpiSubmissionApiError { Code = "CONFIG_NOT_FOUND", Message = "KPI Configuration not found." }
+                     });
             }
 
             var configLookup = config.Elements.ToDictionary(e => e.Type, e => e.Kpis);
-            var errors = new List<string>();
+            var errors = new List<KpiSubmissionApiError>();
 
             // 1. Validate Aggregated KPIs
             if (request.ConsumerConnectionAggregatedKpis != null && configLookup.TryGetValue(HeatNetworkElementType.ConsumerConnection, out var aggRules))
@@ -45,6 +56,9 @@ namespace HNTAS.Core.Api.Validators.Arms
                 }
             }
 
+            // Define the aggregated IDs to exclude from element-level checks
+            var aggregatedKpis = new[] { "CC-KPI-01", "CC-KPI-02", "CC-KPI-03" };
+
             // 2. Validate Individual Elements
             foreach (var element in request.Elements)
             {
@@ -55,12 +69,19 @@ namespace HNTAS.Core.Api.Validators.Arms
                 }
 
                 var missingMandatory = elementKpiRules
-                .Where(r => r.Value.IsMandatory && !element.Kpis.ContainsKey(r.Key))
-                .Select(r => r.Key);
+                 .Where(r => r.Value.IsMandatory && !aggregatedKpis.Contains(r.Key) && !element.Kpis.ContainsKey(r.Key))
+                 .Select(r => r.Key)
+                 .ToList(); // Materialize as a list
 
-                foreach (var missingKey in missingMandatory)
+                if (missingMandatory.Any())
                 {
-                    errors.Add($"Element ID '{element.ElementId}' validation error: Missing mandatory KPI '{missingKey}'.");
+                    errors.Add(new KpiSubmissionApiError
+                    {
+                        Code = "MISSING_MANDATORY_KPI",
+                        Message = "Missing mandatory KPI.",
+                        ElementId = element.ElementId,
+                        Kpis = missingMandatory
+                    });
                 }
 
                 foreach (var (kpiId, kpiValue) in element.Kpis)
@@ -79,7 +100,13 @@ namespace HNTAS.Core.Api.Validators.Arms
 
             if (errors.Any())
             {
-                return new ValidationGateResult(false, "Mandatory KPIs missing.", 400, errors);
+                return new ValidationGateResult(
+                     IsValid: false,
+                     Message: "Validation Failed",
+                     Detail: "The submission is missing mandatory KPI data.",
+                     StatusCode: 400,
+                     Errors: errors
+                 );
             }
 
             return new ValidationGateResult(true);
@@ -125,7 +152,7 @@ namespace HNTAS.Core.Api.Validators.Arms
                     }
                     break;
 
-                case string t when string.Equals(t, "equal", StringComparison.OrdinalIgnoreCase):
+                case string t when string.Equals(t, "eq", StringComparison.OrdinalIgnoreCase):
                     metTarget = Math.Abs(value - (threshold.Value ?? 0)) < GlobalEpsilon;
                     break;
 

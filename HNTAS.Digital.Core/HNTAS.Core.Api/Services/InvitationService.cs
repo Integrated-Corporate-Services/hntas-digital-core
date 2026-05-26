@@ -154,5 +154,8 @@ namespace HNTAS.Core.Api.Services
         // Get invitation by invitedEmailId, invitedHnId, invitedRole
         public async Task<Invitation> GetByInvitedDetailsAsync(string invitedEmailId, string invitedHnId, ContributorRole invitedRole) =>
             await _invitationsCollection.Find(invitation => invitation.InvitedEmail == invitedEmailId && invitation.InvitedHnId == invitedHnId && invitation.InvitedRoles.Contains(invitedRole) && invitation.Status == Enums.InvitationStatus.Accepted).FirstOrDefaultAsync();
+
+        public async Task<Invitation> GetByInvitedEmailAsync(string invitedEmailId) =>
+            await _invitationsCollection.Find(invitation => invitation.InvitedEmail == invitedEmailId).FirstOrDefaultAsync();
     }
 }

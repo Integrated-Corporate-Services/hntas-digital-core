@@ -31,13 +31,15 @@ namespace HNTAS.Core.Api.Validators.Arms
                         new KpiSubmissionApiError
                         {
                             Code = "NETWORK_NOT_REGISTERED",
-                            Message = $"Network ID '{networkId}' is not registered."
+                            Message = $"Network ID '{networkId}' is not registered.",
+                            ElementId = null
                         }
                      }
                  );
             }
 
             var registeredElements = network.NetworkElements?.ElementsGroup?
+              .Where(e => e.ElementDisplayType != null)
               .ToDictionary(e => e.ElementDisplayType.ToString(), e => e.Count)
               ?? new Dictionary<string, int?>();
 
@@ -58,32 +60,56 @@ namespace HNTAS.Core.Api.Validators.Arms
                     apiErrors.Add(new KpiSubmissionApiError
                     {
                         Code = "DUPLICATE_ELEMENT_ID",
-                        Message = $"The submission contains duplicate element ID '{dupId}'. Each element must have a unique identifier."
+                        Message = $"The submission contains duplicate element ID '{dupId}'. Each element must have a unique identifier.",
+                        ElementId = null
                     });
                 }
             }
 
-            // Group incoming elements by Type upfront to avoid redundant scans and duplicate errors
+            // Group incoming elements by Type upfront
+            // CRITICAL FIX: Use Distinct().Count() for calculations so duplicates don't mask a mismatch
             var incomingElementCounts = elements
+                .Where(e => !string.IsNullOrWhiteSpace(e.Type))
                 .GroupBy(e => e.Type.ToString())
-                .ToDictionary(g => g.Key, g => new { Count = g.Count(), FirstElementId = g.First().ElementId });
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.Select(e => e.ElementId).Distinct().Count()
+                );
 
-            // Loop through the registered requirements to check for matches
+            // 2. NEW FIX: Find any types submitted by the user that DO NOT exist in the database registry at all
+            var nonExistentTypes = incomingElementCounts.Keys
+                .Where(type => !registeredElements.ContainsKey(type))
+                .ToList();
+
+            if (nonExistentTypes.Any())
+            {
+                foreach (var invalidType in nonExistentTypes)
+                {
+                    apiErrors.Add(new KpiSubmissionApiError
+                    {
+                        Code = "ELEMENT_TYPE_NOT_FOUND",
+                        Message = $"Element type '{invalidType}' is invalid or does not exist for this heat network.",
+                        ElementId = null
+                    });
+                }
+            }
+
+            // 3. Loop through the valid registered requirements to check for exact volume matches
             foreach (var registeredType in registeredElements.Keys)
             {
                 var registeredCount = registeredElements[registeredType] ?? 0;
 
-                // Get the actual count received (default to 0 if none of this type were provided)
-                incomingElementCounts.TryGetValue(registeredType, out var incomingData);
-                int receivedCount = incomingData?.Count ?? 0;
+                // Get the count received (if the type was completely missing from the payload, it defaults to 0)
+                incomingElementCounts.TryGetValue(registeredType, out var receivedCount);
 
-                // Check if the received count does not match the registry exactly
+                // Check if the received count does not match the expected registry totals exactly
                 if (receivedCount != registeredCount)
                 {
                     apiErrors.Add(new KpiSubmissionApiError
                     {
                         Code = "ELEMENT_COUNT_NOT_MATCHED",
                         Message = $"Element count mismatch for type '{registeredType}'. Expected '{registeredCount}', but received '{receivedCount}'.",
+                        ElementId = null
                     });
                 }
             }

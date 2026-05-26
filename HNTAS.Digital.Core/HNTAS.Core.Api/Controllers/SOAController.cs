@@ -343,8 +343,8 @@ namespace HNTAS.Core.Api.Controllers
                 return BadRequest(ModelState);
             }
 
-            _logger.LogInformation("Saving status - {SoaStatus} for HN ID: {HnId}, Element:{ElementId}, Stage: {Stage}, UpdatedBy: {UpdatedBy}",
-                request.SoaStatus, StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(request.ElementId!), request.Stage, StringFormatter.Sanitize(request.SoaStatusUpdatedBy!));
+            _logger.LogInformation("Saving statuses for HN ID: {HnId}, Element:{ElementId}, Stage: {Stage}, UpdatedBy: {UpdatedBy}",
+                 StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(request.ElementId!), request.Stage, StringFormatter.Sanitize(request.SoaStatusUpdatedBy!));
 
             try
             {
@@ -355,10 +355,10 @@ namespace HNTAS.Core.Api.Controllers
                     return NotFound($"No heat network found for HnId '{request.HnId}'.");
                 }
 
-                await _soaService.UpdateSoaStatus(request.HnId, request.ElementId!, request.Stage, request.SoaStatus!, request.SoaStatusUpdatedBy!, request.ElementSoaStatus);
+                await _soaService.UpdateSoaStatus(request.HnId, request.ElementType!, request.Stage, request.SoaStatuses!, request.SoaStatusUpdatedBy!, request.ElementSoaStatus);
 
-                _logger.LogInformation("Updated status - {SoaStatus} successfully for HN ID: {HnId}, Element:{ElementId}, Stage: {Stage}, UpdatedBy: {UpdatedBy}",
-                request.SoaStatus, StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(request.ElementId!), request.Stage, StringFormatter.Sanitize(request.SoaStatusUpdatedBy!));
+                _logger.LogInformation("Updated statuses successfully for HN ID: {HnId}, Element:{ElementId}, Stage: {Stage}, UpdatedBy: {UpdatedBy}",
+                 StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(request.ElementId!), request.Stage, StringFormatter.Sanitize(request.SoaStatusUpdatedBy!));
 
                 var isRegistrationEnabledString = Environment.GetEnvironmentVariable("IS_REGISTRATION_ENABLED");
                 if (!string.IsNullOrEmpty(isRegistrationEnabledString) &&
@@ -367,7 +367,7 @@ namespace HNTAS.Core.Api.Controllers
                     var updatedHeatNetwork = await _heatNetworkService.GetByHnIdAsync(request.HnId);
 
                     await _auditService.SaveAuditAsync<HeatNetwork>(
-                        entryType: "SOA - " + request.SoaStatus,
+                        entryType: "SOA - " + request.SoaStatuses,
                         actorId: request.SoaStatusUpdatedBy!,
                         entityId: existingHeatNetwork.HnId!,
                         oldState: existingHeatNetwork,
@@ -383,8 +383,8 @@ namespace HNTAS.Core.Api.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to update status - {SoaStatus} for HN ID: {HnId}, Element:{ElementId}, Stage: {Stage}, UpdatedBy: {UpdatedBy}",
-                request.SoaStatus, StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(request.ElementId!), request.Stage, StringFormatter.Sanitize(request.SoaStatusUpdatedBy!));
+                _logger.LogError(ex, "Failed to update statuses for HN ID: {HnId}, Element:{ElementId}, Stage: {Stage}, UpdatedBy: {UpdatedBy}",
+                 StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(request.ElementId!), request.Stage, StringFormatter.Sanitize(request.SoaStatusUpdatedBy!));
                 throw;
             }
         }
@@ -507,8 +507,8 @@ namespace HNTAS.Core.Api.Controllers
                 return NotFound();
             }
 
-            if (request.Status == SoaStatus.Submitted)
-            {
+            //if (request.Status == SoaStatus.Submitted)
+            //{
                 //send email
                 await _emailService.TrySendAssessorEmailAsync(
                          emailAddress: assessor.EmailId,
@@ -516,7 +516,7 @@ namespace HNTAS.Core.Api.Controllers
                          hnId: request.HnId,
                          contributorName: user?.FullName
                      );
-            }
+            //}
 
             return NoContent();
         }
@@ -632,6 +632,21 @@ namespace HNTAS.Core.Api.Controllers
 
         private async Task NotificationHistoryForAssigningAssessor(ElementSoaAssignAssessorRequest request, HeatNetwork heatNetwork)
         {
+            // Get user's email and role
+            var currentUser = await _userService.GetUserWithDetailsAsync(request.UpdatedBy);
+            var rpUserId = "";
+            var nmUserId = "";
+            if (currentUser.Roles!.Contains(UserRole.ResponsiblePerson))
+            {
+                rpUserId = currentUser.Id!;
+            }
+            else
+            {
+                var invitaions = await _invitationService.GetByInvitedEmailAsync(currentUser.EmailId!);
+                nmUserId = currentUser.Id!;
+                rpUserId = invitaions.InviterUserId;
+            }
+
             var users = await _userService.GetUsersAssociatedByHnIdAsync(request.HnId);
             // get distinct user emailIds from the list of users
             var emailIds = users.Select(u => u.EmailId).Distinct().ToList();
@@ -642,18 +657,19 @@ namespace HNTAS.Core.Api.Controllers
 
             // merge userIds and invitorUserIds and get distinct list of userIds to be notified
             var actors = userIds.Union(invitorUserIds).Distinct().ToList();
+            actors.Add(rpUserId);
+            if (!string.IsNullOrEmpty(nmUserId))
+            {
+                actors.Add(nmUserId);
+            }
             // check if request.UpdatedBy is in actors list, if not add to the list
-            actors = actors.Contains(request.UpdatedBy) ? actors : actors.Append(request.UpdatedBy).ToList();
+            //actors = actors.Contains(request.UpdatedBy) ? actors : actors.Append(request.UpdatedBy).ToList();
 
             var description = $"{request.AssessorFirstName} {request.AssessorLastName} Assigned to {heatNetwork.HnId}-{heatNetwork.Name}";
             var eligibleRoles = new List<string> { ContributorRole.ResponsiblePerson.ToString()
                 , ContributorRole.NetworkManager.ToString(),
-                ContributorRole.DesignatedDesigner.ToString(),
-                ContributorRole.DesignatedContractor.ToString(),
-                ContributorRole.DesignatedOperator.ToString(),
-                ContributorRole.ContributingDesigner.ToString(),
-                ContributorRole.ContributingContractor.ToString(),
-                ContributorRole.ContributingOperator.ToString()};
+                ContributorRole.DesignatedDutyHolder.ToString(),                
+                ContributorRole.Contributor.ToString()};
             var notificationHistory = new NotificationHistory
             {
                 NotificationType = NotificationHistoryType.AssessorAssignsToHeatNetwork,
@@ -668,6 +684,5 @@ namespace HNTAS.Core.Api.Controllers
             };
             await _notificationHistoryService.CreateAsync(notificationHistory);
         }
-
     }
 }

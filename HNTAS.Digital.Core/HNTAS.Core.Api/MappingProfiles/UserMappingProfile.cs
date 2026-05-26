@@ -72,7 +72,8 @@ namespace HNTAS.Core.Api.MappingProfiles
             .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => src.CreatedAt))
             .ForMember(dest => dest.MeteringAndMonitoringStrategy, opt => opt.MapFrom(src => src.MeteringAndMonitoringStrategy))
             .ForMember(dest => dest.AssessmentPlan, opt => opt.MapFrom(src => src.AssessmentPlan))
-            .ForMember(dest => dest.DesignConstructionLog, opt => opt.MapFrom(src => src.DesignConstructionLog));
+            .ForMember(dest => dest.DesignConstructionLog, opt => opt.MapFrom(src => src.DesignConstructionLog))
+            .ForMember(dest => dest.NetworkElements, opt => opt.MapFrom(src => src.NetworkElements));
 
             CreateMap<Soa, SoaResponse>()
             .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status.ToString()))
@@ -137,7 +138,7 @@ namespace HNTAS.Core.Api.MappingProfiles
                  src.Roles != null ? src.Roles.Select(r => r.ToString()).ToList() : null));            
 
             CreateMap<NetworkElements, NetworkElementsResponse>()
-                .ForMember(dest => dest.Elements, opt => opt.MapFrom(src => src.Elements))                
+                .ForMember(dest => dest.ElementsGroup, opt => opt.MapFrom(src => src.ElementsGroup))                
                 .ForMember(dest => dest.NetworkElementStatus, opt => opt.MapFrom(src => src.NetworkElementStatus))
                 .ForMember(dest => dest.ElementSoaStatus, opt => opt.MapFrom(src => src.ElementSoaStatus));
 

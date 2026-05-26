@@ -48,31 +48,18 @@ namespace HNTAS.Core.Api.Data.Models
     }
 
     public static class NotificationHistorySubjects
-    {
-        public const string DesignatedDesignerInvited = "Designated Designer invited";
-        public const string DesignatedContractorInvited = "Designated Contractor invited";
-        public const string DesignatedOperatorInvited = "Designated Operator invited";
+    {               
         public const string NetworkManagerInvited = "Network manager invited";
         public const string NewBuildNetworkRegistered = "New build network registered";
-        public const string ContributingDesignerInvited = "Contributing Designer invited";
-        public const string ContributingContractorInvited = "Contributing Contractor invited";
-        public const string ContributingOperatorInvited = "Contributing Operator invited";
+        public const string DesignatedDutyHolderInvited = "Designated Duty Holder invited";
+        public const string ContributorInvited = "Contributor invited";
+        
         public const string NetworkManagerJoined = "Network manager joined";
-        public const string DesignatedDesignerJoined = "Designated Designer joined";
-        public const string DesignatedContractorJoined = "Designated Contractor joined";
-        public const string DesignatedOperatorJoined = "Designated Operator joined";
-        public const string ContributingDesignerJoined = "Contributing Designer joined";
-        public const string ContributingContractorJoined = "Contributing Contractor joined";
-        public const string ContributingOperatorJoined = "Contributing Operator joined";
+        public const string DesignatedDutyHolderJoined = "Designated Duty Holder joined";        
+        public const string ContributorJoined = "Contributor joined";
 
-        public const string DesignatedDesignerRejected = "Designated Designer rejected";
-        public const string DesignatedContractorRejected = "Designated Contractor rejected";
-        public const string DesignatedOperatorRejected = "Designated Operator rejected";
-
-        public const string ContributingDesignerRejected = "Contributing Designer rejected";
-        public const string ContributingContractorRejected = "Contributing Contractor rejected";
-        public const string ContributingOperatorRejected = "Contributing Operator rejected";
-
+        public const string DesignatedDutyHolderRejected = "Designated Duty Holder rejected";
+        public const string ContributorRejected = "Contributor rejected";        
         public const string NetworkManagerRejected = "Network manager rejected";
 
         public const string AssessorAssignedToHN = "Assessor assigned to HN";

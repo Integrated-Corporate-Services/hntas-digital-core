@@ -9,7 +9,9 @@ using HNTAS.Core.Api.Models.NetworkDetails;
 using HNTAS.Core.Api.Models.Soa;
 using HNTAS.Core.Api.Services;
 using Microsoft.AspNetCore.Mvc;
+using System;
 using System.Net.Mime;
+using System.Xml.Linq;
 
 namespace HNTAS.Core.Api.Controllers
 {
@@ -25,8 +27,9 @@ namespace HNTAS.Core.Api.Controllers
         private readonly IUserService _userService;
         private readonly IEmailService _emailService;
         private readonly INotificationHistoryService _notificationHistoryService;
+        private readonly IInvitationService _intivationService;
 
-        public HeatNetworksController(IHeatNetworkService hnService, ILogger<HeatNetworksController> logger, ICounterService counterService, IMapper mapper, IUserService userService, IEmailService emailService, IAuditService auditService, INotificationHistoryService notificationHistoryService)
+        public HeatNetworksController(IHeatNetworkService hnService, ILogger<HeatNetworksController> logger, ICounterService counterService, IMapper mapper, IUserService userService, IEmailService emailService, IAuditService auditService, INotificationHistoryService notificationHistoryService, IInvitationService intivationService)
         {
             _hnService = hnService;
             _logger = logger;
@@ -36,6 +39,7 @@ namespace HNTAS.Core.Api.Controllers
             _userService = userService;
             _emailService = emailService;
             _notificationHistoryService = notificationHistoryService;
+            _intivationService = intivationService;
         }
 
         /// <summary>
@@ -217,7 +221,9 @@ namespace HNTAS.Core.Api.Controllers
                     System.Text.Json.JsonSerializer.Serialize(existingHeatNetwork)
                 )!;
 
-                existingHeatNetwork.NetworkElements = request;
+                var requestWithInstances = GenerateElementsInstances(request);
+                existingHeatNetwork.NetworkElements = requestWithInstances;
+                
                 await _hnService.UpdateAsync(hnId, existingHeatNetwork);
 
                 // Only log an audit event if NetworkElements were previously null, to capture the addition of elements rather than updates to existing elements
@@ -319,7 +325,10 @@ namespace HNTAS.Core.Api.Controllers
                 notificationType = NotificationHistoryType.RpRegistersHeatNetwork;
             }
             else
-            {                
+            {
+                var invitation = await _intivationService.GetByInvitedEmailAsync(user.EmailId!);
+                if (invitation != null)
+                    actorIds.Add(invitation.InviterUserId);
                 eligibleRoles.Add(UserRole.ResponsiblePerson.ToString());
                 eligibleRoles.Add(UserRole.NetworkManager.ToString());
                 notificationType = NotificationHistoryType.NetworkManagerRegistersHeatNetwork;
@@ -340,5 +349,67 @@ namespace HNTAS.Core.Api.Controllers
             await _notificationHistoryService.CreateAsync(notificationHistory);
         }
 
+        private NetworkElements GenerateElementsInstances(NetworkElements networkElements)
+        {
+            var elementGroups = networkElements.ElementsGroup;
+            var elementInstances = new List<Element>();
+            var instanceCounter = 1;
+            var index = 1;
+            foreach (var element in elementGroups!)
+            {
+                
+                if (element.Count == 1)
+                {
+                    var ele = new Element();
+                    ele.ElementId = (index).ToString("D5");
+                    ele.ElementType = element.ElementType;
+                    ele.NetworkElementInstanceName = GetNetworkElementLabelByElementType(element.ElementDisplayType);
+                    elementInstances.Add(ele);
+                    index++;
+                    continue;
+                }
+                instanceCounter = 1;                
+                for (int i = 0; i < element.Count; i++)
+                {                    
+                    elementInstances.Add(
+                        new Element
+                        {
+                            ElementId = (index).ToString("D5"),
+                            ElementType = element.ElementType,
+                            NetworkElementInstanceName = GetNetworkElementLabelByElementType(element.ElementDisplayType) + " - " + instanceCounter
+                        });
+                    index++;
+                    instanceCounter++;
+                }
+            }
+            networkElements.Elements = elementInstances;
+            return networkElements;
+        }
+
+        public static string GetNetworkElementLabelByElementType(HeatNetworkElementType elementType)
+        {
+            return elementType switch
+            {
+                HeatNetworkElementType.EnergyCentre => "Energy Centre",
+                HeatNetworkElementType.Substation => "Substation",
+                HeatNetworkElementType.DistrictDistribution => "District Distribution Network",
+                HeatNetworkElementType.ConsumerConnection => "Consumer Connection",
+                HeatNetworkElementType.CommunalDistribution => "Communal Distribution Network",
+                _ => throw new ArgumentOutOfRangeException(nameof(elementType), $"Not expected heat network element ID value: {elementType}")
+            };
+        }
+
+        //public static string GetNetworkElementLabelByElementType(string elementType)
+        //{
+        //    return elementType switch
+        //    {
+        //        "EC" => "Energy Centre",
+        //        "SS" => "Substation",
+        //        "DDN" => "District Distribution Network",
+        //        "CC" => "Consumer Connection",
+        //        "CDN" => "Communal Distribution Network",
+        //        _ => throw new ArgumentOutOfRangeException(nameof(elementType), $"Not expected heat network element ID value: {elementType}")
+        //    };
+        //}
     }
 }

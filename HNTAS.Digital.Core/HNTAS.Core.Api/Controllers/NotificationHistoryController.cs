@@ -32,10 +32,8 @@ namespace HNTAS.Core.Api.Controllers
             try
             {
                 _logger.LogInformation("Retrieving Notification history for the user: {userId}", StringFormatter.Sanitize(request.UserId!));
-                var currentUser = await _userService.GetByIdAsync(request.UserId!);
-                var currentUserRoles = currentUser.Roles.FirstOrDefault();
-
-                var result = await _notificationHistoryService.GetNotificationHistory(request, currentUserRoles);
+                
+                var result = await _notificationHistoryService.GetNotificationHistory(request);
 
                 if (result is null)
                 {
@@ -43,7 +41,7 @@ namespace HNTAS.Core.Api.Controllers
                     return NotFound();
                 }
 
-                var notificationHistoryCount = await _notificationHistoryService.GetNotificationHistoryCount(request.UserId!, currentUserRoles);
+                var notificationHistoryCount = await _notificationHistoryService.GetNotificationHistoryCount(request.UserId!);
                 await _userStatsService.UpdateNotificationHistoryCountAsync(request.UserId!, notificationHistoryCount);
 
                 _logger.LogInformation("Notification history(s) are retrieved successfully for the user: {userId}", StringFormatter.Sanitize(request.UserId!));
@@ -64,7 +62,7 @@ namespace HNTAS.Core.Api.Controllers
         {
             try
             {
-                var notificationHistoryCount = await _notificationHistoryService.GetNotificationHistoryCount(userId, role);
+                var notificationHistoryCount = await _notificationHistoryService.GetNotificationHistoryCount(userId);
                 var userStatsNotificatonCount = await _userStatsService.GetNotificationHistoryCountAsync(userId);
                 var unreadNotificationCount = notificationHistoryCount - userStatsNotificatonCount;
                 _logger.LogInformation("Unread Notification Count is retrieved successfully for the user: {userId}", StringFormatter.Sanitize(userId));

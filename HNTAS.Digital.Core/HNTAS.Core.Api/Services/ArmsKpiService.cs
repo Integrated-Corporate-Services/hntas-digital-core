@@ -21,6 +21,41 @@ namespace HNTAS.Core.Api.Services
             _auditService = auditService;
         }
 
+        public async Task<List<KpiSubmission>> GetSubmissionsAsync(List<string> hnids, string? period)
+        {
+            var filterBuilder = Builders<KpiSubmission>.Filter;
+
+            // 1. Base filter for the allowed networks
+            var filter = filterBuilder.In(x => x.MetaData.NetworkId, hnids);
+
+            // 2. Adjust period filter based on whether a specific month is provided
+            if (!string.IsNullOrEmpty(period) && period.Length > 5) // e.g. "2026-04"
+            {
+                filter &= filterBuilder.Eq(x => x.MetaData.PeriodStart, period);
+            }
+            else if (!string.IsNullOrEmpty(period)) // e.g. "2026"
+            {
+                // Matches any string starting with the year, like "2026-01", "2026-02", etc.
+                filter &= filterBuilder.Regex(x => x.MetaData.PeriodStart, $"^{period}-");
+            }
+
+            // 3. Project only metadata to keep the query fast
+            return await _kpiCollection.Find(filter)
+                .Project<KpiSubmission>(Builders<KpiSubmission>.Projection
+                    .Include(x => x.Id)
+                    .Include(x => x.MetaData)
+                    .Include(x => x.CreatedAt)
+                    .Include(x => x.UpdatedAt))
+                .ToListAsync();
+        }
+
+        public async Task<KpiSubmission?> GetSubmissionByIdAsync(string submissionId)
+        {
+            return await _kpiCollection
+                .Find(s => s.Id == submissionId)
+                .FirstOrDefaultAsync();
+        }
+
         public async Task<string> CreateOrUpdateSubmissionAsync(KpiSubmission submission)
         {
             // Define the "Identity" of this report

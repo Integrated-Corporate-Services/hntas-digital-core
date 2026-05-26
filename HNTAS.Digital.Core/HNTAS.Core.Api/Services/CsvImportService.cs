@@ -14,9 +14,6 @@ namespace HNTAS.Core.Api.Services
 
     public class CsvImportService : ICsvImportService
     {
-        private readonly IMongoCollection<BsonDocument> _orgCollection;
-        private readonly IMongoCollection<BsonDocument> _heatNetworkCollection;
-        private readonly IMongoCollection<BsonDocument> _usersCollection;
         private readonly IOrganisationService _organisationService;
         private readonly IUserService _userService;
         private readonly IHeatNetworkService _heatNetworkService;
@@ -24,16 +21,12 @@ namespace HNTAS.Core.Api.Services
         private readonly ILogger<CsvImportService> _logger;
 
         public CsvImportService(
-            IMongoDatabase db,
             IOrganisationService organisationService,
             IUserService userService,
             IHeatNetworkService heatNetworkService,
             ICounterService orgCounterService,
             ILogger<CsvImportService> logger)
         {
-            _orgCollection = db.GetCollection<BsonDocument>("Organisations");
-            _heatNetworkCollection = db.GetCollection<BsonDocument>("HeatNetworks");
-            _usersCollection = db.GetCollection<BsonDocument>("Users");
             _organisationService = organisationService;
             _userService = userService;
             _heatNetworkService = heatNetworkService;
@@ -51,225 +44,26 @@ namespace HNTAS.Core.Api.Services
                 return result;
             }
 
+            var csvParser = new CsvParser();
             using var stream = file.OpenReadStream();
-            using var reader = new StreamReader(stream);
 
-            string? headerLine = await reader.ReadLineAsync();
-            if (string.IsNullOrWhiteSpace(headerLine))
+            if (!csvParser.TryParseHeaders(stream, out var headerIndex, out var error))
             {
-                result.Errors.Add("CSV is missing a header row.");
+                result.Errors.Add(error);
                 return result;
             }
 
-            var headers = SplitCsvLine(headerLine);
-            var headerIndex = headers
-                .Select((h, i) => new { h, i })
-                .ToDictionary(x => x.h.Trim(), x => x.i, StringComparer.OrdinalIgnoreCase);
-
+            var importContext = new ImportContext();
             int lineNumber = 1;
-            string? line;
 
-            while ((line = await reader.ReadLineAsync()) != null)
+            await foreach (var line in csvParser.ReadLinesAsync(stream, ct))
             {
                 lineNumber++;
                 if (string.IsNullOrWhiteSpace(line)) continue;
 
                 try
                 {
-                    #region Reading CSV line
-                    var cells = SplitCsvLine(line);
-
-                    // Extract CSV fields
-                    string emailId = GetCell(cells, headerIndex, "EmailId");
-                    string oneLoginId = GetCell(cells, headerIndex, "OneLoginId");
-                    string organisationName = GetCell(cells, headerIndex, "OrganisationName");
-                    string orgStreetAddress = GetCell(cells, headerIndex, "OrgStreetAddress");
-                    string orgTown = GetCell(cells, headerIndex, "OrgTown");
-                    string orgPostcode = GetCell(cells, headerIndex, "OrgPostcode");
-                    string phoneNumber = GetCell(cells, headerIndex, "PhoneNumber");
-                    string companiesHouseNo = GetCell(cells, headerIndex, "CompaniesHouseNo");
-                    string dateOfOrgRegistration = GetCell(cells, headerIndex, "DateOfRegistration");
-                    string hnId = GetCell(cells, headerIndex, "HnId");
-                    string hnName = GetCell(cells, headerIndex, "HnName");
-                    string dateOfHnRegistration = GetCell(cells, headerIndex, "DateOfHnRegistration");
-                    string registrationSource = GetCell(cells, headerIndex, "RegistrationSource");
-                    string ecStreetAddress = GetCell(cells, headerIndex, "EcStreetAddress");
-                    string ecTown = GetCell(cells, headerIndex, "EcTown");
-                    string ecPostcode = GetCell(cells, headerIndex, "EcPostcode");                  
-                    string ecLat = GetCell(cells, headerIndex, "ECLatitude");
-                    string ecLong = GetCell(cells, headerIndex, "ECLongitude");
-
-                    #endregion
-
-                    #region Validating mandatory fields
-                    bool missingIds =
-                        string.IsNullOrWhiteSpace(emailId) ||
-                        string.IsNullOrWhiteSpace(oneLoginId) ||
-                        string.IsNullOrWhiteSpace(hnId);
-                    bool hasCompaniesHouseNo = !string.IsNullOrWhiteSpace(companiesHouseNo);
-                    bool hasOrgAddress =
-                        !string.IsNullOrWhiteSpace(organisationName) &&
-                        !string.IsNullOrWhiteSpace(orgStreetAddress) &&
-                        !string.IsNullOrWhiteSpace(orgPostcode);
-                    bool missingOrganisation = !(hasCompaniesHouseNo || hasOrgAddress);
-
-                    if (missingIds ||
-                        missingOrganisation ||
-                        string.IsNullOrWhiteSpace(hnId))
-                    {
-                        result.Errors.Add($"Line {lineNumber}: Missing required fields.");
-                        continue;
-                    }
-
-                    result.RowsProcessed++;
-                    #endregion
-
-                    // STEP 1: Create or fetch user (by emailId + oneLoginId)
-                    User existingUser = await _userService.GetByEmailAsync(emailId);
-                    var orgType = hasCompaniesHouseNo ? HNTAS.Core.Api.Enums.OrganisationType.UkCompaniesHouse : HNTAS.Core.Api.Enums.OrganisationType.OtherUkOrganisation;
-                    string userId;
-                    string userOrgId = "";
-
-                    if (existingUser == null)
-                    {
-                        // Create a minimal user first
-                        var newUser = new User
-                        {
-                            EmailId = emailId,
-                            OneLoginId = oneLoginId,
-                            PreferredContactType = HNTAS.Core.Api.Enums.PreferredContactType.Mobile,
-                            LandlineNumber = null,
-                            MobileNumber = phoneNumber,
-                            Roles = new List<HNTAS.Core.Api.Enums.UserRole>(),  // empty for now
-                            HnRoleMappings = new List<HnRoleMapping>(),
-                            Status = HNTAS.Core.Api.Enums.UserStatus.Active,
-                            CreatedAt = DateTime.UtcNow
-                        };
-
-                        await _userService.CreateAsync(newUser);                        
-                        userId = newUser.Id;
-                        _logger.LogInformation("Created new User {userId}.", userId);
-                        result.UsersInserted++;
-                    }
-                    else
-                    {
-                        userId = existingUser.Id;
-                        userOrgId = existingUser.OrgId;
-                        _logger.LogInformation("User {userId} already exists.", userId);
-                        result.UsersUpdated++;
-                    }                    
-
-                    // STEP 2.2: Create Organisation
-
-                    Organisation existingOrg = null;
-                    if(orgType == HNTAS.Core.Api.Enums.OrganisationType.UkCompaniesHouse)
-                        existingOrg = await _organisationService.GetByIdAsync(companiesHouseNo);
-                    else if(orgType == HNTAS.Core.Api.Enums.OrganisationType.OtherUkOrganisation)
-                        existingOrg = await _organisationService.GetByOrgIdOrNameAsync(organisationName);
-                    var orgId = "";
-                    if (existingOrg == null)
-                    {
-                        Organisation newOrg = new Organisation
-                        {
-                            Type = orgType,
-                            OrgId = $"ORG{await _orgCounterService.GetNextSequenceValue("orgId_sequence"):D7}",
-                            CompaniesHouseNumber = hasCompaniesHouseNo ? companiesHouseNo : null,
-                            Name = organisationName,
-                            RegisteredAddress = new RegisteredAddress
-                            {
-                                AddressLine1 = orgStreetAddress,
-                                AddressLine2 = null,
-                                Town = orgTown,
-                                County = null,
-                                Postcode = orgPostcode,
-                                Country = "United Kingdom"
-                            },
-                            HnIds = new List<string> { hnId },
-                            CreatedBy = userId,
-                            CreatedAt = string.IsNullOrWhiteSpace(dateOfOrgRegistration) ? DateTime.UtcNow : DateTime.ParseExact(dateOfHnRegistration, new[] { "dd/MM/yyyy", "d/M/yyyy" }, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AssumeUniversal)
-                        };
-
-                        await _organisationService.CreateAsync(newOrg);
-                        orgId = newOrg.OrgId;
-                        result.OrganisationsInserted++;
-                        _logger.LogInformation("Inserted Organisation named {organisationName}.", organisationName);
-                    }
-                    else
-                    {
-                        orgId = existingOrg.OrgId;
-                        _logger.LogInformation("Organisation CHN already exists. Skipping.");
-                    }
-
-                    if (string.IsNullOrEmpty(userOrgId) && !string.IsNullOrWhiteSpace(orgId))
-                    {
-                        await _userService.UpdateOrgIdAsync(userId, orgId);
-                        _logger.LogInformation("Updated new user {userId}.", userId);
-                    }
-
-                    // STEP 3: Create HeatNetwork
-                                        
-                    var existingHn = await _heatNetworkService.GetByHnIdAsync(hnId);
-
-                    if (existingHn != null)
-                    {
-                        _logger.LogInformation("HeatNetwork already exists. Skipping insert.");
-                    }
-                    else
-                    {
-                        HeatNetwork newHn = new HeatNetwork
-                        {
-                            HnId = hnId,
-                            Name = hnName,
-                            Address = new RegisteredAddress
-                            {
-                                AddressLine1 = ecStreetAddress ?? string.Empty,
-                                AddressLine2 = null,
-                                Town = ecTown ?? string.Empty,
-                                County = null,
-                                Postcode =  ecPostcode ?? string.Empty,
-                                Country = "United Kingdom"
-                            },
-                            ECDetails = new ECDetails
-                            {
-                                Latitude = string.IsNullOrWhiteSpace(ecLat) ? (decimal?)null : decimal.Parse(ecLat, System.Globalization.CultureInfo.InvariantCulture),
-                                Longitude = string.IsNullOrWhiteSpace(ecLong) ? (decimal?)null : decimal.Parse(ecLong, System.Globalization.CultureInfo.InvariantCulture)
-                            },
-                            RegistrationSource = HNTAS.Core.Api.Enums.RegistrationSource.OFGEM,
-                            Pathway = null,
-                            Soa = null,
-                            CreatedBy = userId,
-                            CreatedAt = string.IsNullOrWhiteSpace(dateOfHnRegistration) ? DateTime.UtcNow : DateTime.ParseExact(dateOfHnRegistration, new[] { "dd/MM/yyyy", "d/M/yyyy" }, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AssumeUniversal)
-                        };
-                        await _heatNetworkService.CreateAsync(newHn);
-                        result.HeatNetworksInserted++;
-                    }
-
-                    // STEP 4: Update User with HN + Role mappings
-
-                    var filter = Builders<BsonDocument>.Filter.And(
-                        Builders<BsonDocument>.Filter.Eq("emailId", emailId),
-                        Builders<BsonDocument>.Filter.Not(
-                            Builders<BsonDocument>.Filter.ElemMatch("hnRoleMappings",
-                                Builders<BsonDocument>.Filter.Eq("hnId", hnId)
-                            )
-                        )
-                    );
-
-                    var update = Builders<BsonDocument>.Update
-                        .Push("hnRoleMappings", new BsonDocument
-                        {
-                            { "hnId", hnId },
-                            { "role", "ResponsiblePerson" }
-                        })
-                        // optional: keep hnIds and roles aligned (also append-only)
-                        .AddToSet("roles", "ResponsiblePerson");
-
-                    var res = await _usersCollection.UpdateOneAsync(filter, update, cancellationToken: ct);
-
-                    if (res.ModifiedCount > 0)
-                        _logger.LogInformation("Appended hnRoleMapping for user.");
-                    else
-                        _logger.LogInformation("User {userId} already has hnRoleMapping for this heat network skipped", userId, hnId);
+                    await ProcessCsvLineAsync(line, headerIndex, lineNumber, importContext, result, ct);
                 }
                 catch (Exception ex)
                 {
@@ -281,10 +75,354 @@ namespace HNTAS.Core.Api.Services
             return result;
         }
 
-        // ------------------------------------------------------------
-        // Helper CSV utilities
-        // ------------------------------------------------------------
-        private string[] SplitCsvLine(string line)
+        private async Task ProcessCsvLineAsync(
+            string line,
+            Dictionary<string, int> headerIndex,
+            int lineNumber,
+            ImportContext context,
+            ImportResult result,
+            CancellationToken ct)
+        {
+            var row = ParseCsvRow(line, headerIndex);
+
+            if (!ValidateRow(row, lineNumber, result))
+            {
+                return;
+            }
+
+            result.RowsProcessed++;
+
+            // Process User and Organisation (only once per import)
+            if (!context.IsInitialized)
+            {
+                await InitializeUserAndOrganisationAsync(row, context, result, ct);
+            }
+
+            // Process Heat Network (for each row)
+            await ProcessHeatNetworkAsync(row, context, result, ct);
+        }
+
+        private CsvRow ParseCsvRow(string line, Dictionary<string, int> headerIndex)
+        {
+            var cells = CsvParser.SplitCsvLine(line);
+
+            return new CsvRow
+            {
+                EmailId = CsvParser.GetCell(cells, headerIndex, "EmailId"),
+                OneLoginId = CsvParser.GetCell(cells, headerIndex, "OneLoginId"),
+                OrganisationName = CsvParser.GetCell(cells, headerIndex, "OrganisationName"),
+                OrgStreetAddress = CsvParser.GetCell(cells, headerIndex, "OrgStreetAddress"),
+                OrgTown = CsvParser.GetCell(cells, headerIndex, "OrgTown"),
+                OrgPostcode = CsvParser.GetCell(cells, headerIndex, "OrgPostcode"),
+                PhoneNumber = CsvParser.GetCell(cells, headerIndex, "PhoneNumber"),
+                CompaniesHouseNo = CsvParser.GetCell(cells, headerIndex, "CompaniesHouseNo"),
+                DateOfOrgRegistration = CsvParser.GetCell(cells, headerIndex, "DateOfRegistration"),
+                HnId = CsvParser.GetCell(cells, headerIndex, "HnId"),
+                HnName = CsvParser.GetCell(cells, headerIndex, "HnName"),
+                DateOfHnRegistration = CsvParser.GetCell(cells, headerIndex, "DateOfHnRegistration"),
+                EcStreetAddress = CsvParser.GetCell(cells, headerIndex, "EcStreetAddress"),
+                EcTown = CsvParser.GetCell(cells, headerIndex, "EcTown"),
+                EcPostcode = CsvParser.GetCell(cells, headerIndex, "EcPostcode"),
+                EcLatitude = CsvParser.GetCell(cells, headerIndex, "ECLatitude"),
+                EcLongitude = CsvParser.GetCell(cells, headerIndex, "ECLongitude")
+            };
+        }
+
+        private bool ValidateRow(CsvRow row, int lineNumber, ImportResult result)
+        {
+            var missingFields = new List<string>();
+
+            if (string.IsNullOrWhiteSpace(row.EmailId)) missingFields.Add("EmailId");
+            if (string.IsNullOrWhiteSpace(row.OneLoginId)) missingFields.Add("OneLoginId");
+            if (string.IsNullOrWhiteSpace(row.HnId)) missingFields.Add("HnId");
+
+            //var hasOrgIdentifier = !string.IsNullOrWhiteSpace(row.CompaniesHouseNo) ||
+            //                     (!string.IsNullOrWhiteSpace(row.OrganisationName) &&
+            //                      !string.IsNullOrWhiteSpace(row.OrgStreetAddress) &&
+            //                      !string.IsNullOrWhiteSpace(row.OrgPostcode));
+            var hasOrgIdentifier = !string.IsNullOrWhiteSpace(row.CompaniesHouseNo);
+            if (!hasOrgIdentifier)
+            {
+                missingFields.Add("Organisation details (CompaniesHouseNo or Name+Address+Postcode)");
+            }
+
+            if (missingFields.Any())
+            {
+                result.Errors.Add($"Line {lineNumber}: Missing required fields: {string.Join(", ", missingFields)}");
+                return false;
+            }
+
+            return true;
+        }
+
+        private async Task InitializeUserAndOrganisationAsync(
+            CsvRow row,
+            ImportContext context,
+            ImportResult result,
+            CancellationToken ct)
+        {
+            // Process User
+            var existingRpUser = await _userService.GetRpAsync();
+
+            if (existingRpUser == null)
+            {
+                context.User = await CreateUserAsync(row, result);
+            }
+            else
+            {
+                context.User = existingRpUser;
+                context.PostImportData.IsUserExist = true;
+                result.UsersUpdated++;
+                _logger.LogInformation("User {UserId} already exists.", context.UserId);
+            }
+
+            context.PostImportData.UserId = context.UserId;
+            context.PostImportData.UserEmailId = context.User.EmailId;
+
+            // Process Organisation
+            var orgType = !string.IsNullOrWhiteSpace(row.CompaniesHouseNo)
+                ? Enums.OrganisationType.UkCompaniesHouse
+                : Enums.OrganisationType.OtherUkOrganisation;
+
+            Organisation? orgAssociatedWithUser = null;
+            if (!string.IsNullOrEmpty(context.User.OrgId))
+            {
+                // find if the associated OrgId is based on CompanyHouseNumber
+                orgAssociatedWithUser = await _organisationService.GetByOrgIdAsync(context.User.OrgId);
+            }
+            if (!string.IsNullOrEmpty(orgAssociatedWithUser?.CompaniesHouseNumber))
+            {
+                context.OrganisationId = context.User.OrgId!;
+                context.PostImportData.IsOrganisationExist = true;
+                _logger.LogInformation("Organisation already associated with user.");
+            }
+            else
+            {
+                //var existingOrg = await FindExistingOrganisationAsync(row, orgType);
+
+                var existingOrg = await FindExistingOrganisationAsync(row);
+
+                if (existingOrg != null)
+                {
+                    context.OrganisationId = existingOrg.OrgId;
+                    context.PostImportData.IsOrganisationExist = true;
+                    context.User.OrgId = context.OrganisationId;
+                    await _userService.UpdateOrgIdAsync(context.UserId, context.OrganisationId);
+                    _logger.LogInformation("Organisation already exists. Linked to user.");
+                }
+                else
+                {
+                    context.OrganisationId = await CreateOrganisationAsync(row, orgType, context.UserId, result);
+                    context.User.OrgId = context.OrganisationId;
+                    await _userService.UpdateOrgIdAsync(context.UserId, context.OrganisationId);
+                    _logger.LogInformation("Created new organisation and linked to user.");
+                }
+            }
+
+            context.PostImportData.OrganisationId = context.OrganisationId;
+            context.IsInitialized = true;
+        }
+
+        private async Task<User> CreateUserAsync(CsvRow row, ImportResult result)
+        {
+            var newUser = new User
+            {
+                EmailId = row.EmailId,
+                OneLoginId = row.OneLoginId,
+                PreferredContactType = Enums.PreferredContactType.Mobile,
+                MobileNumber = row.PhoneNumber,
+                Roles = new List<Enums.UserRole> { Enums.UserRole.ResponsiblePerson },
+                HnRoleMappings = new List<HnRoleMapping>(),
+                Status = Enums.UserStatus.Active,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await _userService.CreateAsync(newUser);
+            result.UsersInserted++;
+            _logger.LogInformation("Created new User {UserId}.", newUser.Id);
+
+            return newUser;
+        }
+
+        //private async Task<Organisation?> FindExistingOrganisationAsync(CsvRow row, Enums.OrganisationType orgType)
+        //{
+        //    return orgType == Enums.OrganisationType.UkCompaniesHouse
+        //        ? await _organisationService.GetByCompanyHouseNumberAsync(row.CompaniesHouseNo)
+        //        : await _organisationService.GetByOrgIdOrNameAsync(row.OrganisationName);
+        //}
+
+        private async Task<Organisation?> FindExistingOrganisationAsync(CsvRow row)
+        {
+            return await _organisationService.GetByCompanyHouseNumberAsync(row.CompaniesHouseNo);
+        }
+
+        private async Task<string> CreateOrganisationAsync(
+            CsvRow row,
+            Enums.OrganisationType orgType,
+            string userId,
+            ImportResult result)
+        {
+            var newOrg = new Organisation
+            {
+                Type = orgType,
+                OrgId = $"ORG{await _orgCounterService.GetNextSequenceValue("orgId_sequence"):D7}",
+                CompaniesHouseNumber = orgType == Enums.OrganisationType.UkCompaniesHouse ? row.CompaniesHouseNo : null,
+                Name = row.OrganisationName,
+                RegisteredAddress = new RegisteredAddress
+                {
+                    AddressLine1 = row.OrgStreetAddress,
+                    Town = row.OrgTown,
+                    Postcode = row.OrgPostcode,
+                    Country = "United Kingdom"
+                },
+                HnIds = new List<string>(),
+                CreatedBy = userId,
+                CreatedAt = ParseDate(row.DateOfOrgRegistration)
+            };
+
+            await _organisationService.CreateAsync(newOrg);
+            result.OrganisationsInserted++;
+            _logger.LogInformation("Created Organisation {OrgName}.", newOrg.Name);
+
+            return newOrg.OrgId;
+        }
+
+        private async Task ProcessHeatNetworkAsync(
+            CsvRow row,
+            ImportContext context,
+            ImportResult result,
+            CancellationToken ct)
+        {
+            var existingHn = await _heatNetworkService.GetByHnIdAsync(row.HnId);
+
+            if (existingHn != null)
+            {
+                _logger.LogInformation("HeatNetwork {HnId} already exists.", row.HnId);
+                return;
+            }
+
+            var newHn = new HeatNetwork
+            {
+                HnId = row.HnId,
+                UHnId = row.HnId.Replace("HN", ""),
+                Name = row.HnName,
+                Address = new RegisteredAddress
+                {
+                    AddressLine1 = row.EcStreetAddress ?? string.Empty,
+                    Town = row.EcTown ?? string.Empty,
+                    Postcode = row.EcPostcode ?? string.Empty,
+                    Country = "United Kingdom"
+                },
+                ECDetails = new ECDetails
+                {
+                    Latitude = ParseDecimal(row.EcLatitude),
+                    Longitude = ParseDecimal(row.EcLongitude)
+                },
+                RegistrationSource = Enums.RegistrationSource.OFGEM,
+                CreatedBy = context.UserId,
+                CreatedAt = ParseDate(row.DateOfHnRegistration)
+            };
+
+            await _heatNetworkService.CreateAsync(newHn);
+            await _organisationService.UpdateAsync(context.OrganisationId, row.HnId);
+
+            context.PostImportData.HeatNetworkId.Add(row.HnId);
+            result.HeatNetworksInserted++;
+            _logger.LogInformation("Created HeatNetwork {HnId}.", row.HnId);
+        }
+
+        private static DateTime ParseDate(string dateString)
+        {
+            if (string.IsNullOrWhiteSpace(dateString))
+                return DateTime.UtcNow;
+
+            return DateTime.ParseExact(
+                dateString,
+                new[] { "dd/MM/yyyy", "d/M/yyyy" },
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.AssumeUniversal);
+        }
+
+        private static decimal? ParseDecimal(string value)
+        {
+            return string.IsNullOrWhiteSpace(value)
+                ? null
+                : decimal.Parse(value, System.Globalization.CultureInfo.InvariantCulture);
+        }
+    }
+
+    // Supporting classes
+    internal class CsvRow
+    {
+        public string EmailId { get; set; } = string.Empty;
+        public string OneLoginId { get; set; } = string.Empty;
+        public string OrganisationName { get; set; } = string.Empty;
+        public string OrgStreetAddress { get; set; } = string.Empty;
+        public string OrgTown { get; set; } = string.Empty;
+        public string OrgPostcode { get; set; } = string.Empty;
+        public string PhoneNumber { get; set; } = string.Empty;
+        public string CompaniesHouseNo { get; set; } = string.Empty;
+        public string DateOfOrgRegistration { get; set; } = string.Empty;
+        public string HnId { get; set; } = string.Empty;
+        public string HnName { get; set; } = string.Empty;
+        public string DateOfHnRegistration { get; set; } = string.Empty;
+        public string EcStreetAddress { get; set; } = string.Empty;
+        public string EcTown { get; set; } = string.Empty;
+        public string EcPostcode { get; set; } = string.Empty;
+        public string EcLatitude { get; set; } = string.Empty;
+        public string EcLongitude { get; set; } = string.Empty;
+    }
+
+    internal class ImportContext
+    {
+        public User? User { get; set; }
+        public string UserId => User?.Id ?? string.Empty;
+        public string OrganisationId { get; set; } = string.Empty;
+        public bool IsInitialized { get; set; }
+        public OfgemDataModelPostImport PostImportData { get; set; } = new();
+    }
+
+    internal class CsvParser
+    {
+        public bool TryParseHeaders(Stream stream, out Dictionary<string, int> headerIndex, out string error)
+        {
+            headerIndex = new Dictionary<string, int>();
+            error = string.Empty;
+
+            using var reader = new StreamReader(stream, leaveOpen: true);
+            var headerLine = reader.ReadLine();
+
+            if (string.IsNullOrWhiteSpace(headerLine))
+            {
+                error = "CSV is missing a header row.";
+                return false;
+            }
+
+            var headers = SplitCsvLine(headerLine);
+            headerIndex = headers
+                .Select((h, i) => new { h, i })
+                .ToDictionary(x => x.h.Trim(), x => x.i, StringComparer.OrdinalIgnoreCase);
+
+            stream.Position = 0; // Reset for reading lines
+            return true;
+        }
+
+        public async IAsyncEnumerable<string> ReadLinesAsync(Stream stream, CancellationToken ct)
+        {
+            using var reader = new StreamReader(stream);
+            await reader.ReadLineAsync(); // Skip header
+
+            string? line;
+            while ((line = await reader.ReadLineAsync()) != null)
+            {
+                if (ct.IsCancellationRequested)
+                    yield break;
+
+                yield return line;
+            }
+        }
+
+        public static string[] SplitCsvLine(string line)
         {
             var values = new List<string>();
             bool inQuotes = false;
@@ -311,14 +449,25 @@ namespace HNTAS.Core.Api.Services
                 }
             }
 
-            values.Add(sb.ToString()); // last value
+            values.Add(sb.ToString());
             return values.ToArray();
         }
-        private string GetCell(string[] cells, Dictionary<string, int> headerIndex, string col)
+
+        public static string GetCell(string[] cells, Dictionary<string, int> headerIndex, string col)
         {
             return headerIndex.TryGetValue(col, out int index) && index < cells.Length
                 ? cells[index]
                 : string.Empty;
         }
+    }
+
+    public class OfgemDataModelPostImport
+    {
+        public List<string> HeatNetworkId { get; set; } = new();
+        public string OrganisationId { get; set; } = string.Empty;
+        public string UserId { get; set; } = string.Empty;
+        public string UserEmailId { get; set; } = string.Empty;
+        public bool IsUserExist { get; set; }
+        public bool IsOrganisationExist { get; set; }
     }
 }

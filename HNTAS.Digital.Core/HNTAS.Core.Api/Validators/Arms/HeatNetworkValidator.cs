@@ -28,11 +28,12 @@ namespace HNTAS.Core.Api.Validators.Arms
                      StatusCode: 404,
                      Errors: new List<KpiSubmissionApiError>
                      {
-                new KpiSubmissionApiError
-                {
-                    Code = "NETWORK_NOT_REGISTERED",
-                    Message = $"Network ID '{networkId}' is not registered."
-                }
+                        new KpiSubmissionApiError
+                        {
+                            Code = "NETWORK_NOT_REGISTERED",
+                            Message = $"Network ID '{networkId}' is not registered.",
+                            ElementId = null
+                        }
                      }
                  );
             }
@@ -60,7 +61,7 @@ namespace HNTAS.Core.Api.Validators.Arms
                     {
                         Code = "DUPLICATE_ELEMENT_ID",
                         Message = $"The submission contains duplicate element ID '{dupId}'. Each element must have a unique identifier.",
-                        ElementId = dupId
+                        ElementId = null
                     });
                 }
             }

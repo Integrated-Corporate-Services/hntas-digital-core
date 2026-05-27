@@ -53,7 +53,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             _mockSoaService
                 .Setup(s => s.UpdateSoaStatus(
                     It.IsAny<string>(),
-                    It.IsAny<string>(),                    
+                    It.IsAny<ElementTypeInShort>(),                    
                     It.IsAny<SoaStage>(),
                     It.IsAny<List<SoaStatusWithCount>>(),
                     It.IsAny<string>(),

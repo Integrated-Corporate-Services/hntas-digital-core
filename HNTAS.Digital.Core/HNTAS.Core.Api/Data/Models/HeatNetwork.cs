@@ -38,6 +38,10 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonRepresentation(BsonType.String)]
         public HeatNetworkType HeatNetworkType { get; set; }
 
+        [BsonElement("hasOwnEnergyCenter")]
+        [BsonRepresentation(BsonType.String)]
+        public bool HasOwnEnergyCenter { get; set; }
+
         [BsonElement("heatNetworkConnections")]
         public HeatNetworkConnections? HeatNetworkConnections { get; set; }
 

@@ -645,14 +645,16 @@ public class UsersController : ControllerBase
             {
                 //Prepare Invited User (Gains Roles)
                 invitedUser.Roles = MapAndFilterRoles(invitation.InvitedRoles);
+                invitedUser.ContributingOrganisations.Add(invitation.InvitedOrgId);
 
                 var rpReplaceRole = MapAndFilterRoles(invitation.RolesToReplace);
 
                 //who is rp get rp user
-                var rpuserId = invitation.ReplacedUserId;
+                var invitedOrg = await _organisationService.GetByOrgIdAsync(invitation.InvitedOrgId);
+                var rpuserId = invitation.ReplacedUserId ?? invitedOrg?.RpUserId;                
                 var rpUser = await _userService.GetByIdAsync(rpuserId);
 
-                rpUser.Roles = MapAndFilterRoles(invitation.RolesToReplace);
+                rpUser.Roles = MapAndFilterRoles(invitation.RolesToReplace);                
 
                 await _invitationService.ExecuteRoleSwapAsync(invitedUser, rpUser, invitation);
 
@@ -792,7 +794,6 @@ public class UsersController : ControllerBase
         var invitations = await _invitationService.GetInvitedUsersAsRegisteredAsync(user.Id);
         var invitedEmails = invitations.Select(i => i.EmailId).Distinct().ToList();
         var invitedUsersDetail = await _userService.GetUsersByInvitedEmailsWithDetailsAsync(invitedEmails);
-
         var registeredUsers = _mapper.Map<List<ManagedUserResponse>>(invitedUsersDetail);
         foreach (var ruser in registeredUsers)
         {
@@ -1036,7 +1037,7 @@ public class UsersController : ControllerBase
             LastName = invitation.LastName,
             JobTitle = null,
             Status = UserStatus.Active,
-            OrgId = invitation.InvitedOrgId
+            ContributingOrganisations = new List<string> { invitation.InvitedOrgId }
         };
 
         if (invitation.InvitedHnId != null)

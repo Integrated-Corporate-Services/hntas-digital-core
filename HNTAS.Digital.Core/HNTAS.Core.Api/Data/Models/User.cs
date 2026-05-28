@@ -45,10 +45,10 @@ namespace HNTAS.Core.Api.Data.Models
 
         [BsonElement("roles")]
         [BsonRepresentation(BsonType.String)]
-        public List<UserRole> Roles { get; set; } = [];
+        public List<UserRole> Roles { get; set; } = new List<UserRole>();
 
         [BsonElement("hnRoleMappings")]
-        public List<HnRoleMapping> HnRoleMappings { get; set; } = [];
+        public List<HnRoleMapping> HnRoleMappings { get; set; } = new List<HnRoleMapping>();
 
         [BsonElement("status")]
         [BsonRepresentation(BsonType.String)]
@@ -59,5 +59,8 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
         public DateTime CreatedAt { get; set; }
 
+        // New optional property: list of OrgIds this user "works for"
+        [BsonElement("contributingOrganisations")]
+        public List<string>? ContributingOrganisations { get; set; } = new List<string>();
     }
 }

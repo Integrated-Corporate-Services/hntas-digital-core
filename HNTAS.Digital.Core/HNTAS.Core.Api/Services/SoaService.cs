@@ -280,7 +280,7 @@ namespace HNTAS.Core.Api.Services
                     Builders<HeatNetwork>.Filter.ElemMatch<ElementGroup>("networkElements.elementsGroup",
                         new MongoDB.Bson.BsonDocument
                         {
-                            { "elementType", elementType },
+                            { "elementType", elementType.ToString() },
                             { "soaStages.stageId", stage.ToString() }
                         })
                 );
@@ -294,7 +294,7 @@ namespace HNTAS.Core.Api.Services
                 var arrayFilters = new[]
                 {
                     new BsonDocumentArrayFilterDefinition<MongoDB.Bson.BsonDocument>(
-                        new MongoDB.Bson.BsonDocument("element.elementType", elementType)),
+                        new MongoDB.Bson.BsonDocument("element.elementType", elementType.ToString())),
                     new BsonDocumentArrayFilterDefinition<MongoDB.Bson.BsonDocument>(
                         new MongoDB.Bson.BsonDocument("stage.stageId", stage.ToString()))
                 };
@@ -320,7 +320,7 @@ namespace HNTAS.Core.Api.Services
                     var pushArrayFilters = new[]
                     {
                         new BsonDocumentArrayFilterDefinition<MongoDB.Bson.BsonDocument>(
-                            new MongoDB.Bson.BsonDocument("element.elementType", elementType))
+                            new MongoDB.Bson.BsonDocument("element.elementType", elementType.ToString()))
                     };
 
                     var pushOptions = new UpdateOptions { ArrayFilters = pushArrayFilters };
@@ -385,10 +385,13 @@ namespace HNTAS.Core.Api.Services
 
                                             foreach (var assessorAssessment in assessorAssessments!)
                                             {
-                                                var existingAssessor = networkElementStage.Assessors?.FirstOrDefault(a => a.Email == assessorAssessment.AssessorEmail);
+                                                // Initialize Assessors list if null (for backward compatibility with existing data)
+                                                networkElementStage.Assessors ??= [];
+                                                
+                                                var existingAssessor = networkElementStage.Assessors.FirstOrDefault(a => a.Email == assessorAssessment.AssessorEmail);
                                                 if (existingAssessor == null)
                                                 {
-                                                    networkElementStage.Assessors!.Add(
+                                                    networkElementStage.Assessors.Add(
                                                         new SoaAssessor
                                                         {
                                                             FirstName = assessorAssessment.AssessorFirstName,

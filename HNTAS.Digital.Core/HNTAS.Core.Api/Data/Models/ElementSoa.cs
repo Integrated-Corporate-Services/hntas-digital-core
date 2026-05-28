@@ -23,7 +23,7 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonElement("assessorUpdatedBy")]
         public string? AssessorUpdatedBy { get; set; }
         [BsonElement("assessor")]
-        public List<SoaAssessor>? Assessors { get; set; }
+        public List<SoaAssessor>? Assessors { get; set; } = [];
 
     }
 

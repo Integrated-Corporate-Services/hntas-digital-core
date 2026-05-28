@@ -40,6 +40,8 @@ namespace HNTAS.Core.Api.MappingProfiles
                 ))
                 .ForMember(dest => dest.Status, opt => opt.MapFrom(src =>
                     src.Status
+                )).ForMember(dest => dest.ContributingOrganisations, opt => opt.MapFrom(src =>
+                    src.ContributingOrganisations
                 ));
 
 
@@ -60,12 +62,14 @@ namespace HNTAS.Core.Api.MappingProfiles
             .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
             .ForMember(dest => dest.UHnId, opt => opt.MapFrom(src => src.UHnId))
             .ForMember(dest => dest.HnId, opt => opt.MapFrom(src => src.HnId))
+            .ForMember(dest => dest.OrgId, opt => opt.MapFrom(src => src.OrgId))
             .ForMember(dest => dest.ECDetails, opt => opt.MapFrom(src => src.ECDetails))
             .ForMember(dest => dest.Address, opt => opt.MapFrom(src => src.Address))
             .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name))
             .ForMember(dest => dest.AdditionalDescription, opt => opt.MapFrom(src => src.AdditionalDescription))
             .ForMember(dest => dest.Pathway, opt => opt.MapFrom(src => src.Pathway))
             .ForMember(dest => dest.HeatNetworkType, opt => opt.MapFrom(src => src.HeatNetworkType))
+            .ForMember(dest => dest.HasOwnEnergyCentre, opt => opt.MapFrom(src => src.HasOwnEnergyCenter))
             .ForMember(dest => dest.HeatNetworkConnections, opt => opt.MapFrom(src => src.HeatNetworkConnections))
             .ForMember(dest => dest.Soa, opt => opt.MapFrom(src => src.Soa))
             .ForMember(dest => dest.CreatedBy, opt => opt.MapFrom(src => src.CreatedBy))

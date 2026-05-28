@@ -16,6 +16,9 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonElement("hnId")]
         public string? HnId { get; set; }
 
+        [BsonElement("orgId")]
+        public string OrgId { get; set; }
+
         [BsonElement("name")]
         public string Name { get; set; } = string.Empty;
         [BsonElement("additionalDescription")]

@@ -10,6 +10,7 @@ namespace HNTAS.Core.Api.Models.Soa
         public string Id { get; set; } = null!;
         public string UHnId { get; set; } = null!;
         public string HnId { get; set; } = null!;
+        public string OrgId { get; set; } = null!;
         public ECDetails ECDetails { get; set; } = null!;
         public RegisteredAddress? Address { get; set; }
         public string Name { get; set; } = null!;

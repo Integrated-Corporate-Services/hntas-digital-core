@@ -100,6 +100,36 @@ namespace HNTAS.Digital.Core.Tests.Validators
             Assert.Contains("contains duplicate element ID '00002'", dupError.Message);
         }
 
+        [Fact]
+        public async Task ValidateAsync_WhenElementTypeDoesNotExistInDatabase_ReturnsFailure()
+        {
+            // Arrange
+            var hnid = "HN400219";
+            var request = new List<NetworkElementRequest>
+            {
+                new() { ElementId = "00001", Type = HeatNetworkElementType.EnergyCentre.ToString() },
+                // "ConsumerConnection" is not defined in our GetMockNetwork baseline groups below
+                new() { ElementId = "00004", Type = "ConsumerConnection" }
+            };
+
+            _mockService.Setup(s => s.GetByHnIdAsync(hnid))
+                .ReturnsAsync(GetMockNetwork(hnid));
+
+            // Act
+            var result = await _validator.ValidateAsync(hnid, request);
+
+            // Assert
+            Assert.False(result.IsValid);
+            Assert.NotNull(result.Errors);
+
+            // Assert that our newly added safety block catches the fake/missing data type
+            Assert.Contains(result.Errors, e => e.Code == "ELEMENT_TYPE_NOT_FOUND");
+
+            var error = result.Errors.First(e => e.Code == "ELEMENT_TYPE_NOT_FOUND");
+            Assert.Contains("Element type 'ConsumerConnection' is invalid or does not exist", error.Message);
+            Assert.Null(error.ElementId);
+        }
+
         private HeatNetwork GetMockNetwork(string hnid)
         {
             return new HeatNetwork

@@ -30,9 +30,8 @@ namespace HNTAS.Core.Api.Controllers
         private readonly IInvitationService _invitationService;
         private readonly IOrganisationService _organisationService;
         private readonly INotificationHistoryService _notificationHistoryService;
-        private readonly IInvitationService _intivationService;
 
-        public HeatNetworksController(IHeatNetworkService hnService, ILogger<HeatNetworksController> logger, ICounterService counterService, IMapper mapper, IUserService userService, IEmailService emailService, IInvitationService invitationService, IAuditService auditService, INotificationHistoryService notificationHistoryService, IInvitationService intivationService, IOrganisationService organisationService)
+        public HeatNetworksController(IHeatNetworkService hnService, ILogger<HeatNetworksController> logger, ICounterService counterService, IMapper mapper, IUserService userService, IEmailService emailService, IInvitationService invitationService, IAuditService auditService, IOrganisationService organisationService, INotificationHistoryService notificationHistoryService)
         {
             _hnService = hnService;
             _logger = logger;
@@ -41,9 +40,8 @@ namespace HNTAS.Core.Api.Controllers
             _auditService = auditService;
             _userService = userService;
             _emailService = emailService;
-            _intivationService = invitationService;
+            _invitationService = invitationService;
             _notificationHistoryService = notificationHistoryService;
-            _intivationService = intivationService;
             _organisationService = organisationService;
         }
 
@@ -371,7 +369,7 @@ namespace HNTAS.Core.Api.Controllers
             }
             else
             {
-                var invitation = await _intivationService.GetByInvitedEmailAsync(user.EmailId!);
+                var invitation = await _invitationService.GetByInvitedEmailAsync(user.EmailId!);
                 if (invitation != null)
                     actorIds.Add(invitation.InviterUserId);
                 eligibleRoles.Add(UserRole.ResponsiblePerson.ToString());

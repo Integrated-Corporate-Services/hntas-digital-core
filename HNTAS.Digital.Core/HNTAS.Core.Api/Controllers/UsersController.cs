@@ -645,14 +645,16 @@ public class UsersController : ControllerBase
             {
                 //Prepare Invited User (Gains Roles)
                 invitedUser.Roles = MapAndFilterRoles(invitation.InvitedRoles);
+                invitedUser.ContributingOrganisations.Add(invitation.InvitedOrgId);
 
                 var rpReplaceRole = MapAndFilterRoles(invitation.RolesToReplace);
 
                 //who is rp get rp user
-                var rpuserId = invitation.ReplacedUserId;
+                var invitedOrg = await _organisationService.GetByOrgIdAsync(invitation.InvitedOrgId);
+                var rpuserId = invitation.ReplacedUserId ?? invitedOrg?.RpUserId;                
                 var rpUser = await _userService.GetByIdAsync(rpuserId);
 
-                rpUser.Roles = MapAndFilterRoles(invitation.RolesToReplace);
+                rpUser.Roles = MapAndFilterRoles(invitation.RolesToReplace);                
 
                 await _invitationService.ExecuteRoleSwapAsync(invitedUser, rpUser, invitation);
 
@@ -792,7 +794,6 @@ public class UsersController : ControllerBase
         var invitations = await _invitationService.GetInvitedUsersAsRegisteredAsync(user.Id);
         var invitedEmails = invitations.Select(i => i.EmailId).Distinct().ToList();
         var invitedUsersDetail = await _userService.GetUsersByInvitedEmailsWithDetailsAsync(invitedEmails);
-
         var registeredUsers = _mapper.Map<List<ManagedUserResponse>>(invitedUsersDetail);
         foreach (var ruser in registeredUsers)
         {
@@ -991,18 +992,14 @@ public class UsersController : ControllerBase
 
 
     private static readonly Dictionary<ContributorRole, UserRole> RoleMapping =
-        new Dictionary<ContributorRole, UserRole>
+    new Dictionary<ContributorRole, UserRole>
     {
-            { ContributorRole.DesignatedDesigner, UserRole.DesignatedDutyHolder },
-            { ContributorRole.DesignatedContractor, UserRole.DesignatedDutyHolder },
-            { ContributorRole.DesignatedOperator, UserRole.DesignatedDutyHolder },
-            { ContributorRole.ContributingDesigner, UserRole.Contributor },
-            { ContributorRole.ContributingContractor, UserRole.Contributor },
-            { ContributorRole.ContributingOperator, UserRole.Contributor },
-            { ContributorRole.Assessor, UserRole.Assessor },
-            { ContributorRole.Certifier, UserRole.Certifier },
-            { ContributorRole.NetworkManager, UserRole.NetworkManager },
-            { ContributorRole.ResponsiblePerson, UserRole.ResponsiblePerson }
+        { ContributorRole.DesignatedDutyHolder, UserRole.DesignatedDutyHolder },
+        { ContributorRole.Contributor, UserRole.Contributor },            
+        { ContributorRole.Assessor, UserRole.Assessor },
+        { ContributorRole.Certifier, UserRole.Certifier },
+        { ContributorRole.NetworkManager, UserRole.NetworkManager },
+        { ContributorRole.ResponsiblePerson, UserRole.ResponsiblePerson }
     };
 
 
@@ -1040,7 +1037,7 @@ public class UsersController : ControllerBase
             LastName = invitation.LastName,
             JobTitle = null,
             Status = UserStatus.Active,
-            OrgId = invitation.InvitedOrgId
+            ContributingOrganisations = new List<string> { invitation.InvitedOrgId }
         };
 
         if (invitation.InvitedHnId != null)
@@ -1076,24 +1073,12 @@ public class UsersController : ControllerBase
                 var entryType = "";
                 switch (invitedRole)
                 {
-                    case ContributorRole.DesignatedDesigner:
-                        entryType = "Designated designer assigned";
-                        break;
-                    case ContributorRole.DesignatedContractor:
-                        entryType = "Designated contractor assigned";
-                        break;
-                    case ContributorRole.DesignatedOperator:
-                        entryType = "Designated operator assigned";
-                        break;
-                    case ContributorRole.ContributingContractor:
-                        entryType = "Contributor contractor assigned";
-                        break;
-                    case ContributorRole.ContributingDesigner:
-                        entryType = "Contributor designer assigned";
-                        break;
-                    case ContributorRole.ContributingOperator:
-                        entryType = "Contributor operator assigned";
-                        break;
+                    case ContributorRole.DesignatedDutyHolder:
+                        entryType = "Designated duty holder assigned";
+                        break;                    
+                    case ContributorRole.Contributor:
+                        entryType = "Contributor assigned";
+                        break;                    
                     default:
                         break;
                 }
@@ -1129,7 +1114,7 @@ public class UsersController : ControllerBase
             description = $"{user.FirstName} {user.LastName} signed in";
             notificationType = NotificationHistoryType.NetworkManagerAcceptsInvite;
         }
-        else if (invitedRole == ContributorRole.DesignatedDesigner)
+        else if (invitedRole == ContributorRole.DesignatedDutyHolder)
         {
             // check if the invitor is Network Manager, if yes then add RP to actorIds
             var invitorDetailsOfNM = await _userService.GetByIdAsync(invitation.InviterUserId);
@@ -1142,73 +1127,22 @@ public class UsersController : ControllerBase
             }
 
             eligibleRoles.Add(ContributorRole.NetworkManager.ToString());
-            subject = NotificationHistorySubjects.DesignatedDesignerJoined;
+            subject = NotificationHistorySubjects.DesignatedDutyHolderJoined;
             action = NotificationHistoryActions.DDHAndContributors;
             description = $"{user.FirstName} {user.LastName} joined {invitation.InvitedHnId}-{heatNetworkName}";
             notificationType = NotificationHistoryType.DdhAcceptsInviteToHeatNetwork;
-        }
-        else if (invitedRole == ContributorRole.DesignatedContractor)
-        {
-            var invitorDetailsOfNM = await _userService.GetByIdAsync(invitation.InviterUserId);
-            if (invitorDetailsOfNM != null && invitorDetailsOfNM.Roles.Contains(UserRole.NetworkManager))
-            {
-                // Get the RP user details and add to actorIds
-                var invitaions = await _invitationService.GetByInvitedEmailAsync(invitorDetailsOfNM.EmailId!);
-                if (invitaions != null)
-                    actorIds.AddRange(invitaions.InviterUserId);
-            }
-            eligibleRoles.Add(ContributorRole.NetworkManager.ToString());
-            subject = NotificationHistorySubjects.DesignatedContractorJoined;
-            action = NotificationHistoryActions.DDHAndContributors;
-            description = $"{user.FirstName} {user.LastName} joined {invitation.InvitedHnId}-{heatNetworkName}";
-            notificationType = NotificationHistoryType.DdhAcceptsInviteToHeatNetwork;
-        }
-        else if (invitedRole == ContributorRole.DesignatedOperator)
-        {
-            var invitorDetailsOfNM = await _userService.GetByIdAsync(invitation.InviterUserId);
-            if (invitorDetailsOfNM != null && invitorDetailsOfNM.Roles.Contains(UserRole.NetworkManager))
-            {
-                // Get the RP user details and add to actorIds
-                var invitaions = await _invitationService.GetByInvitedEmailAsync(invitorDetailsOfNM.EmailId!);
-                if (invitaions != null)
-                    actorIds.AddRange(invitaions.InviterUserId);
-            }
-            eligibleRoles.Add(ContributorRole.NetworkManager.ToString());
-            subject = NotificationHistorySubjects.DesignatedOperatorJoined;
-            action = NotificationHistoryActions.DDHAndContributors;
-            description = $"{user.FirstName} {user.LastName} joined {invitation.InvitedHnId}-{heatNetworkName}";
-            notificationType = NotificationHistoryType.DdhAcceptsInviteToHeatNetwork;
-        }
-        else if (invitedRole == ContributorRole.ContributingDesigner)
+        }        
+        else if (invitedRole == ContributorRole.Contributor)
         {
             await AddAssociatedNetworkManagerAndRpIds(invitation, actorIds);
             eligibleRoles.Add(ContributorRole.NetworkManager.ToString());
-            eligibleRoles.Add(ContributorRole.DesignatedDesigner.ToString());
-            subject = NotificationHistorySubjects.ContributingDesignerJoined;
+            eligibleRoles.Add(ContributorRole.DesignatedDutyHolder.ToString());
+            subject = NotificationHistorySubjects.ContributorJoined;
             action = NotificationHistoryActions.DDHAndContributors;
             description = $"{user.FirstName} {user.LastName} joined {invitation.InvitedHnId}-{heatNetworkName}";
             notificationType = NotificationHistoryType.ContributorAcceptsInviteToHeatNetwork;
         }
-        else if (invitedRole == ContributorRole.ContributingContractor)
-        {
-            await AddAssociatedNetworkManagerAndRpIds(invitation, actorIds);
-            eligibleRoles.Add(ContributorRole.NetworkManager.ToString());
-            eligibleRoles.Add(ContributorRole.DesignatedContractor.ToString());
-            subject = NotificationHistorySubjects.ContributingContractorJoined;
-            action = NotificationHistoryActions.DDHAndContributors;
-            description = $"{user.FirstName} {user.LastName} joined {invitation.InvitedHnId}-{heatNetworkName}";
-            notificationType = NotificationHistoryType.ContributorAcceptsInviteToHeatNetwork;
-        }
-        else if (invitedRole == ContributorRole.ContributingOperator)
-        {
-            await AddAssociatedNetworkManagerAndRpIds(invitation, actorIds);
-            eligibleRoles.Add(ContributorRole.NetworkManager.ToString());
-            eligibleRoles.Add(ContributorRole.DesignatedOperator.ToString());
-            subject = NotificationHistorySubjects.ContributingOperatorJoined;
-            action = NotificationHistoryActions.DDHAndContributors;
-            description = $"{user.FirstName} {user.LastName} joined {invitation.InvitedHnId}-{heatNetworkName}";
-            notificationType = NotificationHistoryType.ContributorAcceptsInviteToHeatNetwork;
-        }
+        
         var notificationHistory = new NotificationHistory
         {
             NotificationType = notificationType,

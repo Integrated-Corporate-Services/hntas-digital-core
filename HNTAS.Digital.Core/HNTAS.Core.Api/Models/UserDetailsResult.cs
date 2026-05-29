@@ -62,6 +62,9 @@ namespace HNTAS.Core.Api.Models
 
         [BsonElement("hnRoleMappings")]
         public List<HnRoleMappingsUserResult>? HnRoleMappings { get; set; }
+
+        [BsonElement("contributingOrganisations")]
+        public List<string>? ContributingOrganisations { get; set; }
     }
 
     public class HnRoleMappingsUserResult

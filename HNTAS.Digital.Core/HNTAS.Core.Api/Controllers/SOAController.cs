@@ -670,12 +670,8 @@ namespace HNTAS.Core.Api.Controllers
             var description = "";
             var eligibleRoles = new List<string> { ContributorRole.ResponsiblePerson.ToString()
                 , ContributorRole.NetworkManager.ToString(),
-                ContributorRole.DesignatedDesigner.ToString(),
-                ContributorRole.DesignatedContractor.ToString(),
-                ContributorRole.DesignatedOperator.ToString(),
-                ContributorRole.ContributingDesigner.ToString(),
-                ContributorRole.ContributingContractor.ToString(),
-                ContributorRole.ContributingOperator.ToString()};
+                ContributorRole.DesignatedDutyHolder.ToString(),                
+                ContributorRole.Contributor.ToString()};
             var notificationHistory = new NotificationHistory
             {
                 NotificationType = NotificationHistoryType.AssessorAssignsToHeatNetwork,
@@ -690,6 +686,5 @@ namespace HNTAS.Core.Api.Controllers
             };
             await _notificationHistoryService.CreateAsync(notificationHistory);
         }
-
     }
 }

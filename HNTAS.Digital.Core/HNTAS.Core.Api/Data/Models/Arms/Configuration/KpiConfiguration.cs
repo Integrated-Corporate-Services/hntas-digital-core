@@ -19,6 +19,10 @@ namespace HNTAS.Core.Api.Data.Models.Arms.Configuration
         [BsonElement("elements")]
         public List<KpiNetworkElement> Elements { get; set; } = new();
 
+        [JsonPropertyName("carbon_calculator_defaults")]
+        [BsonElement("carbonCalculatorDefaults")]
+        public Dictionary<string, object>? CarbonCalculatorDefaults { get; set; } = new();
+
         [JsonPropertyName("created_at")]
         [BsonElement("createdAt")]
         [BsonRepresentation(BsonType.DateTime)]

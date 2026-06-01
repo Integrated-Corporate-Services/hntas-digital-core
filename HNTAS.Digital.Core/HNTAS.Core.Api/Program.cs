@@ -93,6 +93,7 @@ builder.Services.AddScoped<IHNDataImportExportService, HNDataImportExportService
 
 // Register FluentValidation validators
 builder.Services.AddValidatorsFromAssemblyContaining<KpiSubmissionRequestValidator>();
+builder.Services.AddValidatorsFromAssemblyContaining<KpiSubmissionRequestV2Validator>();
 
 builder.Services.AddControllers().AddJsonOptions(options =>
 {

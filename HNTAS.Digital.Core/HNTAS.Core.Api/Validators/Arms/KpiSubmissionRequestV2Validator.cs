@@ -1,13 +1,14 @@
 ﻿using FluentValidation;
 using FluentValidation.Results;
 using HNTAS.Core.Api.Models.Arms;
+using HNTAS.Core.Api.Models.Arms.V2;
 using ElementType = HNTAS.Core.Api.Enums.HeatNetworkElementType;
+
 
 namespace HNTAS.Core.Api.Validators.Arms
 {
-    public class KpiSubmissionRequestValidator : AbstractValidator<KpiSubmissionRequest>
+    public class KpiSubmissionRequestV2Validator : AbstractValidator<KpiSubmissionRequestV2>
     {
-
         private static readonly Dictionary<ElementType, HashSet<string>> AllowedKpisByElement = new()
         {
             { ElementType.EnergyCentre, new HashSet<string> {
@@ -54,7 +55,7 @@ namespace HNTAS.Core.Api.Validators.Arms
             }}
         };
 
-        public KpiSubmissionRequestValidator()
+        public KpiSubmissionRequestV2Validator()
         {
             // Validate the nested metadata object
             RuleFor(x => x.MetaData).SetValidator(new KpiMetadataValidator());
@@ -74,82 +75,147 @@ namespace HNTAS.Core.Api.Validators.Arms
                     .WithErrorCode("INVALID_ELEMENT_ID")
                     .WithMessage("Element ID must be exactly 5 digits (e.g., 00001).")
                     .WithState(e => new { elementId = e.ElementId, kpis = (string)null });
-
-                //element.RuleFor(e => e.Type)
-                //    .IsInEnum()
-                //    .WithErrorCode("INVALID_ELEMENT_TYPE")
-                //    .WithMessage("Invalid element type provided.")
-                //    .WithState(e => new { elementId = e.ElementId, kpis = (string)null });
-
-                //element.RuleFor(e => e.Kpis)
-                //    .NotEmpty()
-                //    .WithErrorCode("MISSING_KPI_DATA")
-                //    .WithMessage("Each element must have at least one KPI reported.")
-                //    .WithState(e => new { elementId = e.ElementId, kpi = "All" });
             });
 
             /// Validate KPI’s are submitted under their respective elements
             RuleFor(x => x.Elements).Custom((elements, context) =>
-        {
-            if (elements == null) return;
-
-            for (int i = 0; i < elements.Count; i++)
             {
-                var element = elements[i];
-                bool isValidEnum = Enum.TryParse<ElementType>(element.Type, true, out var elementType);
+                if (elements == null) return;
 
-                if (!isValidEnum)
+                for (int i = 0; i < elements.Count; i++)
                 {
-                    // If the string doesn't match any enum member, stop and report the error
-                    context.AddFailure(new ValidationFailure($"Elements[{i}].Type", "Invalid element type provided.")
+                    var element = elements[i];
+                    bool isValidEnum = Enum.TryParse<ElementType>(element.Type, true, out var elementType);
+
+                    if (!isValidEnum)
                     {
-                        ErrorCode = "INVALID_ELEMENT_TYPE",
-                        CustomState = new { elementId = element.ElementId, kpis = (List<string>)null }
-                    });
-                    continue; // Move to the next element
-                }
-
-                // 1. Determine the expected prefix
-                var expectedPrefix = elementType switch
-                {
-                    ElementType.EnergyCentre => "EC",
-                    ElementType.DistrictDistribution => "DD",
-                    ElementType.Substation => "SS",
-                    ElementType.CommunalDistribution => "CD",
-                    ElementType.ConsumerConnection => "CC",
-                    _ => "XX"
-                };
-
-                // 2. Validate individual KPIs
-                if (AllowedKpisByElement.TryGetValue(elementType, out var allowedKeys))
-                {
-
-                    var invalidKeys = element.Kpis.Keys
-                                .Where(kpiKey => !allowedKeys.Contains(kpiKey))
-                                .ToList();
-
-                    if (invalidKeys.Any())
-                    {
-                        // 2. Build the path (pointing to the collection)
-                        var propertyPath = $"Elements[{i}].Kpis";
-
-                        var failure = new ValidationFailure(propertyPath,
-                            $"One or more KPI IDs are invalid for {elementType}. Must start with {expectedPrefix}-.")
+                        // If the string doesn't match any enum member, stop and report the error
+                        context.AddFailure(new ValidationFailure($"Elements[{i}].Type", "Invalid element type provided.")
                         {
-                            ErrorCode = "INVALID_KPI_FOR_TYPE",
-                            CustomState = new
-                            {
-                                elementId = element.ElementId,
-                                // 3. Pass the entire list of bad keys
-                                kpis = invalidKeys
-                            }
-                        };
+                            ErrorCode = "INVALID_ELEMENT_TYPE",
+                            CustomState = new { elementId = element.ElementId, kpis = (List<string>)null }
+                        });
+                        continue; // Move to the next element
+                    }
 
-                        context.AddFailure(failure);
+                    // 1. Determine the expected prefix
+                    var expectedPrefix = elementType switch
+                    {
+                        ElementType.EnergyCentre => "EC",
+                        ElementType.DistrictDistribution => "DD",
+                        ElementType.Substation => "SS",
+                        ElementType.CommunalDistribution => "CD",
+                        ElementType.ConsumerConnection => "CC",
+                        _ => "XX"
+                    };
+
+                    // 2. Validate individual KPIs
+                    if (AllowedKpisByElement.TryGetValue(elementType, out var allowedKeys))
+                    {
+
+                        var invalidKeys = element.Kpis.Keys
+                                    .Where(kpiKey => !allowedKeys.Contains(kpiKey))
+                                    .ToList();
+
+                        if (invalidKeys.Any())
+                        {
+                            // 2. Build the path (pointing to the collection)
+                            var propertyPath = $"Elements[{i}].Kpis";
+
+                            var failure = new ValidationFailure(propertyPath,
+                                $"One or more KPI IDs are invalid for {elementType}. Must start with {expectedPrefix}-.")
+                            {
+                                ErrorCode = "INVALID_KPI_FOR_TYPE",
+                                CustomState = new
+                                {
+                                    elementId = element.ElementId,
+                                    // 3. Pass the entire list of bad keys
+                                    kpis = invalidKeys
+                                }
+                            };
+
+                            context.AddFailure(failure);
+                        }
+                    }
+
+                    // ==========================================
+                    // NEW: Carbon Calculator Inputs Validation
+                    // ==========================================
+                    if (elementType == ElementType.EnergyCentre)
+                    {
+                        var carbonInputs = element.CarbonInputsV2;
+                        var elementPath = $"Elements[{i}].carbon_calculator_inputs";
+
+                        // Guard Clause: Check if the main collection is null or empty
+                        if (carbonInputs == null || !carbonInputs.Any())
+                        {
+                            context.AddFailure(new ValidationFailure(elementPath, "Carbon calculator inputs are required for Energy Centres.")
+                            {
+                                ErrorCode = "MISSING_CARBON_INPUTS",
+                                CustomState = new { elementId = element.ElementId, kpis = (List<string>)null }
+                            });
+                            continue;
+                        }
+
+                        // ==========================================
+                        // 1. Mandatory Section Presence Checks
+                        // ==========================================
+
+                        // Check background section
+                        if (!carbonInputs.TryGetValue("background", out var backgroundSection) || backgroundSection == null || !backgroundSection.ContainsKey("EC-KPI-19"))
+                        {
+                            context.AddFailure(new ValidationFailure(elementPath, "The 'background' section with 'EC-KPI-19' is required.")
+                            {
+                                ErrorCode = "MISSING_BACKGROUND_SECTION",
+                                CustomState = new { elementId = element.ElementId, kpis = new List<string> { "EC-KPI-19" } }
+                            });
+                        }
+
+                        // CRITICAL: Always enforce that chp_totals is present in the request
+                        if (!carbonInputs.TryGetValue("chp_totals", out var chpSection) || chpSection == null || !chpSection.Any())
+                        {
+                            context.AddFailure(new ValidationFailure(elementPath, "The 'chp_totals' section is mandatory for all submissions.")
+                            {
+                                ErrorCode = "MISSING_CHP_TOTALS_SECTION",
+                                CustomState = new { elementId = element.ElementId, kpis = new List<string> { "EC-KPI-51", "EC-KPI-52", "EC-KPI-54", "EC-KPI-56" } }
+                            });
+                        }
+
+                        // ==========================================
+                        // 2. Schema and Data Type Validation
+                        // ==========================================
+
+                        // A. Validate Background (Always Checked)
+                        if (backgroundSection != null && backgroundSection.TryGetValue("EC-KPI-19", out var kpi19) && kpi19?.Value != null)
+                        {
+                            ValidateDate(context, element.ElementId, elementPath, "EC-KPI-19", kpi19.Value.ToString());
+                        }
+
+                        // B. Validate CHP Totals (Always Checked because it must be there)
+                        if (chpSection != null)
+                        {
+                            var chpDates = new[] { "EC-KPI-51" };
+                            var chpNumbers = new[] { "EC-KPI-47", "EC-KPI-52", "EC-KPI-54", "EC-KPI-56" };
+
+                            ValidateSectionFields(context, element.ElementId, elementPath, "chp_totals", chpSection, chpDates, chpNumbers);
+                        }
+
+                        // C. Validate HPM Totals (OPTIONAL: Only check if present in the request)
+                        if (carbonInputs.TryGetValue("hpm_totals", out var hpmSection) && hpmSection != null && hpmSection.Any())
+                        {
+                            var hpmNumbers = new[] { "EC-KPI-65", "EC-KPI-67" };
+                            ValidateSectionFields(context, element.ElementId, elementPath, "hpm_totals", hpmSection, [], hpmNumbers);
+                        }
+
+                        // D. Validate Boiler Totals (OPTIONAL: Only check if present in the request)
+                        if (carbonInputs.TryGetValue("blr_totals", out var blrSection) && blrSection != null && blrSection.Any())
+                        {
+                            var blrNumbers = new[] { "EC-KPI-83", "EC-KPI-85" };
+                            ValidateSectionFields(context, element.ElementId, elementPath, "blr_totals", blrSection, [], blrNumbers);
+                        }
                     }
                 }
-            }
-        });
+            });
 
             RuleFor(x => x).Custom((request, context) =>
             {
@@ -258,10 +324,80 @@ namespace HNTAS.Core.Api.Validators.Arms
                     }
                 }
             });
+
+        }
+
+        // ==========================================
+        // Reusable Type Validation Helper Methods
+        // ==========================================
+        private static void ValidateSectionFields(
+            ValidationContext<KpiSubmissionRequestV2> context,
+            string elementId,
+            string elementPath,
+            string sectionName,
+            Dictionary<string, CCKpiValueRequest> section,
+            string[] dateKeys,
+            string[] numericKeys)
+        {
+            var allExpectedKeys = dateKeys.Concat(numericKeys);
+            foreach (var key in allExpectedKeys)
+            {
+                string fullKpiPath = $"{key}";
+
+                if (!section.TryGetValue(key, out var kpiData) || kpiData?.Value == null)
+                {
+                    context.AddFailure(new ValidationFailure(elementPath, $"Field '{key}' is missing from the '{sectionName}' section.")
+                    {
+                        ErrorCode = "MISSING_MANDATORY_CARBON_KPI",
+                        CustomState = new { elementId, kpis = new List<string> { fullKpiPath } }
+                    });
+                    continue;
+                }
+
+                string stringValue = kpiData.Value.ToString() ?? string.Empty;
+
+                // Run data type validation
+                if (dateKeys.Contains(key))
+                {
+                    ValidateDate(context, elementId, elementPath, fullKpiPath, stringValue);
+                }
+                else if (numericKeys.Contains(key))
+                {
+                    ValidateNumeric(context, elementId, elementPath, fullKpiPath, stringValue);
+                }
+            }
+        }
+
+        private static void ValidateDate(ValidationContext<KpiSubmissionRequestV2> context, string elementId, string elementPath, string kpiKey, string value)
+        {
+            bool isValidDate = DateTime.TryParseExact(value, ["yyyy-MM-dd"],
+                System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out _);
+
+            if (!isValidDate)
+            {
+                context.AddFailure(new ValidationFailure(elementPath, $"Value for '{kpiKey}' must be a valid date in YYYY-MM-DD format.")
+                {
+                    ErrorCode = "INVALID_DATE_FORMAT",
+                    CustomState = new { elementId, kpis = new List<string> { kpiKey } }
+                });
+            }
+        }
+
+        private static void ValidateNumeric(ValidationContext<KpiSubmissionRequestV2> context, string elementId, string elementPath, string kpiKey, string value)
+        {
+            bool isNumeric = decimal.TryParse(value, out decimal numericVal);
+            if (!isNumeric || numericVal < 0)
+            {
+                context.AddFailure(new ValidationFailure(elementPath, $"Value for '{kpiKey}' must be a valid positive number.")
+                {
+                    ErrorCode = "INVALID_NUMERIC_VALUE",
+                    CustomState = new { elementId, kpis = new List<string> { kpiKey } }
+                });
+            }
         }
 
 
-        private void ValidateExclusivity(NetworkElementRequest element, HashSet<string> submitted, ValidationContext<KpiSubmissionRequest> context, int index, string kpiA, string kpiB)
+        private void ValidateExclusivity(NetworkElementRequestV2 element, HashSet<string> submitted, ValidationContext<KpiSubmissionRequestV2> context, int index, string kpiA, string kpiB)
         {
             var path = $"Elements[{index}]";
             bool hasA = submitted.Contains(kpiA);
@@ -295,7 +431,7 @@ namespace HNTAS.Core.Api.Validators.Arms
             }
         }
 
-        private void ValidateAtLeastOne(NetworkElementRequest element, HashSet<string> submitted, ValidationContext<KpiSubmissionRequest> context, int index, string groupName, string[] groupKeys)
+        private void ValidateAtLeastOne(NetworkElementRequestV2 element, HashSet<string> submitted, ValidationContext<KpiSubmissionRequestV2> context, int index, string groupName, string[] groupKeys)
         {
             // Only apply group mandatory checks if the type is Energy Centre
             if (element.Type == ElementType.EnergyCentre.ToString() && !groupKeys.Any(k => submitted.Contains(k)))
@@ -315,3 +451,4 @@ namespace HNTAS.Core.Api.Validators.Arms
         }
     }
 }
+

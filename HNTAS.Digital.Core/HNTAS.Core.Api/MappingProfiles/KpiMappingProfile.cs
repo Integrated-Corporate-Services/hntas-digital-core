@@ -3,6 +3,7 @@ using HNTAS.Core.Api.Data.Models.Arms.Configuration;
 using HNTAS.Core.Api.Data.Models.Arms.Submission;
 using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Models.Arms;
+using HNTAS.Core.Api.Models.Arms.V2;
 
 namespace HNTAS.Core.Api.MappingProfiles
 {
@@ -30,7 +31,9 @@ namespace HNTAS.Core.Api.MappingProfiles
                     }).ToList()));
 
             CreateMap<KpiSubmissionRequest, KpiSubmission>();
+            CreateMap<KpiSubmissionRequestV2, KpiSubmission>();
             CreateMap<NetworkElementRequest, NetworkElement>();
+            CreateMap<KpiSubmissionRequestV2, NetworkElement>();
             CreateMap<KpiValueRequest, KpiValue>();
             CreateMap<KpiValueAggregatedRequest, KpiValueAggregated>();
         }

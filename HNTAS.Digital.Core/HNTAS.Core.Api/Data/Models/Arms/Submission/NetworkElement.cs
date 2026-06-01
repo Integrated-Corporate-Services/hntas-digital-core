@@ -23,10 +23,10 @@ namespace HNTAS.Core.Api.Data.Models.Arms.Submission
 
         [JsonPropertyName("carbon_Calculator_Response")]
         [BsonElement("carbonCalculatorResponse")]
-        public CCResponse? CarbonCalculatorResponse { get; set; }
+        public CarbonCalculatorResponse? CarbonCalculatorResponse { get; set; }
     }
 
-    public class CCResponse
+    public class CarbonCalculatorResponse
     {
         [JsonPropertyName("total_carbon_emission")]
         [BsonElement("totalCarbonEmission")]

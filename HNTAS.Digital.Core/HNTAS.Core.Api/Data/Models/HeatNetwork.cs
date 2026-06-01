@@ -16,6 +16,9 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonElement("hnId")]
         public string? HnId { get; set; }
 
+        [BsonElement("orgId")]
+        public string OrgId { get; set; }
+
         [BsonElement("name")]
         public string Name { get; set; } = string.Empty;
         [BsonElement("additionalDescription")]
@@ -37,6 +40,10 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonElement("heatNetworkType")]
         [BsonRepresentation(BsonType.String)]
         public HeatNetworkType HeatNetworkType { get; set; }
+
+        [BsonElement("hasOwnEnergyCenter")]
+        [BsonRepresentation(BsonType.String)]
+        public bool HasOwnEnergyCenter { get; set; }
 
         [BsonElement("heatNetworkConnections")]
         public HeatNetworkConnections? HeatNetworkConnections { get; set; }

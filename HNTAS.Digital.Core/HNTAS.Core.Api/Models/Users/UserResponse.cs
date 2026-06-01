@@ -20,5 +20,6 @@ namespace HNTAS.Core.Api.Models.Users
         public List<UserRole>? Roles { get; set; }
         public UserStatus Status { get; set; }
         public List<HnRoleMapping>? HnRoleMappings { get; set; }
+        public List<string>? ContributingOrganisations { get; set; }
     }
 }

@@ -437,7 +437,7 @@ public class UsersController : ControllerBase
             {
                 _logger.LogWarning("User with ID '{UserId}' not found for organisation registration.", userId);
                 return NotFound($"User with ID '{userId}' was not found. Organisation was not created.");
-            }
+            }            
 
             var newOrganisation = new Organisation
             {
@@ -449,6 +449,14 @@ public class UsersController : ControllerBase
                 CreatedBy = userId,
                 CreatedAt = DateTime.UtcNow,
             };
+
+            // check if existing user is Network Manager, if yes then get the invitor's id to RP user id in the org
+            if (existingUser.Roles.Any() && existingUser.Roles.Contains(UserRole.NetworkManager))
+            {
+                var invitaions = await _invitationService.GetByInvitedEmailAsync(existingUser.EmailId);
+                if (invitaions != null)
+                    newOrganisation.RpUserId = invitaions.InviterUserId;
+            }
 
             await _organisationService.CreateAsync(newOrganisation);
 

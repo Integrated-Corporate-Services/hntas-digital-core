@@ -277,37 +277,40 @@ namespace HNTAS.Core.Api.Services
         }
 
         public async Task<AssignedAssessorResponse> GetAssignedAssessors(AssignedAssessorRequest request)
-        {
+        {            
             // Build filter for elements with assigned assessors
             var filter = Builders<HeatNetwork>.Filter.ElemMatch(
                 hn => hn.NetworkElements!.ElementsGroup,
-                element => element.SoaStages != null && element.SoaStages.Any(soa => soa.Assessor != null)
+                element => element.SoaStages != null && element.SoaStages.Any(soa => soa.Assessors != null)
             );
 
             try
             {
-                var heatNetworks = await _hnCollection.Find(filter).ToListAsync();
-                // Flatten heat networks into individual assessor assignments
-                var assignedAssessors = heatNetworks
-                    .SelectMany(hn =>
-                        (hn.NetworkElements?.ElementsGroup ?? Enumerable.Empty<ElementGroup>())
-                            .Where(element => element.SoaStages?.FirstOrDefault()?.Assessor != null)
-                            .Select(element =>
-                            {
-                                var soaStage = element.SoaStages!.First();
-                                var assessor = soaStage.Assessor!;
+                var heatNetworks = await _hnCollection.Find(filter).ToListAsync();                
 
-                                return new AssignedAssessor
+                var assignedAssessors = new List<AssignedAssessor>();
+                var elements = heatNetworks.SelectMany(hn => hn.NetworkElements?.ElementsGroup ?? Enumerable.Empty<ElementGroup>());
+                foreach (var element in elements)
+                {
+                    foreach (var soaStage in element.SoaStages)
+                    {
+                        if (soaStage.Assessors != null && soaStage.Assessors.Count > 0)
+                        {
+                            foreach (var assessor in soaStage.Assessors)
+                            {
+                                assignedAssessors.Add(new AssignedAssessor
                                 {
                                     Name = $"{assessor.FirstName} {assessor.LastName}".Trim(),
                                     Email = assessor.Email,
-                                    HeatNetworkName = hn.Name,
+                                    HeatNetworkName = heatNetworks.FirstOrDefault(hn => hn.NetworkElements?.ElementsGroup.Contains(element) == true)?.Name,
                                     Status = assessor.Status,
+                                    ElementsAssigned = HeatNetworkHelper.GetNetworkElementLabelByElementId(element.ElementType.ToString()),
                                     AssessorUpdatedAt = soaStage.AssessorUpdatedAt
-                                };
-                            })
-                    )
-                    .ToList();
+                                });
+                            }
+                        }
+                    }                    
+                }
 
                 // Group by HeatNetwork and Assessor, then aggregate element assignments
                 var groupedAssessors = assignedAssessors
@@ -319,7 +322,7 @@ namespace HNTAS.Core.Api.Services
                         Name = g.First().Name,
                         Status = g.First().Status,
                         ElementsAssignedList = g.Select(a => a.ElementsAssigned).ToList()!,
-                        ElementsAssigned = string.Join(", ", g.Select(a => a.ElementsAssigned)),
+                        ElementsAssigned = string.Join(", ", g.Select(a => a.ElementsAssigned).Distinct()),
                         AssessorUpdatedAt = g.Max(a => a.AssessorUpdatedAt)
                     })
                     .AsQueryable();
@@ -348,7 +351,7 @@ namespace HNTAS.Core.Api.Services
             {
                 _logger.LogError(ex, "Error fetching assigned assessors: {Message}", ex.Message);
                 throw;
-            }            
+            }
         }
 
         private static IQueryable<AssignedAssessor> ApplySorting(

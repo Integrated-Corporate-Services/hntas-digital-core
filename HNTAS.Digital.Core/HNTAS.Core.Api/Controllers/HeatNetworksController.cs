@@ -145,6 +145,45 @@ namespace HNTAS.Core.Api.Controllers
             }
         }
 
+        [HttpGet("heat-network-by-userId")]
+        [Consumes(MediaTypeNames.Application.Json)]
+        [ProducesResponseType(typeof(HeatNetworkResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<List<HeatNetworkResponse>>> GetHeatNetworksByUserId(string userId) 
+        {
+            if (string.IsNullOrEmpty(userId))
+            {
+                _logger.LogWarning("GetHeatNetworksByUserId called with empty user Id");
+                return BadRequest("Please provide a valid user Id.");
+            }
+            try
+            {
+                var userDetails = await _userService.GetByIdAsync(userId);
+                var heatNetworks = new List<HeatNetworkResponse>();
+                foreach(var hnMapping in userDetails.HnRoleMappings)
+                {
+                    var heatNetwork = await _hnService.GetByHnIdAsync(hnMapping.HnId);
+
+                    if (heatNetwork == null)
+                    {
+                        _logger.LogInformation("No heat networks found for the provided ID: {HeatNetworkId}", StringFormatter.Sanitize(hnMapping.HnId));
+                        return NotFound("No heat network found for the given ID.");
+                    }
+
+                    var heatNetworkResponse = _mapper.Map<HeatNetworkResponse>(heatNetwork);
+                    heatNetworks.Add(heatNetworkResponse);
+                }
+                return heatNetworks;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while retrieving heat networks for ID: {UserId}", StringFormatter.Sanitize(userId));
+                return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while retrieving the heat networks.");
+            }
+        }
+
 
 
         [HttpPost("add-heat-network")]

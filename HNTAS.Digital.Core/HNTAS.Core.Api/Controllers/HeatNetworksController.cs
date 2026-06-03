@@ -147,7 +147,7 @@ namespace HNTAS.Core.Api.Controllers
 
         [HttpGet("heat-network-by-userId")]
         [Consumes(MediaTypeNames.Application.Json)]
-        [ProducesResponseType(typeof(HeatNetworkResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(List<HeatNetworkResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]

@@ -1,10 +1,13 @@
-﻿using MongoDB.Bson.Serialization.Attributes;
+﻿﻿using HNTAS.Core.Api.Enums;
+using MongoDB.Bson;
+using MongoDB.Bson.Serialization.Attributes;
 
 namespace HNTAS.Core.Api.Data.Models
 {
     public class ElementBase
     {
         [BsonElement("elementType")]
-        public string? ElementType { get; set; }
+        [BsonRepresentation(BsonType.String)]
+        public ElementTypeInShort ElementType { get; set; }
     }
 }

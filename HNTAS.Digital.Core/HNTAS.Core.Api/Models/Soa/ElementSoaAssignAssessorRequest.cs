@@ -1,4 +1,4 @@
-﻿using HNTAS.Core.Api.Enums;
+﻿﻿using HNTAS.Core.Api.Enums;
 
 namespace HNTAS.Core.Api.Models.Soa
 {

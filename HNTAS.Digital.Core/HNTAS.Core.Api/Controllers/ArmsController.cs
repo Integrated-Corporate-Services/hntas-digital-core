@@ -507,59 +507,59 @@ namespace HNTAS.Core.Api.Controllers
         /// </summary>
         /// <param name="networkId"></param>
         /// <returns></returns>
-        //[HttpGet("/arms/v2/hn/{networkId}/kpi-config")]
-        //[ProducesResponseType(typeof(KpiConfigResponse), StatusCodes.Status200OK)]
-        //[ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
-        //[ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
-        //public async Task<ActionResult<KpiConfigResponse>> GetKpiConfigV2(string networkId)
-        //{
-        //    _logger.LogInformation("ARMS KPI Config Request Received for Network: {NetworkId}", networkId);
+        [HttpGet("/arms/v2/hn/{networkId}/kpi-config")]
+        [ProducesResponseType(typeof(KpiConfigResponseV2), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<KpiConfigResponseV2>> GetKpiConfigV2(string networkId)
+        {
+            _logger.LogInformation("ARMS KPI Config Request Received for Network: {NetworkId}", networkId);
 
-        //    if (string.IsNullOrEmpty(networkId) || !Regex.IsMatch(networkId, @"^HN[0-9]{7}$"))
-        //    {
-        //        _logger.LogWarning("Invalid NetworkId format received: {NetworkId}", networkId);
-        //        return BadRequest(new ProblemDetails
-        //        {
-        //            Status = StatusCodes.Status400BadRequest,
-        //            Title = "Invalid NetworkId",
-        //            Detail = "The NetworkId must follow the format: HN followed by 7 digits (e.g., HN1234567).",
-        //            Type = null
-        //        });
-        //    }
+            if (string.IsNullOrEmpty(networkId) || !Regex.IsMatch(networkId, @"^HN[0-9]{7}$"))
+            {
+                _logger.LogWarning("Invalid NetworkId format received: {NetworkId}", networkId);
+                return BadRequest(new ProblemDetails
+                {
+                    Status = StatusCodes.Status400BadRequest,
+                    Title = "Invalid NetworkId",
+                    Detail = "The NetworkId must follow the format: HN followed by 7 digits (e.g., HN1234567).",
+                    Type = null
+                });
+            }
 
-        //    try
-        //    {
-        //        var config = await _kpiService.GetConfigurationAsync(networkId);
+            try
+            {
+                var config = await _kpiService.GetConfigurationAsync(networkId);
 
-        //        if (config == null)
-        //        {
-        //            _logger.LogWarning("KPI Config search returned no results for Network: {NetworkId}", networkId);
-        //            return NotFound(new ProblemDetails
-        //            {
-        //                Status = StatusCodes.Status404NotFound,
-        //                Title = "Configuration Not Found",
-        //                Detail = $"No KPI configuration could be found for the network ID: {networkId}.",
-        //                Type = null
-        //            });
-        //        }
+                if (config == null)
+                {
+                    _logger.LogWarning("KPI Config search returned no results for Network: {NetworkId}", networkId);
+                    return NotFound(new ProblemDetails
+                    {
+                        Status = StatusCodes.Status404NotFound,
+                        Title = "Configuration Not Found",
+                        Detail = $"No KPI configuration could be found for the network ID: {networkId}.",
+                        Type = null
+                    });
+                }
 
-        //        var response = _mapper.Map<KpiConfigResponse>(config);
+                var response = _mapper.Map<KpiConfigResponseV2>(config);
 
-        //        return Ok(response);
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        _logger.LogError(ex, "Error retrieving KPI Config for Network: {NetworkId}", networkId);
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving KPI Config for Network: {NetworkId}", networkId);
 
-        //        return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
-        //        {
-        //            Status = StatusCodes.Status500InternalServerError,
-        //            Title = "Error retrieving configuration",
-        //            Detail = "An unexpected error occurred while fetching the KPI configuration.",
-        //            Type = null
-        //        });
-        //    }
-        //}
+                return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
+                {
+                    Status = StatusCodes.Status500InternalServerError,
+                    Title = "Error retrieving configuration",
+                    Detail = "An unexpected error occurred while fetching the KPI configuration.",
+                    Type = null
+                });
+            }
+        }
 
         /// <summary>
         /// Creates or updates the KPI configuration for a specific network.
@@ -616,49 +616,49 @@ namespace HNTAS.Core.Api.Controllers
         /// </summary>
         /// <param name="request"></param>
         /// <returns></returns>
-        //[HttpPost("/arms/v2/hn/kpi-config")]
-        //[ProducesResponseType(StatusCodes.Status200OK)]
-        //[ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
-        //[ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
-        //public async Task<IActionResult> SaveConfigV2([FromBody] KpiConfigRequestV2 request)
-        //{
-        //    _logger.LogInformation("Received request to Save/Update KPI Config for NetworkId: {NetworkId}", request?.NetworkId);
+        [HttpPost("/arms/v2/hn/kpi-config")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> SaveConfigV2([FromBody] KpiConfigRequestV2 request)
+        {
+            _logger.LogInformation("Received request to Save/Update KPI Config for NetworkId: {NetworkId}", request?.NetworkId);
 
-        //    if (request == null || string.IsNullOrEmpty(request.NetworkId))
-        //    {
-        //        _logger.LogWarning("SaveConfig failed: Request body or NetworkId is missing.");
-        //        return StatusCode(StatusCodes.Status400BadRequest, new ProblemDetails
-        //        {
-        //            Status = StatusCodes.Status500InternalServerError,
-        //            Title = "An error occurred while processing your request.",
-        //            Detail = "Invalid configuration data.",
-        //            Type = null
-        //        });
-        //    }
+            if (request == null || string.IsNullOrEmpty(request.NetworkId))
+            {
+                _logger.LogWarning("SaveConfig failed: Request body or NetworkId is missing.");
+                return StatusCode(StatusCodes.Status400BadRequest, new ProblemDetails
+                {
+                    Status = StatusCodes.Status500InternalServerError,
+                    Title = "An error occurred while processing your request.",
+                    Detail = "Invalid configuration data.",
+                    Type = null
+                });
+            }
 
-        //    try
-        //    {
-        //        var configModel = _mapper.Map<KpiConfiguration>(request);
+            try
+            {
+                var configModel = _mapper.Map<KpiConfiguration>(request);
 
-        //        await _kpiService.CreateOrUpdateConfigurationAsync(configModel);
+                await _kpiService.CreateOrUpdateConfigurationAsync(configModel);
 
-        //        _logger.LogInformation("Successfully saved KPI Configuration for NetworkId: {NetworkId}", request.NetworkId);
+                _logger.LogInformation("Successfully saved KPI Configuration for NetworkId: {NetworkId}", request.NetworkId);
 
-        //        return Ok(new { message = "Configuration saved successfully" });
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        _logger.LogError(ex, "Error occurred while saving KPI Configuration for NetworkId: {NetworkId}", request.NetworkId);
+                return Ok(new { message = "Configuration saved successfully" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while saving KPI Configuration for NetworkId: {NetworkId}", request.NetworkId);
 
-        //        return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
-        //        {
-        //            Status = StatusCodes.Status500InternalServerError,
-        //            Title = "An error occurred while processing your request.",
-        //            Detail = ex.Message,
-        //            Type = null
-        //        });
-        //    }
-        //}
+                return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
+                {
+                    Status = StatusCodes.Status500InternalServerError,
+                    Title = "An error occurred while processing your request.",
+                    Detail = ex.Message,
+                    Type = null
+                });
+            }
+        }
 
 
         // Helper to keep the "Type" link out of our GOV.UK style response

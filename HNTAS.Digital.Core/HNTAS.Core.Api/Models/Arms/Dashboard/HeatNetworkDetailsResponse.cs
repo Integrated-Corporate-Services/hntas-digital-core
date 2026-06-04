@@ -31,7 +31,10 @@
         public string ElementId { get; set; } = string.Empty;
         public string ElementType { get; set; } = string.Empty;
         public List<KpiDetailDto> Kpis { get; set; } = new();
+
+        public decimal? TotalCarbonEmission { get; set; }
     }
+
 
     public class KpiDetailDto
     {

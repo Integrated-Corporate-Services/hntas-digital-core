@@ -176,7 +176,8 @@ namespace HNTAS.Core.Api.Controllers
                         Status = kvp.Value.AssessmentStatus.GetDescription(),
                         IsImputed = kvp.Value.IsKpiImputed,
                         ImputationDetails = kvp.Value.KpiImputationDetails
-                    }).ToList()
+                    }).ToList(),
+                    TotalCarbonEmission = e.CarbonCalculatorResponse?.TotalCarbonEmission ?? null
                 })
             // Only include elements that actually have KPIs after filtering
             .Where(e => e.Kpis.Any())

@@ -12,6 +12,8 @@ namespace HNTAS.Core.Api.Controllers
         public int HeatNetworksUpdated { get; set; }
         public int UsersInserted { get; set; }
         public int UsersUpdated { get; set; }
+        public List<OfgemDataModelForNotification> DataForExistingOrgOrUser { get; set; } = new List<OfgemDataModelForNotification>();
+        public List<OfgemDataModelForNotification> DataForNewOrgOrUser { get; set; } = new List<OfgemDataModelForNotification>();
         public List<string> Errors { get; set; } = new List<string>();
     }    
 
@@ -45,6 +47,8 @@ namespace HNTAS.Core.Api.Controllers
             try
             {
                 var result = await _csvImportService.ImportFromCsvAsync(file, ct);
+
+                // TODO: Email notification to be implemented
                 return Ok(result);
             }
             catch (OperationCanceledException)

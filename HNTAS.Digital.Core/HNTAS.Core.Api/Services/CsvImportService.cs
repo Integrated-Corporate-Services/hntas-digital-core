@@ -1,7 +1,7 @@
 ﻿using HNTAS.Core.Api.Controllers;
 using HNTAS.Core.Api.Data.Models;
+using HNTAS.Core.Api.Data.Models.External;
 using HNTAS.Core.Api.Interfaces;
-using MongoDB.Bson;
 using MongoDB.Driver;
 using System.Text;
 
@@ -53,8 +53,9 @@ namespace HNTAS.Core.Api.Services
                 return result;
             }
 
-            var importContext = new ImportContext();
             int lineNumber = 1;
+
+            var ofgemDataModelPostImportList = new List<OfgemDataModelPostImport>();
 
             await foreach (var line in csvParser.ReadLinesAsync(stream, ct))
             {
@@ -63,7 +64,17 @@ namespace HNTAS.Core.Api.Services
 
                 try
                 {
-                    await ProcessCsvLineAsync(line, headerIndex, lineNumber, importContext, result, ct);
+                    var row = ParseCsvRow(line, headerIndex);
+
+                    if (!ValidateRow(row, lineNumber, result))
+                    {
+                        continue;
+                    }
+
+                    result.RowsProcessed++;
+
+                    await ProcessNetworkCreatonThroughOrgOrUserExistance(row, result, ofgemDataModelPostImportList, ct);
+
                 }
                 catch (Exception ex)
                 {
@@ -71,35 +82,33 @@ namespace HNTAS.Core.Api.Services
                     result.Errors.Add($"Line {lineNumber}: {ex.Message}");
                 }
             }
+            
+            var dataForExistingOrgOrUser = ofgemDataModelPostImportList
+                .Where(x => x.IsUserOrOrganisationExist)
+                .GroupBy(x => x.UserEmailId)
+                .Select(g => new OfgemDataModelForNotification
+                {
+                    UserEmailId = g.Key,
+                    OrganisationId = g.First().OrganisationId,
+                    OrganisationName = g.First().OrganisationName,
+                    HeatNetworkIds = g.Select(x => x.HeatNetworkId).ToList()
+                }).ToList();
 
-            return result;
-        }
+            var dataForNewOrgOrUser = ofgemDataModelPostImportList
+                .Where(x => !x.IsUserOrOrganisationExist)
+                .GroupBy(x => x.UserEmailId)
+                .Select(g => new OfgemDataModelForNotification
+                {
+                    UserEmailId = g.Key,
+                    OrganisationId = string.Empty,
+                    OrganisationName = g.First().OrganisationName,
+                    HeatNetworkIds = g.Select(x => x.HeatNetworkId).ToList()
+                }).ToList();
 
-        private async Task ProcessCsvLineAsync(
-            string line,
-            Dictionary<string, int> headerIndex,
-            int lineNumber,
-            ImportContext context,
-            ImportResult result,
-            CancellationToken ct)
-        {
-            var row = ParseCsvRow(line, headerIndex);
+            result.DataForExistingOrgOrUser = dataForExistingOrgOrUser;
+            result.DataForNewOrgOrUser = dataForNewOrgOrUser;
 
-            if (!ValidateRow(row, lineNumber, result))
-            {
-                return;
-            }
-
-            result.RowsProcessed++;
-
-            // Process User and Organisation (only once per import)
-            if (!context.IsInitialized)
-            {
-                await InitializeUserAndOrganisationAsync(row, context, result, ct);
-            }
-
-            // Process Heat Network (for each row)
-            await ProcessHeatNetworkAsync(row, context, result, ct);
+            return result;            
         }
 
         private CsvRow ParseCsvRow(string line, Dictionary<string, int> headerIndex)
@@ -136,10 +145,6 @@ namespace HNTAS.Core.Api.Services
             if (string.IsNullOrWhiteSpace(row.OneLoginId)) missingFields.Add("OneLoginId");
             if (string.IsNullOrWhiteSpace(row.HnId)) missingFields.Add("HnId");
 
-            //var hasOrgIdentifier = !string.IsNullOrWhiteSpace(row.CompaniesHouseNo) ||
-            //                     (!string.IsNullOrWhiteSpace(row.OrganisationName) &&
-            //                      !string.IsNullOrWhiteSpace(row.OrgStreetAddress) &&
-            //                      !string.IsNullOrWhiteSpace(row.OrgPostcode));
             var hasOrgIdentifier = !string.IsNullOrWhiteSpace(row.CompaniesHouseNo);
             if (!hasOrgIdentifier)
             {
@@ -155,142 +160,79 @@ namespace HNTAS.Core.Api.Services
             return true;
         }
 
-        private async Task InitializeUserAndOrganisationAsync(
-            CsvRow row,
-            ImportContext context,
+        private async Task ProcessNetworkCreatonThroughOrgOrUserExistance(
+            CsvRow row,            
             ImportResult result,
+            List<OfgemDataModelPostImport> ofgemDataModelPostImportList,
             CancellationToken ct)
         {
-            // Process User
-            var existingRpUser = await _userService.GetRpAsync();
 
-            if (existingRpUser == null)
-            {
-                context.User = await CreateUserAsync(row, result);
-            }
-            else
-            {
-                context.User = existingRpUser;
-                context.PostImportData.IsUserExist = true;
-                result.UsersUpdated++;
-                _logger.LogInformation("User {UserId} already exists.", context.UserId);
-            }
-
-            context.PostImportData.UserId = context.UserId;
-            context.PostImportData.UserEmailId = context.User.EmailId;
-
-            // Process Organisation
+            // Check organisation type based on presence of CompaniesHouseNo
             var orgType = !string.IsNullOrWhiteSpace(row.CompaniesHouseNo)
                 ? Enums.OrganisationType.UkCompaniesHouse
                 : Enums.OrganisationType.OtherUkOrganisation;
 
-            Organisation? orgAssociatedWithUser = null;
-            if (!string.IsNullOrEmpty(context.User.OrgId))
+            Organisation? orgDetails = null;
+            if (orgType == Enums.OrganisationType.UkCompaniesHouse)
             {
                 // find if the associated OrgId is based on CompanyHouseNumber
-                orgAssociatedWithUser = await _organisationService.GetByOrgIdAsync(context.User.OrgId);
-            }
-            if (!string.IsNullOrEmpty(orgAssociatedWithUser?.CompaniesHouseNumber))
-            {
-                context.OrganisationId = context.User.OrgId!;
-                context.PostImportData.IsOrganisationExist = true;
-                _logger.LogInformation("Organisation already associated with user.");
-            }
-            else
-            {
-                //var existingOrg = await FindExistingOrganisationAsync(row, orgType);
+                orgDetails = await _organisationService.GetByCompanyHouseNumberAsync(row.CompaniesHouseNo);
 
-                var existingOrg = await FindExistingOrganisationAsync(row);
-
-                if (existingOrg != null)
+                // Org exists
+                if (orgDetails != null)
                 {
-                    context.OrganisationId = existingOrg.OrgId;
-                    context.PostImportData.IsOrganisationExist = true;
-                    context.User.OrgId = context.OrganisationId;
-                    await _userService.UpdateOrgIdAsync(context.UserId, context.OrganisationId);
-                    _logger.LogInformation("Organisation already exists. Linked to user.");
+                    // Create a network and link to the org
+                    await ProcessHeatNetworkAsync(row, result, ofgemDataModelPostImportList, orgDetails.RpUserId!, orgDetails.OrgId!, orgDetails.Name, ct);
                 }
                 else
                 {
-                    context.OrganisationId = await CreateOrganisationAsync(row, orgType, context.UserId, result);
-                    context.User.OrgId = context.OrganisationId;
-                    await _userService.UpdateOrgIdAsync(context.UserId, context.OrganisationId);
-                    _logger.LogInformation("Created new organisation and linked to user.");
+                    await ProcessNetworkCreationThroughUserExistance(row, result, ofgemDataModelPostImportList, ct);                    
                 }
             }
-
-            context.PostImportData.OrganisationId = context.OrganisationId;
-            context.IsInitialized = true;
-        }
-
-        private async Task<User> CreateUserAsync(CsvRow row, ImportResult result)
-        {
-            var newUser = new User
+            else
             {
-                EmailId = row.EmailId,
-                OneLoginId = row.OneLoginId,
-                PreferredContactType = Enums.PreferredContactType.Mobile,
-                MobileNumber = row.PhoneNumber,
-                Roles = new List<Enums.UserRole> { Enums.UserRole.ResponsiblePerson },
-                HnRoleMappings = new List<HnRoleMapping>(),
-                Status = Enums.UserStatus.Active,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            await _userService.CreateAsync(newUser);
-            result.UsersInserted++;
-            _logger.LogInformation("Created new User {UserId}.", newUser.Id);
-
-            return newUser;
+                await ProcessNetworkCreationThroughUserExistance(row, result, ofgemDataModelPostImportList, ct);
+            }           
         }
 
-        //private async Task<Organisation?> FindExistingOrganisationAsync(CsvRow row, Enums.OrganisationType orgType)
-        //{
-        //    return orgType == Enums.OrganisationType.UkCompaniesHouse
-        //        ? await _organisationService.GetByCompanyHouseNumberAsync(row.CompaniesHouseNo)
-        //        : await _organisationService.GetByOrgIdOrNameAsync(row.OrganisationName);
-        //}
-
-        private async Task<Organisation?> FindExistingOrganisationAsync(CsvRow row)
-        {
-            return await _organisationService.GetByCompanyHouseNumberAsync(row.CompaniesHouseNo);
-        }
-
-        private async Task<string> CreateOrganisationAsync(
-            CsvRow row,
-            Enums.OrganisationType orgType,
-            string userId,
-            ImportResult result)
-        {
-            var newOrg = new Organisation
-            {
-                Type = orgType,
-                OrgId = $"ORG{await _orgCounterService.GetNextSequenceValue("orgId_sequence"):D7}",
-                CompaniesHouseNumber = orgType == Enums.OrganisationType.UkCompaniesHouse ? row.CompaniesHouseNo : null,
-                Name = row.OrganisationName,
-                RegisteredAddress = new RegisteredAddress
-                {
-                    AddressLine1 = row.OrgStreetAddress,
-                    Town = row.OrgTown,
-                    Postcode = row.OrgPostcode,
-                    Country = "United Kingdom"
-                },
-                HnIds = new List<string>(),
-                CreatedBy = userId,
-                CreatedAt = ParseDate(row.DateOfOrgRegistration)
-            };
-
-            await _organisationService.CreateAsync(newOrg);
-            result.OrganisationsInserted++;
-            _logger.LogInformation("Created Organisation {OrgName}.", newOrg.Name);
-
-            return newOrg.OrgId;
-        }
-
-        private async Task ProcessHeatNetworkAsync(
-            CsvRow row,
-            ImportContext context,
+        private async Task ProcessNetworkCreationThroughUserExistance(CsvRow row,
             ImportResult result,
+            List<OfgemDataModelPostImport> ofgemDataModelPostImportList,
+            CancellationToken ct)
+        {
+            // Check with user id
+            var user = await _userService.GetByEmailAsync(row.EmailId);
+            // User exists and has RP role
+            if (user != null && user.Roles.Contains(Enums.UserRole.ResponsiblePerson))
+            {
+                // Get org details for the user
+                var userOrgDetails = await _organisationService.GetByOrgIdAsync(user.OrgId!);
+                // Create a network and link to the user and org
+                await ProcessHeatNetworkAsync(row, result, ofgemDataModelPostImportList, user.Id!, user.OrgId!, userOrgDetails.Name, ct);
+            }
+            else
+            {
+                // Send email to user to reg their org and heat network
+                var ofgemDataModelPostImport = new OfgemDataModelPostImport
+                {
+                    HeatNetworkId = row.HnId!,
+                    OrganisationId = string.Empty,
+                    OrganisationName = row.OrganisationName,
+                    UserId = string.Empty,
+                    UserEmailId = row.EmailId,
+                    IsUserOrOrganisationExist = false
+                };
+
+                ofgemDataModelPostImportList.Add(ofgemDataModelPostImport);
+            }
+        }
+        private async Task ProcessHeatNetworkAsync(
+            CsvRow row,            
+            ImportResult result,
+            List<OfgemDataModelPostImport> ofgemDataModelPostImportList,
+            string userId,
+            string hntasOrgId,
+            string hntasOrgName,
             CancellationToken ct)
         {
             var existingHn = await _heatNetworkService.GetByHnIdAsync(row.HnId);
@@ -305,6 +247,7 @@ namespace HNTAS.Core.Api.Services
             {
                 HnId = row.HnId,
                 UHnId = row.HnId.Replace("HN", ""),
+                OrgId = hntasOrgId,
                 Name = row.HnName,
                 Address = new RegisteredAddress
                 {
@@ -319,14 +262,25 @@ namespace HNTAS.Core.Api.Services
                     Longitude = ParseDecimal(row.EcLongitude)
                 },
                 RegistrationSource = Enums.RegistrationSource.OFGEM,
-                CreatedBy = context.UserId,
+                CreatedBy = userId,
                 CreatedAt = ParseDate(row.DateOfHnRegistration)
             };
 
             await _heatNetworkService.CreateAsync(newHn);
-            await _organisationService.UpdateAsync(context.OrganisationId, row.HnId);
+            await _organisationService.UpdateAsync(hntasOrgId, row.HnId);
+            await _userService.UpdateUserNetwork(userId, row.HnId);
 
-            context.PostImportData.HeatNetworkId.Add(row.HnId);
+            var ofgemDataModelPostImport = new OfgemDataModelPostImport
+            {
+                HeatNetworkId = row.HnId!,
+                OrganisationId = hntasOrgId,
+                OrganisationName = hntasOrgName,
+                UserId = userId,
+                UserEmailId = row.EmailId,
+                IsUserOrOrganisationExist = true
+            };
+
+            ofgemDataModelPostImportList.Add(ofgemDataModelPostImport);
             result.HeatNetworksInserted++;
             _logger.LogInformation("Created HeatNetwork {HnId}.", row.HnId);
         }
@@ -371,15 +325,6 @@ namespace HNTAS.Core.Api.Services
         public string EcPostcode { get; set; } = string.Empty;
         public string EcLatitude { get; set; } = string.Empty;
         public string EcLongitude { get; set; } = string.Empty;
-    }
-
-    internal class ImportContext
-    {
-        public User? User { get; set; }
-        public string UserId => User?.Id ?? string.Empty;
-        public string OrganisationId { get; set; } = string.Empty;
-        public bool IsInitialized { get; set; }
-        public OfgemDataModelPostImport PostImportData { get; set; } = new();
     }
 
     internal class CsvParser
@@ -463,11 +408,19 @@ namespace HNTAS.Core.Api.Services
 
     public class OfgemDataModelPostImport
     {
-        public List<string> HeatNetworkId { get; set; } = new();
+        public string HeatNetworkId { get; set; } = string.Empty;
         public string OrganisationId { get; set; } = string.Empty;
+        public string OrganisationName { get; set; } = string.Empty;
         public string UserId { get; set; } = string.Empty;
         public string UserEmailId { get; set; } = string.Empty;
-        public bool IsUserExist { get; set; }
-        public bool IsOrganisationExist { get; set; }
+        public bool IsUserOrOrganisationExist { get; set; }
+    }
+
+    public class OfgemDataModelForNotification
+    {
+        public List<string> HeatNetworkIds { get; set; }
+        public string OrganisationId { get; set; } = string.Empty;
+        public string OrganisationName { get; set; } = string.Empty;
+        public string UserEmailId { get; set; } = string.Empty;
     }
 }

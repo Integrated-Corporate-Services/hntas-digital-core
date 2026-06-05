@@ -13,6 +13,7 @@ using HNTAS.Core.Api.Services;
 using HNTAS.Core.Api.Validators.Arms;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
+using MongoDB.Bson;
 using MongoDB.Driver;
 using System.Text.RegularExpressions;
 
@@ -260,6 +261,22 @@ namespace HNTAS.Core.Api.Controllers
                         var inputs = element.CarbonInputsV2;
                         var dataModelElement = dataModel.Elements.FirstOrDefault(e => e.ElementId == element.ElementId);
 
+                        var config = await _kpiService.GetConfigurationAsync(request.MetaData.NetworkId);
+
+                        var configDefaults = config?.CarbonCalculatorDefaults ?? new Dictionary<string, BsonValue>();
+
+                        if (configDefaults == null || !configDefaults.Any())
+                        {
+                            _logger.LogWarning("No Carbon Calculator defaults found in configuration for Network: {NetworkId}. Carbon calculation will be skipped for this submission.", request.MetaData.NetworkId);
+                            return BadRequest(new ProblemDetails
+                            {
+                                Status = StatusCodes.Status400BadRequest,
+                                Title = "Carbon Calculator Configuration Missing",
+                                Detail = "The KPI configuration for this network does not contain the necessary defaults for carbon calculations. Please ensure the configuration is set up correctly.",
+                                Type = null
+                            });
+                        }
+
                         // Extract sections safely
                         inputs.TryGetValue("background", out var backgroundSection);
                         inputs.TryGetValue("chp_totals", out var chpSection);
@@ -278,6 +295,7 @@ namespace HNTAS.Core.Api.Controllers
                         int ec83 = blrSection != null && blrSection.TryGetValue("EC-KPI-83", out var kpi83) && decimal.TryParse(kpi83?.Value?.ToString(), out var parsedDecimal83) ? Convert.ToInt32(parsedDecimal83) : 0;
                         int ec85 = blrSection != null && blrSection.TryGetValue("EC-KPI-85", out var kpi85) && decimal.TryParse(kpi85?.Value?.ToString(), out var parsedDecimal85) ? Convert.ToInt32(parsedDecimal85) : 0;
 
+
                         var requestModel = new CarbonCalculatorRequest
                         {
                             Background = new Background
@@ -286,26 +304,26 @@ namespace HNTAS.Core.Api.Controllers
                                 DateWorkbookCompleted = backgroundSection != null && backgroundSection.TryGetValue("EC-KPI-19", out var kpi19)
                                     ? kpi19.Value.ToString()
                                     : null,
-                                NetworkStatus = "existing",
-                                NetworkServiceProvision = "both",
-                                Name = "Arms Sample API Call",
-                                NetworkID = "HN0001234",
+                                NetworkStatus = configDefaults["EC-KPI-20"].ToString(),
+                                NetworkServiceProvision = configDefaults["EC-KPI-21"].ToString(),
+                                Name = request.MetaData.NetworkId + "- Arms Sample API Call",
+                                NetworkID = request.MetaData.NetworkId,
                                 NetworkName = "Sample Heat Network",
                                 PostcodeOfThePrimaryEnergyCentre = "M4 4HB",
-                                ContactEmail = "admin@sample.com",
-                                CommissioningDate = "2026-09-14"
+                                ContactEmail = configDefaults["EC-KPI-32"].ToString(),
+                                CommissioningDate = configDefaults["EC-KPI-35"].ToString()
                             },
                             Energy = new Energy
                             {
-                                YearCount = 1,
-                                StartYear = 2026,
+                                YearCount = configDefaults["EC-KPI-36"].AsInt32,
+                                StartYear = configDefaults["EC-KPI-37"].AsInt32,
                                 ChpCount = 1,
-                                EnergyHeatNetworkPrimaryLosses = [0],
+                                EnergyHeatNetworkPrimaryLosses = [configDefaults["EC-KPI-38"].AsInt32],
                                 ChpInputs = new List<ChpInput>
                             {
                                 new ChpInput
                                 {
-                                    ChpFuelTypeInput = 17,
+                                    ChpFuelTypeInput = configDefaults["EC-KPI-50"].AsInt32,
                                     ChpInstallationDateInput = chpSection != null && chpSection.TryGetValue("EC-KPI-51", out var kpi51)
                                                             ? kpi51.Value.ToString()
                                                             : null,
@@ -313,10 +331,10 @@ namespace HNTAS.Core.Api.Controllers
                                     ChpUsefulHeatValue = [ec52],
                                     ChpElectricityGeneratedValue = [ec54],
                                     ChpFuelUsedValue = [ec56],
-                                    ChpHeatCoolingValue = [0],
-                                    ChpSleevingPCentValue = [0],
-                                    ChpMaxHeatOutput = 1000,
-                                    ChpMaxElectricityOutput = 1200,
+                                    ChpHeatCoolingValue = [configDefaults["EC-KPI-58"].AsInt32],
+                                    ChpSleevingPCentValue = [configDefaults["EC-KPI-60"].AsInt32],
+                                    ChpMaxHeatOutput = configDefaults["EC-KPI-62"].AsInt32,
+                                    ChpMaxElectricityOutput = configDefaults["EC-KPI-63"].AsInt32,
                                 }
                             },
                                 EppElectricityUsedForPumpingValue = [ec47],
@@ -325,12 +343,12 @@ namespace HNTAS.Core.Api.Controllers
                             {
                                new BoilerInput
                                {
-                                   BlrTypeFuelUsedInput = 17,
+                                   BlrTypeFuelUsedInput = configDefaults["EC-KPI-82"].AsInt32,
                                    BlrUsefulHeatGeneratedValue = [ec83],
                                    BlrFuelUsedByValue = [ec85],
-                                   BlrHeatUsedForCoolingProductionValue = [0],
-                                   BlrSleevingPCentValue = [0],
-                                   BlrMaxHeatOutput = 1000,
+                                   BlrHeatUsedForCoolingProductionValue = [configDefaults["EC-KPI-87"].AsInt32],
+                                   BlrSleevingPCentValue = [configDefaults["EC-KPI-89"].AsInt32],
+                                   BlrMaxHeatOutput = configDefaults["EC-KPI-91"].AsInt32,
                                }
                             },
                                 RecoveredCount = 0,
@@ -339,12 +357,12 @@ namespace HNTAS.Core.Api.Controllers
                                 HeatPumpInputs = hpmSection == null ? new List<HeatPumpInput>() : new List<HeatPumpInput>
                             {
                                 new HeatPumpInput {
-                                    HpmTypeFuelUsedInput = 11,
+                                    HpmTypeFuelUsedInput = configDefaults["EC-KPI-64"].AsInt32,
                                     HpmUsefulHeatGeneratedValue = [ec65],
                                     HpmEnergyUsedValue = [ec67],
-                                    HpmUsefulCoolingGeneratedValue = [0],
-                                    HpmSleevingPCentValue = [0],
-                                    HpmMaxHeatOutput = 1000,
+                                    HpmUsefulCoolingGeneratedValue = [configDefaults["EC-KPI-69"].AsInt32],
+                                    HpmSleevingPCentValue = [configDefaults["EC-KPI-71"].AsInt32],
+                                    HpmMaxHeatOutput = configDefaults["EC-KPI-73"].AsInt32,
                                 }
                             }
                             }
@@ -676,5 +694,7 @@ namespace HNTAS.Core.Api.Controllers
                 Errors = result.Errors ?? new List<KpiSubmissionApiError>()
             };
         }
+
+
     }
 }

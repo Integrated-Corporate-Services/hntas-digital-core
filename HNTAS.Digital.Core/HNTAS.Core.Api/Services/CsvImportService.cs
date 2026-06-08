@@ -1,6 +1,5 @@
 ﻿using HNTAS.Core.Api.Controllers;
 using HNTAS.Core.Api.Data.Models;
-using HNTAS.Core.Api.Data.Models.External;
 using HNTAS.Core.Api.Interfaces;
 using MongoDB.Driver;
 using System.Text;
@@ -224,6 +223,8 @@ namespace HNTAS.Core.Api.Services
                 };
 
                 ofgemDataModelPostImportList.Add(ofgemDataModelPostImport);
+
+                await CreateHeatNetwork(row, null, null);                
             }
         }
         private async Task ProcessHeatNetworkAsync(
@@ -242,7 +243,28 @@ namespace HNTAS.Core.Api.Services
                 _logger.LogInformation("HeatNetwork {HnId} already exists.", row.HnId);
                 return;
             }
+            
+            await CreateHeatNetwork(row, hntasOrgId, userId);
+            await _organisationService.UpdateAsync(hntasOrgId, row.HnId);
+            await _userService.UpdateUserNetwork(userId, row.HnId);
 
+            var ofgemDataModelPostImport = new OfgemDataModelPostImport
+            {
+                HeatNetworkId = row.HnId!,
+                OrganisationId = hntasOrgId,
+                OrganisationName = hntasOrgName,
+                UserId = userId,
+                UserEmailId = row.EmailId,
+                IsUserOrOrganisationExist = true
+            };
+
+            ofgemDataModelPostImportList.Add(ofgemDataModelPostImport);
+            result.HeatNetworksInserted++;
+            _logger.LogInformation("Created HeatNetwork {HnId}.", row.HnId);
+        }
+
+        private async Task CreateHeatNetwork(CsvRow row, string hntasOrgId, string userId)
+        {
             var newHn = new HeatNetwork
             {
                 HnId = row.HnId,
@@ -261,28 +283,14 @@ namespace HNTAS.Core.Api.Services
                     Latitude = ParseDecimal(row.EcLatitude),
                     Longitude = ParseDecimal(row.EcLongitude)
                 },
+                HeatNetworkType = Enums.HeatNetworkType.Unset,
                 RegistrationSource = Enums.RegistrationSource.OFGEM,
+                OfgemUserEmailId = string.IsNullOrEmpty(userId) ? row.EmailId : null,
                 CreatedBy = userId,
                 CreatedAt = ParseDate(row.DateOfHnRegistration)
             };
 
             await _heatNetworkService.CreateAsync(newHn);
-            await _organisationService.UpdateAsync(hntasOrgId, row.HnId);
-            await _userService.UpdateUserNetwork(userId, row.HnId);
-
-            var ofgemDataModelPostImport = new OfgemDataModelPostImport
-            {
-                HeatNetworkId = row.HnId!,
-                OrganisationId = hntasOrgId,
-                OrganisationName = hntasOrgName,
-                UserId = userId,
-                UserEmailId = row.EmailId,
-                IsUserOrOrganisationExist = true
-            };
-
-            ofgemDataModelPostImportList.Add(ofgemDataModelPostImport);
-            result.HeatNetworksInserted++;
-            _logger.LogInformation("Created HeatNetwork {HnId}.", row.HnId);
         }
 
         private static DateTime ParseDate(string dateString)

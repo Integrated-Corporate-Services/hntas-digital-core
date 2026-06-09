@@ -31,5 +31,18 @@ namespace HNTAS.Core.Api.Helpers
                 return [SoaStage.Stage1.ToString(), SoaStage.Stage2.ToString(), SoaStage.Stage3.ToString(), SoaStage.Stage4.ToString(), SoaStage.Stage5.ToString(), SoaStage.Stage6.ToString(), SoaStage.Stage7.ToString()];
             }                
         }
+
+        public static string GetNetworkElementLabelByElementId(string elementType)
+        {
+            return elementType switch
+            {
+                nameof(ElementTypeInShort.EC) => "Energy centre",
+                nameof(ElementTypeInShort.SS) => "Substation",
+                nameof(ElementTypeInShort.DDN) => "District distribution network",
+                nameof(ElementTypeInShort.CC) => "Consumer connections",
+                nameof(ElementTypeInShort.CDN) => "Communal distribution network",
+                _ => throw new ArgumentOutOfRangeException(elementType, $"Not expected heat network element type value: {elementType}")
+            };
+        }
     }
 }

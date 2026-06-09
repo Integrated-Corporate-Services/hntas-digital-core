@@ -41,7 +41,7 @@ namespace HNTAS.Digital.Core.Tests.Services
         {
             // Arrange
             var hnId = "HN0000001";
-            var elementId = "00001";
+            var elementId = ElementTypeInShort.EC;
             var stage = SoaStage.Stage1;
             var soaStatus = new List<SoaStatusWithCount>();
             var updatedBy = "user123";
@@ -76,7 +76,7 @@ namespace HNTAS.Digital.Core.Tests.Services
         {
             // Arrange
             var hnId = "HN0000001";
-            var elementId = "00001";
+            var elementId = ElementTypeInShort.EC;
             var stage = SoaStage.Stage2;
             var soaStatus = new List<SoaStatusWithCount>();
             var updatedBy = "user123";
@@ -111,7 +111,7 @@ namespace HNTAS.Digital.Core.Tests.Services
         {
             // Arrange
             var hnId = "HN0000001";
-            var elementId = "00001";
+            var elementId = ElementTypeInShort.EC;
             var stage = SoaStage.Stage1;
             var soaStatus = new List<SoaStatusWithCount>();
             var updatedBy = "user123";
@@ -145,7 +145,7 @@ namespace HNTAS.Digital.Core.Tests.Services
         {
             // Arrange
             var hnId = "HN0000001";
-            var elementId = "00001";
+            var elementId = ElementTypeInShort.EC;
             var stage = SoaStage.Stage1;
             var soaStatus = new List<SoaStatusWithCount>();
             var updatedBy = "user123";
@@ -177,7 +177,7 @@ namespace HNTAS.Digital.Core.Tests.Services
         {
             // Arrange
             var hnId = "HN0000001";
-            var elementId = "00001";
+            var elementId = ElementTypeInShort.EC;
             var stage = SoaStage.Stage1;
             var soaStatus = new List<SoaStatusWithCount>();
             var updatedBy = "user123";
@@ -212,7 +212,7 @@ namespace HNTAS.Digital.Core.Tests.Services
         {
             // Arrange
             var hnId = "HN0000001";
-            var elementId = "00001";
+            var elementId = ElementTypeInShort.EC;
             var stage = SoaStage.Stage3;
             var soaStatus = new List<SoaStatusWithCount>();
             var updatedBy = "user123";
@@ -247,7 +247,7 @@ namespace HNTAS.Digital.Core.Tests.Services
         {
             // Arrange
             var hnId = "HN0000001";
-            var elementId = "00001";
+            var elementId = ElementTypeInShort.EC;
             var stage = SoaStage.Stage1;
             var soaStatus = new List<SoaStatusWithCount>();
             var updatedBy = "user123";
@@ -293,7 +293,7 @@ namespace HNTAS.Digital.Core.Tests.Services
         {
             // Arrange
             var hnId = "HN0000001";
-            var elementId = "00001";
+            var elementId = ElementTypeInShort.EC;
             var soaStatus = new List<SoaStatusWithCount>();
             var updatedBy = "user123";
             var elementSoaStatus = NetworkDetailsStatus.InProgress;

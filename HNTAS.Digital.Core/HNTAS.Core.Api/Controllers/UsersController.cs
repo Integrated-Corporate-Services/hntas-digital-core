@@ -437,7 +437,7 @@ public class UsersController : ControllerBase
             {
                 _logger.LogWarning("User with ID '{UserId}' not found for organisation registration.", userId);
                 return NotFound($"User with ID '{userId}' was not found. Organisation was not created.");
-            }
+            }            
 
             var newOrganisation = new Organisation
             {
@@ -449,6 +449,14 @@ public class UsersController : ControllerBase
                 CreatedBy = userId,
                 CreatedAt = DateTime.UtcNow,
             };
+
+            // check if existing user is Network Manager, if yes then get the invitor's id to RP user id in the org
+            if (existingUser.Roles.Any() && existingUser.Roles.Contains(UserRole.NetworkManager))
+            {
+                var invitaions = await _invitationService.GetByInvitedEmailAsync(existingUser.EmailId);
+                if (invitaions != null)
+                    newOrganisation.RpUserId = invitaions.InviterUserId;
+            }
 
             await _organisationService.CreateAsync(newOrganisation);
 
@@ -1161,32 +1169,43 @@ public class UsersController : ControllerBase
 
     private async Task AddAssociatedNetworkManagerAndRpIds(Invitation invitation, List<string> actorIds)
     {
-        var invitorDetailsOfDdh = await _userService.GetByIdAsync(invitation.InviterUserId);
-        if (invitorDetailsOfDdh == null) return;
+        var invitorDetails = await _userService.GetByIdAsync(invitation.InviterUserId);
+        if (invitorDetails == null) return;
 
-        var role = invitorDetailsOfDdh.HnRoleMappings
+        var role = invitorDetails.HnRoleMappings
             .Where(mapping => mapping.HnId == invitation.InvitedHnId)
             .Select(mapping => mapping.Role)
             .FirstOrDefault();
 
-        var invitorOfDdh = await _invitationService.GetByInvitedDetailsAsync(
-            invitorDetailsOfDdh.EmailId,
-            invitation.InvitedHnId!,
-            role);
 
-        if (invitorOfDdh != null)
+        if (role == ContributorRole.NetworkManager)
         {
-            actorIds.Add(invitorOfDdh.InviterUserId!);
-            // check if the invitor is Network Manager, if yes then add RP to actorIds
-            var invitorDetailsOfNM = await _userService.GetByIdAsync(invitorOfDdh!.InviterUserId);
-            if (invitorDetailsOfNM != null && invitorDetailsOfNM.Roles.Contains(UserRole.NetworkManager))
+            var invitaions = await _invitationService.GetByInvitedEmailAsync(invitorDetails.EmailId!);
+            if (invitaions != null)
+                actorIds.AddRange(invitaions.InviterUserId);
+        }
+        else
+        {
+            var superInvitorDetails = await _invitationService.GetByInvitedDetailsAsync(
+                invitorDetails.EmailId,
+                invitation.InvitedHnId!,
+                role);
+
+            if (superInvitorDetails != null)
             {
-                // Get the RP user details and add to actorIds
-                var invitaions = await _invitationService.GetByInvitedEmailAsync(invitorDetailsOfNM.EmailId!);
-                if (invitaions != null)
-                    actorIds.AddRange(invitaions.InviterUserId);
+                actorIds.Add(superInvitorDetails.InviterUserId!);
+                // check if the invitor is Network Manager, if yes then add RP to actorIds
+                var invitorDetailsOfNM = await _userService.GetByIdAsync(superInvitorDetails!.InviterUserId);
+                if (invitorDetailsOfNM != null && invitorDetailsOfNM.Roles.Contains(UserRole.NetworkManager))
+                {
+                    // Get the RP user details and add to actorIds
+                    var invitaions = await _invitationService.GetByInvitedEmailAsync(invitorDetailsOfNM.EmailId!);
+                    if (invitaions != null)
+                        actorIds.AddRange(invitaions.InviterUserId);
+                }
             }
         }
+            
     }
 
 }

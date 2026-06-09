@@ -259,7 +259,7 @@ namespace HNTAS.Core.Api.Services
             }
         }
 
-        public async Task UpdateSoaStatus(string hnId, string elementType, SoaStage stage, List<SoaStatusWithCount> soaStatuses, string updatedBy, NetworkDetailsStatus elementSoaStatus)
+        public async Task UpdateSoaStatus(string hnId, ElementTypeInShort elementType, SoaStage stage, List<SoaStatusWithCount> soaStatuses, string updatedBy, NetworkDetailsStatus elementSoaStatus)
         {
             try
             {
@@ -280,7 +280,7 @@ namespace HNTAS.Core.Api.Services
                     Builders<HeatNetwork>.Filter.ElemMatch<ElementGroup>("networkElements.elementsGroup",
                         new MongoDB.Bson.BsonDocument
                         {
-                            { "elementType", elementType },
+                            { "elementType", elementType.ToString() },
                             { "soaStages.stageId", stage.ToString() }
                         })
                 );
@@ -294,7 +294,7 @@ namespace HNTAS.Core.Api.Services
                 var arrayFilters = new[]
                 {
                     new BsonDocumentArrayFilterDefinition<MongoDB.Bson.BsonDocument>(
-                        new MongoDB.Bson.BsonDocument("element.elementType", elementType)),
+                        new MongoDB.Bson.BsonDocument("element.elementType", elementType.ToString())),
                     new BsonDocumentArrayFilterDefinition<MongoDB.Bson.BsonDocument>(
                         new MongoDB.Bson.BsonDocument("stage.stageId", stage.ToString()))
                 };
@@ -320,7 +320,7 @@ namespace HNTAS.Core.Api.Services
                     var pushArrayFilters = new[]
                     {
                         new BsonDocumentArrayFilterDefinition<MongoDB.Bson.BsonDocument>(
-                            new MongoDB.Bson.BsonDocument("element.elementType", elementType))
+                            new MongoDB.Bson.BsonDocument("element.elementType", elementType.ToString()))
                     };
 
                     var pushOptions = new UpdateOptions { ArrayFilters = pushArrayFilters };
@@ -328,16 +328,16 @@ namespace HNTAS.Core.Api.Services
 
                     if (result.ModifiedCount > 0)
                     {
-                        _logger.LogInformation("Added document to existing element for HN ID: {HnId}, Stage: {Stage}, Element: {elementType}", StringFormatter.Sanitize(hnId), stage, StringFormatter.Sanitize(elementType));
+                        _logger.LogInformation("Added document to existing element for HN ID: {HnId}, Stage: {Stage}, Element: {elementType}", StringFormatter.Sanitize(hnId), stage, StringFormatter.Sanitize(elementType.ToString()));
                         return;
                     }
                 }
 
-                _logger.LogInformation("Updated ElementSoa document for HN ID: {HnId}, Stage: {Stage}, Element: {elementType}", StringFormatter.Sanitize(hnId), stage, StringFormatter.Sanitize(elementType));
+                _logger.LogInformation("Updated ElementSoa document for HN ID: {HnId}, Stage: {Stage}, Element: {elementType}", StringFormatter.Sanitize(hnId), stage, StringFormatter.Sanitize(elementType.ToString()));
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error updating SOA document for HN ID: {HnId}, Element: {elementType}, Stage: {Stage}", StringFormatter.Sanitize(hnId), StringFormatter.Sanitize(elementType), stage);
+                _logger.LogError(ex, "Error updating SOA document for HN ID: {HnId}, Element: {elementType}, Stage: {Stage}", StringFormatter.Sanitize(hnId), StringFormatter.Sanitize(elementType.ToString()), stage);
                 throw;
             }
 
@@ -350,13 +350,13 @@ namespace HNTAS.Core.Api.Services
             {                
                 if (initiateSoa)
                 {
-                    foreach (var elementId in request.ElementIds)
+                    foreach (var elementsAndAssessment in request.AssessorAssessmentForElements)
                     {
                         // First, ensure SoaStages is initialized
                         var initFilter = Builders<HeatNetwork>.Filter.And(
                             Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, request.HnId),
                             Builders<HeatNetwork>.Filter.ElemMatch(hn => hn.NetworkElements!.ElementsGroup,
-                                e => e.ElementType == "TODO: GetType" && e.SoaStages == null)
+                                e => e.ElementType == elementsAndAssessment.ElementType && e.SoaStages == null)
                         );
 
                         var initUpdate = Builders<HeatNetwork>.Update.Set("networkElements.elements.$.soaStages", new List<SoaStages>());
@@ -369,15 +369,11 @@ namespace HNTAS.Core.Api.Services
                 {
                     foreach (var networkElement in networkElements.ElementsGroup)
                     {
-                        //var isNetworkElementToUpdate = request.ElementIds.Contains(networkElement.ElementId!);
-                        var isNetworkElementToUpdate = request.ElementIds.Contains(networkElement.ElementType!);//"TODO: GetType"
+                        var isNetworkElementToUpdate = request.AssessorAssessmentForElements.Any(e => e.ElementType == networkElement.ElementType);
                         if (isNetworkElementToUpdate)
-                        {
-                            
-                            var stages = HeatNetworkHelper.GetStagesForPhase(phase);
+                        {                            
+                            var stage = request.SoaStage.ToString();
 
-                            foreach (var stage in stages)
-                            {
                                 var stageExists = networkElement.SoaStages?.Any(s => s.StageId.ToString() == stage) ?? false;
                                 if (stageExists)
                                 {
@@ -385,14 +381,33 @@ namespace HNTAS.Core.Api.Services
                                     {
                                         if (networkElementStage.StageId.ToString() == stage)
                                         {
-                                            networkElementStage.Assessor = new SoaAssessor
+                                            var assessorAssessments = request.AssessorAssessmentForElements.FirstOrDefault(e => e.ElementType == networkElement.ElementType)?.AssessorAssessments;
+
+                                            foreach (var assessorAssessment in assessorAssessments!)
                                             {
-                                                FirstName = request.AssessorFirstName,
-                                                LastName = request.AssessorLastName,
-                                                Email = request.AssessorEmail,
-                                                Status = UserStatus.Active,
-                                                Assessment = request.Assessment                                                
-                                            };                                            
+                                                // Initialize Assessors list if null (for backward compatibility with existing data)
+                                                networkElementStage.Assessors ??= [];
+                                                
+                                                var existingAssessor = networkElementStage.Assessors.FirstOrDefault(a => a.Email == assessorAssessment.AssessorEmail);
+                                                if (existingAssessor == null)
+                                                {
+                                                    networkElementStage.Assessors.Add(
+                                                        new SoaAssessor
+                                                        {
+                                                            FirstName = assessorAssessment.AssessorFirstName,
+                                                            LastName = assessorAssessment.AssessorLastName,
+                                                            Email = assessorAssessment.AssessorEmail,
+                                                            Status = UserStatus.Active,
+                                                            Assessment = assessorAssessment.Assessment
+                                                        });
+                                                }
+                                                else
+                                                {
+                                                    existingAssessor.Assessment = assessorAssessment.Assessment;
+                                                }
+
+                                            }
+                                                                                                
                                             networkElementStage.AssessorUpdatedAt = DateTime.UtcNow;
                                             networkElementStage.AssessorUpdatedBy = request.UpdatedBy;
                                         }
@@ -405,17 +420,17 @@ namespace HNTAS.Core.Api.Services
                                         StageId = Enum.Parse<SoaStage>(stage),                                        
                                         AssessorUpdatedAt = DateTime.UtcNow,
                                         AssessorUpdatedBy = request.UpdatedBy,
-                                        Assessor = new SoaAssessor
+                                        Assessors = request.AssessorAssessmentForElements.FirstOrDefault(e => e.ElementType == networkElement.ElementType)?.AssessorAssessments.Select(assessorAssessment => new SoaAssessor
                                         {
-                                            FirstName = request.AssessorFirstName,
-                                            LastName = request.AssessorLastName,
-                                            Email = request.AssessorEmail,
+                                            FirstName = assessorAssessment.AssessorFirstName,
+                                            LastName = assessorAssessment.AssessorLastName,
+                                            Email = assessorAssessment.AssessorEmail,
                                             Status = UserStatus.Active,
-                                            Assessment = request.Assessment
-                                        }
+                                            Assessment = assessorAssessment.Assessment
+                                        }).ToList() ?? new List<SoaAssessor>()                                        
                                     });
                                 }
-                            }
+                        
                             _logger.LogInformation("Updated Assigned Assessor for HN ID: {HnId}, Element(s): {Element}", StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(string.Join(", ", networkElementsName)));
                         }                        
                     }

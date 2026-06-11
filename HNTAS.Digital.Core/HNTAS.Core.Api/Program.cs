@@ -90,6 +90,8 @@ builder.Services.AddScoped<ICarbonCalculatorService, CarbonCalculatorService>();
 builder.Services.AddScoped<ICsvImportService, CsvImportService>();
 
 builder.Services.AddScoped<IHNDataImportExportService, HNDataImportExportService>();
+builder.Services.AddScoped<ISubmissionCarbonCalculator, SubmissionCarbonCalculator>();
+builder.Services.AddScoped<ICarbonCalculatorRuleValidation, CarbonCalculatorRuleValidation>();
 
 // Register FluentValidation validators
 builder.Services.AddValidatorsFromAssemblyContaining<KpiSubmissionRequestValidator>();

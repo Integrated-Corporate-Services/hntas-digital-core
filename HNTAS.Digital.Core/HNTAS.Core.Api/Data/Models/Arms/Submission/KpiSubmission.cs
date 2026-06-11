@@ -19,6 +19,14 @@ namespace HNTAS.Core.Api.Data.Models.Arms.Submission
         [JsonPropertyName("consumer_connection_aggregated_kpis")]
         public Dictionary<string, KpiValueAggregated>? ConsumerConnectionAggregatedKpis { get; set; }
 
+        [JsonPropertyName("carbon_calculator_request")]
+        [BsonElement("carbonCalculatorRequest")]
+        public Dictionary<string, Dictionary<string, CCKpiValue>>? CarbonCalculatorRequest { get; set; }
+
+        [JsonPropertyName("carbon_calculator_response")]
+        [BsonElement("carbonCalculatorResponse")]
+        public CarbonCalculatorResponse? CarbonCalculatorResponse { get; set; }
+
         [JsonPropertyName("elements")]
         [BsonElement("elements")]
         public List<NetworkElement> Elements { get; set; } = new();
@@ -35,5 +43,20 @@ namespace HNTAS.Core.Api.Data.Models.Arms.Submission
         [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
         [BsonIgnoreIfNull]
         public DateTime? UpdatedAt { get; set; }
+    }
+
+    public class CCKpiValue
+    {
+        [JsonPropertyName("value")]
+        [BsonElement("value")]
+        public BsonValue Value { get; set; } = BsonNull.Value;
+
+        [JsonPropertyName("is_imputed")]
+        [BsonElement("isImputed")]
+        public bool IsImputed { get; set; } = false;
+
+        [BsonElement("imputationDetails")]
+        [JsonPropertyName("imputation_details")]
+        public string? ImputationDetails { get; set; }
     }
 }

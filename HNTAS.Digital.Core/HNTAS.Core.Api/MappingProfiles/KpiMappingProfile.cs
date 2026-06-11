@@ -5,6 +5,7 @@ using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Models.Arms;
 using HNTAS.Core.Api.Models.Arms.V2;
 using MongoDB.Bson;
+using System.Text.Json;
 
 namespace HNTAS.Core.Api.MappingProfiles
 {
@@ -32,38 +33,60 @@ namespace HNTAS.Core.Api.MappingProfiles
                     }).ToList()));
 
             CreateMap<KpiConfigRequestV2, KpiConfiguration>()
-                  .ForMember(dest => dest.Elements, opt => opt.MapFrom(src =>
-                      src.Elements.Select(kvp => new KpiNetworkElement
-                      {
-                          Type = Enum.Parse<HeatNetworkElementType>(kvp.Key, true),
-                          Kpis = kvp.Value
-                      }).ToList()))
-                  // Map the carbon calculator defaults safely
-                  .ForMember(dest => dest.CarbonCalculatorDefaults, opt => opt.MapFrom(src =>
-                      src.CarbonCalculatorDefaults != null
-                          ? src.CarbonCalculatorDefaults.ToDictionary(
-                              kvp => kvp.Key,
-                              kvp => ConvertJsonElementToBsonValue(kvp.Value.Value))
-                          : new Dictionary<string, BsonValue>()));
+             .ForMember(dest => dest.Elements, opt => opt.MapFrom(src =>
+                 src.Elements.Select(kvp => new KpiNetworkElement
+                 {
+                     Type = Enum.Parse<HeatNetworkElementType>(kvp.Key, true),
+                     Kpis = kvp.Value
+                 }).ToList()))
+              .ForMember<CarbonCalculatorConfig>(dest => dest.CarbonCalculator, opt => opt.MapFrom<CarbonCalculatorConfig>(src =>
+                src.CarbonCalculator != null
+                    ? new CarbonCalculatorConfig
+                    {
+                        Rules = src.CarbonCalculator.Rules != null
+                              ? src.CarbonCalculator.Rules.ToDictionary(
+                                  kvp => kvp.Key,
+                                  kvp => kvp.Value
+                                )
+                              : new Dictionary<string, KpiRule>(),
+                        Defaults = src.CarbonCalculator.Defaults != null
+                              ? src.CarbonCalculator.Defaults.ToDictionary(
+                                  kvp => kvp.Key,
+                                  kvp => ConvertJsonElementToBsonValue(kvp.Value.Value)
+                                )
+                              : new Dictionary<string, BsonValue>()
+                    }
+                    : null));
 
+            // 1. Map the nested Carbon Calculator Config objects
+            CreateMap<CarbonCalculatorConfig, CarbonCalculatorConfigResponse>()
+                .ForMember(dest => dest.Rules, opt => opt.MapFrom(src => src.Rules))
+                .ForMember(dest => dest.Defaults, opt => opt.MapFrom(src =>
+                    src.Defaults != null
+                        ? src.Defaults.ToDictionary(
+                            kvp => kvp.Key,
+                            kvp => ConvertBsonValueToJsonElement(kvp.Value))
+                        : new Dictionary<string, JsonElement>()));
+
+            // 2. Map the main Configuration wrapper profile
             CreateMap<KpiConfiguration, KpiConfigResponseV2>()
                 .ForMember(dest => dest.Elements, opt => opt.MapFrom(src =>
                     src.Elements.ToDictionary(
                         el => el.Type.ToString(),
                         el => el.Kpis)))
-                // Reverse map BsonValue back to JsonElement safely
-                .ForMember(dest => dest.CarbonCalculatorDefaults, opt => opt.MapFrom(src =>
-                    src.CarbonCalculatorDefaults != null
-                        ? src.CarbonCalculatorDefaults.ToDictionary(
-                            kvp => kvp.Key,
-                            kvp => new ConfigDefault
-                            {
-                                Value = ConvertBsonValueToJsonElement(kvp.Value)
-                            })
-                        : new Dictionary<string, ConfigDefault>()));
+                .ForMember(dest => dest.CarbonCalculator, opt => opt.MapFrom(src => src.CarbonCalculator));
 
+
+            CreateMap<CCKpiValueRequest, CCKpiValue>()
+            .ForMember(dest => dest.Value, opt => opt.MapFrom(src => ConvertJsonElementToBsonValue(src.Value)));
             CreateMap<KpiSubmissionRequest, KpiSubmission>();
-            CreateMap<KpiSubmissionRequestV2, KpiSubmission>();
+            CreateMap<KpiSubmissionRequestV2, KpiSubmission>()
+             // Maps the incoming API property down to the MongoDB domain model field name
+             .ForMember(dest => dest.CarbonCalculatorRequest, opt => opt.MapFrom(src => src.CarbonInputsV2));
+
+            CreateMap<CCKpiValueRequest, CCKpiValue>()
+                .ForMember(dest => dest.Value, opt => opt.MapFrom(src => ConvertJsonElementToBsonValue(src.Value)));
+
             CreateMap<NetworkElementRequest, NetworkElement>();
             CreateMap<KpiSubmissionRequestV2, NetworkElement>();
             CreateMap<KpiValueRequest, KpiValue>();

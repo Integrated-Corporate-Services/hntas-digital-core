@@ -212,106 +212,106 @@ namespace HNTAS.Core.Api.Validators.Arms
                 }
             });
 
-            RuleFor(x => x.Elements).Custom((elements, context) =>
-            {
-                if (elements == null) return;
+            //RuleFor(x => x.Elements).Custom((elements, context) =>
+            //{
+            // if (elements == null) return;
 
-                for (int i = 0; i < elements.Count; i++)
-                {
-                    var element = elements[i];
-                    var submittedKeys = element.Kpis.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase);
-                    string path = $"Elements[{i}].Kpis";
-                    Enum.TryParse<ElementType>(element.Type, true, out var elementType);
+            // for (int i = 0; i < elements.Count; i++)
+            //{
+            //var element = elements[i];
+            //var submittedKeys = element.Kpis.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase);
+            //string path = $"Elements[{i}].Kpis";
+            //Enum.TryParse<ElementType>(element.Type, true, out var elementType);
 
-                    // 1. Mandatory KPI Check (GROUPED)
-                    //if (MandatoryKpisByElement.TryGetValue(elementType, out var requiredSet))
-                    //{
-                    //    var missing = requiredSet.Where(req => !submittedKeys.Contains(req)).ToList();
+            // 1. Mandatory KPI Check (GROUPED)
+            //if (MandatoryKpisByElement.TryGetValue(elementType, out var requiredSet))
+            //{
+            //    var missing = requiredSet.Where(req => !submittedKeys.Contains(req)).ToList();
 
-                    //    if (missing.Any())
-                    //    {
-                    //        context.AddFailure(new ValidationFailure(path, "Missing mandatory KPIs for this element.")
-                    //        {
-                    //            ErrorCode = "MISSING_MANDATORY_KPI",
-                    //            // Using 'kpis' (plural) to match your grouped model
-                    //            CustomState = new { elementId = element.ElementId, kpis = missing }
-                    //        });
-                    //    }
-                    //}
+            //    if (missing.Any())
+            //    {
+            //        context.AddFailure(new ValidationFailure(path, "Missing mandatory KPIs for this element.")
+            //        {
+            //            ErrorCode = "MISSING_MANDATORY_KPI",
+            //            // Using 'kpis' (plural) to match your grouped model
+            //            CustomState = new { elementId = element.ElementId, kpis = missing }
+            //        });
+            //    }
+            //}
 
-                    // 2. Business Rules (These helpers should also be updated to return lists in CustomState)
-                    //if (element.Type == ElementType.EnergyCentre.ToString())
-                    //{
-                    //    ValidateExclusivity(element, submittedKeys, context, i, "EC-KPI-09A", "EC-KPI-09B");
-                    //    ValidateExclusivity(element, submittedKeys, context, i, "EC-KPI-10A", "EC-KPI-10B");
+            // 2. Business Rules (These helpers should also be updated to return lists in CustomState)
+            //if (element.Type == ElementType.EnergyCentre.ToString())
+            //{
+            //    ValidateExclusivity(element, submittedKeys, context, i, "EC-KPI-09A", "EC-KPI-09B");
+            //    ValidateExclusivity(element, submittedKeys, context, i, "EC-KPI-10A", "EC-KPI-10B");
 
-                    //    var group16 = new[] { "EC-KPI-16A", "EC-KPI-16B", "EC-KPI-16C", "EC-KPI-16D", "EC-KPI-16E", "EC-KPI-16F" };
-                    //    ValidateAtLeastOne(element, submittedKeys, context, i, "EC-KPI-16", group16);
+            //    var group16 = new[] { "EC-KPI-16A", "EC-KPI-16B", "EC-KPI-16C", "EC-KPI-16D", "EC-KPI-16E", "EC-KPI-16F" };
+            //    ValidateAtLeastOne(element, submittedKeys, context, i, "EC-KPI-16", group16);
 
-                    //    var group17 = new[] { "EC-KPI-17A", "EC-KPI-17B", "EC-KPI-17C", "EC-KPI-17D", "EC-KPI-17E", "EC-KPI-17F" };
-                    //    ValidateAtLeastOne(element, submittedKeys, context, i, "EC-KPI-17", group17);
-                    //}
-                    //else if (element.Type == ElementType.Substation.ToString())
-                    //{
-                    //    ValidateExclusivity(element, submittedKeys, context, i, "SS-KPI-09A", "SS-KPI-09B");
-                    //    ValidateExclusivity(element, submittedKeys, context, i, "SS-KPI-10A", "SS-KPI-10B");
-                    //}
-                }
-            });
+            //    var group17 = new[] { "EC-KPI-17A", "EC-KPI-17B", "EC-KPI-17C", "EC-KPI-17D", "EC-KPI-17E", "EC-KPI-17F" };
+            //    ValidateAtLeastOne(element, submittedKeys, context, i, "EC-KPI-17", group17);
+            //}
+            //else if (element.Type == ElementType.Substation.ToString())
+            //{
+            //    ValidateExclusivity(element, submittedKeys, context, i, "SS-KPI-09A", "SS-KPI-09B");
+            //    ValidateExclusivity(element, submittedKeys, context, i, "SS-KPI-10A", "SS-KPI-10B");
+            //}
+            // }
+            /// });
         }
 
 
-        private void ValidateExclusivity(NetworkElementRequest element, HashSet<string> submitted, ValidationContext<KpiSubmissionRequest> context, int index, string kpiA, string kpiB)
-        {
-            var path = $"Elements[{index}]";
-            bool hasA = submitted.Contains(kpiA);
-            bool hasB = submitted.Contains(kpiB);
+        //private void ValidateExclusivity(NetworkElementRequest element, HashSet<string> submitted, ValidationContext<KpiSubmissionRequest> context, int index, string kpiA, string kpiB)
+        //{
+        //    var path = $"Elements[{index}]";
+        //    bool hasA = submitted.Contains(kpiA);
+        //    bool hasB = submitted.Contains(kpiB);
 
-            // 1. Both provided (Mutual Exclusivity)
-            if (hasA && hasB)
-            {
-                context.AddFailure(new ValidationFailure(path, $"Reported both '{kpiA}' and '{kpiB}', but only one is allowed.")
-                {
-                    ErrorCode = "MUTUALLY_EXCLUSIVE_KPI",
-                    CustomState = new
-                    {
-                        elementId = element.ElementId,
-                        kpis = new List<string> { kpiA, kpiB } // Grouped list
-                    }
-                });
-            }
-            // 2. Neither provided (Mandatory Choice)
-            else if (!hasA && !hasB)
-            {
-                context.AddFailure(new ValidationFailure(path, $"Either '{kpiA}' or '{kpiB}' must be reported.")
-                {
-                    ErrorCode = "MISSING_MANDATORY_KPI",
-                    CustomState = new
-                    {
-                        elementId = element.ElementId,
-                        kpis = new List<string> { kpiA, kpiB } // Grouped list
-                    }
-                });
-            }
-        }
+        //    // 1. Both provided (Mutual Exclusivity)
+        //    if (hasA && hasB)
+        //    {
+        //        context.AddFailure(new ValidationFailure(path, $"Reported both '{kpiA}' and '{kpiB}', but only one is allowed.")
+        //        {
+        //            ErrorCode = "MUTUALLY_EXCLUSIVE_KPI",
+        //            CustomState = new
+        //            {
+        //                elementId = element.ElementId,
+        //                kpis = new List<string> { kpiA, kpiB } // Grouped list
+        //            }
+        //        });
+        //    }
+        //    // 2. Neither provided (Mandatory Choice)
+        //    else if (!hasA && !hasB)
+        //    {
+        //        context.AddFailure(new ValidationFailure(path, $"Either '{kpiA}' or '{kpiB}' must be reported.")
+        //        {
+        //            ErrorCode = "MISSING_MANDATORY_KPI",
+        //            CustomState = new
+        //            {
+        //                elementId = element.ElementId,
+        //                kpis = new List<string> { kpiA, kpiB } // Grouped list
+        //            }
+        //        });
+        //    }
+        //}
 
-        private void ValidateAtLeastOne(NetworkElementRequest element, HashSet<string> submitted, ValidationContext<KpiSubmissionRequest> context, int index, string groupName, string[] groupKeys)
-        {
-            // Only apply group mandatory checks if the type is Energy Centre
-            if (element.Type == ElementType.EnergyCentre.ToString() && !groupKeys.Any(k => submitted.Contains(k)))
-            {
-                var path = $"Elements[{index}]";
-                context.AddFailure(new ValidationFailure(path, $"At least one KPI from the group '{groupKeys.First()}' to '{groupKeys.Last()}' must be reported.")
-                {
-                    ErrorCode = "MISSING_MANDATORY_GROUP",
-                    CustomState = new
-                    {
-                        elementId = element.ElementId,
-                        // Return the whole group so the frontend knows which fields to highlight
-                        kpis = groupKeys.ToList()
-                    }
-                });
-            }
-        }
+        //private void ValidateAtLeastOne(NetworkElementRequest element, HashSet<string> submitted, ValidationContext<KpiSubmissionRequest> context, int index, string groupName, string[] groupKeys)
+        //{
+        //    // Only apply group mandatory checks if the type is Energy Centre
+        //    if (element.Type == ElementType.EnergyCentre.ToString() && !groupKeys.Any(k => submitted.Contains(k)))
+        //    {
+        //        var path = $"Elements[{index}]";
+        //        context.AddFailure(new ValidationFailure(path, $"At least one KPI from the group '{groupKeys.First()}' to '{groupKeys.Last()}' must be reported.")
+        //        {
+        //            ErrorCode = "MISSING_MANDATORY_GROUP",
+        //            CustomState = new
+        //            {
+        //                elementId = element.ElementId,
+        //                // Return the whole group so the frontend knows which fields to highlight
+        //                kpis = groupKeys.ToList()
+        //            }
+        //        });
+        //    }
+        //}
     }
 }

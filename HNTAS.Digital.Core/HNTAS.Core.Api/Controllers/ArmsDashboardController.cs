@@ -176,8 +176,7 @@ namespace HNTAS.Core.Api.Controllers
                         Status = kvp.Value.AssessmentStatus.GetDescription(),
                         IsImputed = kvp.Value.IsKpiImputed,
                         ImputationDetails = kvp.Value.KpiImputationDetails
-                    }).ToList(),
-                    TotalCarbonEmission = e.CarbonCalculatorResponse?.TotalCarbonEmission ?? null
+                    }).ToList()
                 })
             // Only include elements that actually have KPIs after filtering
             .Where(e => e.Kpis.Any())
@@ -202,6 +201,39 @@ namespace HNTAS.Core.Api.Controllers
                     Status = kvp.Value.AssessmentStatus.GetDescription()
                 }).ToList() ?? null;
 
+            var carbonUiInputs = new Dictionary<string, CarbonInputUiDisplay>();
+
+            if (submission?.CarbonCalculatorRequest != null)
+            {
+                // Define your UI label mapping configuration
+                var targetKeys = new[]
+                {
+                    (Section: "chp_totals", Key: "EC-DATA-53", Label: "chpUsefulHeatValue"),
+                    (Section: "chp_totals", Key: "EC-DATA-55", Label: "chpElectricityGeneratedValue"),
+                    (Section: "chp_totals", Key: "EC-DATA-57", Label: "chpFuelUsedValue"),
+                    (Section: "hpm_totals", Key: "EC-DATA-66", Label: "hpmUsefulHeatGeneratedValue"),
+                    (Section: "hpm_totals", Key: "EC-DATA-68", Label: "hpmEnergyUsedValue"),
+                    (Section: "blr_totals", Key: "EC-DATA-84", Label: "blrUsefulHeatGeneratedValue"),
+                    (Section: "blr_totals", Key: "EC-DATA-86", Label: "blrFuelUsedByValue")
+                };
+
+                foreach (var target in targetKeys)
+                {
+                    if (submission.CarbonCalculatorRequest.TryGetValue(target.Section, out var section) &&
+                        section.TryGetValue(target.Key, out var kpiValue) && kpiValue?.Value != null)
+                    {
+                        if (BsonConversionHelper.TryGetDouble(kpiValue.Value, out var numericValue))
+                        {
+                            carbonUiInputs[target.Key] = new CarbonInputUiDisplay
+                            {
+                                Label = target.Label,
+                                Value = numericValue
+                            };
+                        }
+                    }
+                }
+            }
+
             return Ok(new HeatNetworkDetailsResponse
             {
                 HnId = networkInfo.HnId,
@@ -212,7 +244,10 @@ namespace HNTAS.Core.Api.Controllers
                 CurrentPage = page,
                 TotalPages = totalPages,
                 TotalElements = totalElements,
-                AggregatedKpis = aggregatedKpis
+                AggregatedKpis = aggregatedKpis,
+                TotalCarbonEmission = submission?.CarbonCalculatorResponse?.TotalCarbonEmission,
+                // Pass the mapped inputs straight to the frontend payload block
+                CarbonCalculationInputs = carbonUiInputs.Any() ? carbonUiInputs : null
             });
         }
 

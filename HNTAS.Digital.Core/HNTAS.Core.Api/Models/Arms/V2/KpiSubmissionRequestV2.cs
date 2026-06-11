@@ -1,23 +1,21 @@
-﻿using System.Text.Json.Serialization;
+﻿using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace HNTAS.Core.Api.Models.Arms.V2
 {
     [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
     public class KpiSubmissionRequestV2 : BaseKpiSubmissionRequest
     {
-        [JsonPropertyOrder(3)]
+        [JsonPropertyOrder(4)]
         [JsonPropertyName("elements")]
-        public List<NetworkElementRequestV2> Elements { get; set; } = new();
-    }
+        public List<NetworkElementRequest> Elements { get; set; } = new();
 
-    public class NetworkElementRequestV2 : NetworkElementRequest
-    {
         /// <summary>
         /// Dedicated block for Carbon Calculator fields on EnergyCentre types.
         /// Organised into sectioned blocks (e.g., "metadata", "energy_totals") where 
         /// each KPI key contains a nested metadata object wrapper (value, is_kpi_imputed, kpi_imputation_details).
         /// </summary>
-        [JsonPropertyOrder(4)]
+        [JsonPropertyOrder(3)]
         [JsonPropertyName("carbon_calculator_inputs")]
         public Dictionary<string, Dictionary<string, CCKpiValueRequest>>? CarbonInputsV2 { get; set; }
     }
@@ -26,12 +24,33 @@ namespace HNTAS.Core.Api.Models.Arms.V2
     public class CCKpiValueRequest
     {
         [JsonPropertyName("value")]
-        public required object Value { get; set; }
+        public required JsonElement Value { get; set; }
 
-        [JsonPropertyName("is_kpi_imputed")]
-        public bool IsKpiImputed { get; set; } = false;
+        [JsonPropertyName("is_imputed")]
+        public bool IsImputed { get; set; } = false;
 
-        [JsonPropertyName("kpi_imputation_details")]
-        public string? KpiImputationDetails { get; set; }
+        [JsonPropertyName("imputation_details")]
+        public string? ImputationDetails { get; set; }
+
+        public int AsInt(int fallback = 0)
+        {
+            if (Value.ValueKind == JsonValueKind.Number && Value.TryGetInt32(out var result)) return result;
+            if (Value.ValueKind == JsonValueKind.String && int.TryParse(Value.GetString(), out var parsedStr)) return parsedStr;
+            return fallback;
+        }
+
+        // Safe helper to extract a string value
+        public string AsString(string fallback = "")
+        {
+            if (Value.ValueKind == JsonValueKind.String) return Value.GetString() ?? fallback;
+
+            // Prevent surrounding quotes from JSON string primitives when calling GetRawText()
+            if (Value.ValueKind == JsonValueKind.Null) return fallback;
+
+            var raw = Value.GetRawText();
+            return raw.StartsWith('"') && raw.EndsWith('"') && raw.Length > 1
+                ? raw[1..^1]
+                : raw;
+        }
     }
 }

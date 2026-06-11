@@ -13,7 +13,6 @@ using HNTAS.Core.Api.Services;
 using HNTAS.Core.Api.Validators.Arms;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
-using MongoDB.Bson;
 using MongoDB.Driver;
 using System.Text.RegularExpressions;
 
@@ -32,6 +31,8 @@ namespace HNTAS.Core.Api.Controllers
         private readonly IMapper _mapper;
         private readonly ArmsSettings _armsSettings;
         private readonly ICarbonCalculatorService _CCService;
+        private readonly ISubmissionCarbonCalculator _submissionCarbonCalculator;
+        private readonly ICarbonCalculatorRuleValidation _carbonCalculatorRuleValidation;
 
         public ArmsController(IArmsKpiService kpiService,
             ILogger<ArmsController> logger,
@@ -41,7 +42,9 @@ namespace HNTAS.Core.Api.Controllers
             IOptions<ArmsSettings> armsSettings,
             IHeatNetworkValidator networkValidator,
             IKpiRuleValidator kpiRuleValidator,
-            ICarbonCalculatorService CCService)
+            ICarbonCalculatorService CCService,
+            ISubmissionCarbonCalculator submissionCarbonCalculator,
+            ICarbonCalculatorRuleValidation carbonCalculatorRuleValidation)
         {
             _kpiService = kpiService;
             _logger = logger;
@@ -52,6 +55,8 @@ namespace HNTAS.Core.Api.Controllers
             _networkValidator = networkValidator;
             _ruleValidator = kpiRuleValidator;
             _CCService = CCService;
+            _submissionCarbonCalculator = submissionCarbonCalculator;
+            _carbonCalculatorRuleValidation = carbonCalculatorRuleValidation;
         }
 
         /// <summary>
@@ -247,137 +252,20 @@ namespace HNTAS.Core.Api.Controllers
                     if (!networkResult.IsValid)
                         return StatusCode(networkResult.StatusCode, CreateProblem(networkResult));
 
+                    // Carbon Calculator Rule Validation
+                    var carbonRuleResult = await _carbonCalculatorRuleValidation.ValidateAsync(dataModel);
+                    if (!carbonRuleResult.IsValid)
+                        return StatusCode(carbonRuleResult.StatusCode, CreateProblem(carbonRuleResult));
+
                     // Configuration Validation (KPI_Config Collection)
                     var ruleResult = await _ruleValidator.ValidateAsync(dataModel);
                     if (!ruleResult.IsValid)
                         return StatusCode(ruleResult.StatusCode, CreateProblem(ruleResult));
+
+                    await _submissionCarbonCalculator.ProcessCarbonCalculationsAsync(request, dataModel);
                 }
 
-                // Carbon calculations
-                foreach (var element in request.Elements)
-                {
-                    if (element.Type == HeatNetworkElementType.EnergyCentre.ToString())
-                    {
-                        var inputs = element.CarbonInputsV2;
-                        var dataModelElement = dataModel.Elements.FirstOrDefault(e => e.ElementId == element.ElementId);
 
-                        var config = await _kpiService.GetConfigurationAsync(request.MetaData.NetworkId);
-
-                        var configDefaults = config?.CarbonCalculatorDefaults ?? new Dictionary<string, BsonValue>();
-
-                        if (configDefaults == null || !configDefaults.Any())
-                        {
-                            _logger.LogWarning("No Carbon Calculator defaults found in configuration for Network: {NetworkId}. Carbon calculation will be skipped for this submission.", request.MetaData.NetworkId);
-                            return BadRequest(new ProblemDetails
-                            {
-                                Status = StatusCodes.Status400BadRequest,
-                                Title = "Carbon Calculator Configuration Missing",
-                                Detail = "The KPI configuration for this network does not contain the necessary defaults for carbon calculations. Please ensure the configuration is set up correctly.",
-                                Type = null
-                            });
-                        }
-
-                        // Extract sections safely
-                        inputs.TryGetValue("background", out var backgroundSection);
-                        inputs.TryGetValue("chp_totals", out var chpSection);
-                        inputs.TryGetValue("hpm_totals", out var hpmSection);
-                        inputs.TryGetValue("blr_totals", out var blrSection);
-
-                        //mandatory
-                        int ec47 = chpSection != null && chpSection.TryGetValue("EC-KPI-47", out var kpi47) && decimal.TryParse(kpi47?.Value?.ToString(), out var parsedDecimal47) ? Convert.ToInt32(parsedDecimal47) : 0;
-                        int ec52 = chpSection != null && chpSection.TryGetValue("EC-KPI-52", out var kpi52) && decimal.TryParse(kpi52?.Value?.ToString(), out var parsedDecimal52) ? Convert.ToInt32(parsedDecimal52) : 0;
-                        int ec54 = chpSection != null && chpSection.TryGetValue("EC-KPI-54", out var kpi54) && decimal.TryParse(kpi54?.Value?.ToString(), out var parsedDecimal54) ? Convert.ToInt32(parsedDecimal54) : 0;
-                        int ec56 = chpSection != null && chpSection.TryGetValue("EC-KPI-56", out var kpi56) && decimal.TryParse(kpi56?.Value?.ToString(), out var parsedDecimal56) ? Convert.ToInt32(parsedDecimal56) : 0;
-
-                        //optional
-                        int ec65 = hpmSection != null && hpmSection.TryGetValue("EC-KPI-65", out var kpi65) && decimal.TryParse(kpi65?.Value?.ToString(), out var parsedDecimal65) ? Convert.ToInt32(parsedDecimal65) : 0;
-                        int ec67 = hpmSection != null && hpmSection.TryGetValue("EC-KPI-67", out var kpi67) && decimal.TryParse(kpi67?.Value?.ToString(), out var parsedDecimal67) ? Convert.ToInt32(parsedDecimal67) : 0;
-                        int ec83 = blrSection != null && blrSection.TryGetValue("EC-KPI-83", out var kpi83) && decimal.TryParse(kpi83?.Value?.ToString(), out var parsedDecimal83) ? Convert.ToInt32(parsedDecimal83) : 0;
-                        int ec85 = blrSection != null && blrSection.TryGetValue("EC-KPI-85", out var kpi85) && decimal.TryParse(kpi85?.Value?.ToString(), out var parsedDecimal85) ? Convert.ToInt32(parsedDecimal85) : 0;
-
-
-                        var requestModel = new CarbonCalculatorRequest
-                        {
-                            Background = new Background
-                            {
-                                // Mandatory field
-                                DateWorkbookCompleted = backgroundSection != null && backgroundSection.TryGetValue("EC-KPI-19", out var kpi19)
-                                    ? kpi19.Value.ToString()
-                                    : null,
-                                NetworkStatus = configDefaults["EC-KPI-20"].ToString(),
-                                NetworkServiceProvision = configDefaults["EC-KPI-21"].ToString(),
-                                Name = request.MetaData.NetworkId + "- Arms Sample API Call",
-                                NetworkID = request.MetaData.NetworkId,
-                                NetworkName = "Sample Heat Network",
-                                PostcodeOfThePrimaryEnergyCentre = "M4 4HB",
-                                ContactEmail = configDefaults["EC-KPI-32"].ToString(),
-                                CommissioningDate = configDefaults["EC-KPI-35"].ToString()
-                            },
-                            Energy = new Energy
-                            {
-                                YearCount = configDefaults["EC-KPI-36"].AsInt32,
-                                StartYear = configDefaults["EC-KPI-37"].AsInt32,
-                                ChpCount = 1,
-                                EnergyHeatNetworkPrimaryLosses = [configDefaults["EC-KPI-38"].AsInt32],
-                                ChpInputs = new List<ChpInput>
-                            {
-                                new ChpInput
-                                {
-                                    ChpFuelTypeInput = configDefaults["EC-KPI-50"].AsInt32,
-                                    ChpInstallationDateInput = chpSection != null && chpSection.TryGetValue("EC-KPI-51", out var kpi51)
-                                                            ? kpi51.Value.ToString()
-                                                            : null,
-                                    ChpOperationalModeInput = "export",
-                                    ChpUsefulHeatValue = [ec52],
-                                    ChpElectricityGeneratedValue = [ec54],
-                                    ChpFuelUsedValue = [ec56],
-                                    ChpHeatCoolingValue = [configDefaults["EC-KPI-58"].AsInt32],
-                                    ChpSleevingPCentValue = [configDefaults["EC-KPI-60"].AsInt32],
-                                    ChpMaxHeatOutput = configDefaults["EC-KPI-62"].AsInt32,
-                                    ChpMaxElectricityOutput = configDefaults["EC-KPI-63"].AsInt32,
-                                }
-                            },
-                                EppElectricityUsedForPumpingValue = [ec47],
-                                BoilerCount = blrSection == null ? 0 : 1,
-                                BoilerInputs = blrSection == null ? new List<BoilerInput>() : new List<BoilerInput>
-                            {
-                               new BoilerInput
-                               {
-                                   BlrTypeFuelUsedInput = configDefaults["EC-KPI-82"].AsInt32,
-                                   BlrUsefulHeatGeneratedValue = [ec83],
-                                   BlrFuelUsedByValue = [ec85],
-                                   BlrHeatUsedForCoolingProductionValue = [configDefaults["EC-KPI-87"].AsInt32],
-                                   BlrSleevingPCentValue = [configDefaults["EC-KPI-89"].AsInt32],
-                                   BlrMaxHeatOutput = configDefaults["EC-KPI-91"].AsInt32,
-                               }
-                            },
-                                RecoveredCount = 0,
-                                RecoveredInputs = new List<RecoveredInput>(),
-                                HeatPumpCount = hpmSection == null ? 0 : 1,
-                                HeatPumpInputs = hpmSection == null ? new List<HeatPumpInput>() : new List<HeatPumpInput>
-                            {
-                                new HeatPumpInput {
-                                    HpmTypeFuelUsedInput = configDefaults["EC-KPI-64"].AsInt32,
-                                    HpmUsefulHeatGeneratedValue = [ec65],
-                                    HpmEnergyUsedValue = [ec67],
-                                    HpmUsefulCoolingGeneratedValue = [configDefaults["EC-KPI-69"].AsInt32],
-                                    HpmSleevingPCentValue = [configDefaults["EC-KPI-71"].AsInt32],
-                                    HpmMaxHeatOutput = configDefaults["EC-KPI-73"].AsInt32,
-                                }
-                            }
-                            }
-                        };
-
-                        // Create carbon calculator inputs for backwards compatibility
-                        var cc_result = await _CCService.RunAsync(requestModel);
-
-                        dataModelElement.CarbonCalculatorResponse = new Data.Models.Arms.Submission.CarbonCalculatorResponse
-                        {
-                            TotalCarbonEmission = (decimal)(cc_result?.TotalCarbonEmission),
-                            Uuid = cc_result?.Uuid
-                        };
-                    }
-                }
 
                 var submissionId = await _kpiService.CreateOrUpdateSubmissionAsync(dataModel);
 

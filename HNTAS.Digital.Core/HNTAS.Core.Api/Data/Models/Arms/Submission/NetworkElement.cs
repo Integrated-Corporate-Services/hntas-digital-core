@@ -21,19 +21,5 @@ namespace HNTAS.Core.Api.Data.Models.Arms.Submission
         [BsonElement("kpis")]
         public Dictionary<string, KpiValue> Kpis { get; set; } = new();
 
-        [JsonPropertyName("carbon_Calculator_Response")]
-        [BsonElement("carbonCalculatorResponse")]
-        public CarbonCalculatorResponse? CarbonCalculatorResponse { get; set; }
-    }
-
-    public class CarbonCalculatorResponse
-    {
-        [JsonPropertyName("total_carbon_emission")]
-        [BsonElement("totalCarbonEmission")]
-        public decimal TotalCarbonEmission { get; set; }
-
-        [JsonPropertyName("uuid")]
-        [BsonElement("uuid")]
-        public string Uuid { get; set; } = string.Empty;
     }
 }

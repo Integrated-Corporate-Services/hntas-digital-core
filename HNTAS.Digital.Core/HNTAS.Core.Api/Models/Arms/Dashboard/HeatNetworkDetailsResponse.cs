@@ -12,10 +12,20 @@
 
         public List<AggregatedKpi>? AggregatedKpis { get; set; } = new();
 
+        public Dictionary<string, CarbonInputUiDisplay>? CarbonCalculationInputs { get; set; }
+        public decimal? TotalCarbonEmission { get; set; }
+
         // Pagination Metadata
         public int CurrentPage { get; set; }
         public int TotalPages { get; set; }
         public int TotalElements { get; set; }
+    }
+
+
+    public class CarbonInputUiDisplay
+    {
+        public string Label { get; set; } = null!;
+        public double Value { get; set; }
     }
 
     public class AggregatedKpi
@@ -31,8 +41,6 @@
         public string ElementId { get; set; } = string.Empty;
         public string ElementType { get; set; } = string.Empty;
         public List<KpiDetailDto> Kpis { get; set; } = new();
-
-        public decimal? TotalCarbonEmission { get; set; }
     }
 
 

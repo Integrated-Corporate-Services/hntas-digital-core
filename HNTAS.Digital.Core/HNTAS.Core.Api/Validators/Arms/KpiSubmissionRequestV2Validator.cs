@@ -33,28 +33,6 @@ namespace HNTAS.Core.Api.Validators.Arms
             }}
         };
 
-
-        private static readonly Dictionary<ElementType, HashSet<string>> MandatoryKpisByElement = new()
-        {
-            { ElementType.EnergyCentre, new HashSet<string> {
-                "EC-KPI-01", "EC-KPI-02", "EC-KPI-03", "EC-KPI-04", "EC-KPI-05", "EC-KPI-06", "EC-KPI-07", "EC-KPI-08",
-                "EC-KPI-11", "EC-KPI-12", "EC-KPI-13", "EC-KPI-14", "EC-KPI-15", "EC-KPI-18"
-            }},
-            { ElementType.DistrictDistribution, new HashSet<string> {
-                "DD-KPI-01", "DD-KPI-02", "DD-KPI-03", "DD-KPI-04", "DD-KPI-05", "DD-KPI-06", "DD-KPI-07", "DD-KPI-08", "DD-KPI-09", "DD-KPI-10"
-            }},
-            { ElementType.Substation, new HashSet<string> {
-                "SS-KPI-01", "SS-KPI-02", "SS-KPI-03", "SS-KPI-04", "SS-KPI-05", "SS-KPI-06", "SS-KPI-07", "SS-KPI-08",
-                "SS-KPI-11", "SS-KPI-12", "SS-KPI-13", "SS-KPI-14", "SS-KPI-15", "SS-KPI-16", "SS-KPI-17"
-            }},
-            { ElementType.CommunalDistribution, new HashSet<string> {
-                "CD-KPI-01", "CD-KPI-02", "CD-KPI-03", "CD-KPI-04", "CD-KPI-05", "CD-KPI-06", "CD-KPI-07", "CD-KPI-08", "CD-KPI-09"
-            }},
-            { ElementType.ConsumerConnection, new HashSet<string> {
-                "CC-KPI-04", "CC-KPI-05", "CC-KPI-06", "CC-KPI-07"
-            }}
-        };
-
         public KpiSubmissionRequestV2Validator()
         {
             // Validate the nested metadata object
@@ -137,83 +115,6 @@ namespace HNTAS.Core.Api.Validators.Arms
                             context.AddFailure(failure);
                         }
                     }
-
-                    // ==========================================
-                    // NEW: Carbon Calculator Inputs Validation
-                    // ==========================================
-                    if (elementType == ElementType.EnergyCentre)
-                    {
-                        var carbonInputs = element.CarbonInputsV2;
-                        var elementPath = $"Elements[{i}].carbon_calculator_inputs";
-
-                        // Guard Clause: Check if the main collection is null or empty
-                        if (carbonInputs == null || !carbonInputs.Any())
-                        {
-                            context.AddFailure(new ValidationFailure(elementPath, "Carbon calculator inputs are required for Energy Centres.")
-                            {
-                                ErrorCode = "MISSING_CARBON_INPUTS",
-                                CustomState = new { elementId = element.ElementId, kpis = (List<string>)null }
-                            });
-                            continue;
-                        }
-
-                        // ==========================================
-                        // 1. Mandatory Section Presence Checks
-                        // ==========================================
-
-                        // Check background section
-                        if (!carbonInputs.TryGetValue("background", out var backgroundSection) || backgroundSection == null || !backgroundSection.ContainsKey("EC-KPI-19"))
-                        {
-                            context.AddFailure(new ValidationFailure(elementPath, "The 'background' section with 'EC-KPI-19' is required.")
-                            {
-                                ErrorCode = "MISSING_BACKGROUND_SECTION",
-                                CustomState = new { elementId = element.ElementId, kpis = new List<string> { "EC-KPI-19" } }
-                            });
-                        }
-
-                        // CRITICAL: Always enforce that chp_totals is present in the request
-                        if (!carbonInputs.TryGetValue("chp_totals", out var chpSection) || chpSection == null || !chpSection.Any())
-                        {
-                            context.AddFailure(new ValidationFailure(elementPath, "The 'chp_totals' section is mandatory for all submissions.")
-                            {
-                                ErrorCode = "MISSING_CHP_TOTALS_SECTION",
-                                CustomState = new { elementId = element.ElementId, kpis = new List<string> { "EC-KPI-51", "EC-KPI-52", "EC-KPI-54", "EC-KPI-56" } }
-                            });
-                        }
-
-                        // ==========================================
-                        // 2. Schema and Data Type Validation
-                        // ==========================================
-
-                        // A. Validate Background (Always Checked)
-                        if (backgroundSection != null && backgroundSection.TryGetValue("EC-KPI-19", out var kpi19) && kpi19?.Value != null)
-                        {
-                            ValidateDate(context, element.ElementId, elementPath, "EC-KPI-19", kpi19.Value.ToString());
-                        }
-
-                        // B. Validate CHP Totals (Always Checked because it must be there)
-                        if (chpSection != null)
-                        {
-                            var chpDates = new[] { "EC-KPI-51" };
-                            var chpNumbers = new[] { "EC-KPI-47", "EC-KPI-52", "EC-KPI-54", "EC-KPI-56" };
-
-                            ValidateSectionFields(context, element.ElementId, elementPath, "chp_totals", chpSection, chpDates, chpNumbers);
-                        }
-
-                        // C. Validate HPM Totals (OPTIONAL: Only check if present in the request)
-                        if (carbonInputs.TryGetValue("hpm_totals", out var hpmSection) && hpmSection != null && hpmSection.Any())
-                        {
-                            var hpmNumbers = new[] { "EC-KPI-65", "EC-KPI-67" };
-                            ValidateSectionFields(context, element.ElementId, elementPath, "hpm_totals", hpmSection, [], hpmNumbers);
-                        }
-
-                        // D. Validate Boiler Totals (OPTIONAL: Only check if present in the request)
-                        if (carbonInputs.TryGetValue("blr_totals", out var blrSection) && blrSection != null && blrSection.Any())
-                        {
-                            var blrNumbers = new[] { "EC-KPI-83", "EC-KPI-85" };
-                            ValidateSectionFields(context, element.ElementId, elementPath, "blr_totals", blrSection, [], blrNumbers);
-                        }
-                    }
                 }
             });
 
@@ -278,53 +179,151 @@ namespace HNTAS.Core.Api.Validators.Arms
                 }
             });
 
-            RuleFor(x => x.Elements).Custom((elements, context) =>
+            // ==========================================================
+            // Root-Level Carbon Calculator Inputs Validation
+            // ==========================================================
+            RuleFor(x => x).Custom((request, context) =>
             {
-                if (elements == null) return;
+                // Only run if there is at least one EnergyCentre present in the collection
+                bool hasEnergyCentre = request.Elements?.Any(e => string.Equals(e.Type, ElementType.EnergyCentre.ToString(), StringComparison.OrdinalIgnoreCase)) ?? false;
+                if (!hasEnergyCentre) return;
 
-                for (int i = 0; i < elements.Count; i++)
+                var carbonInputs = request.CarbonInputsV2;
+                var elementPath = "carbon_calculator_inputs";
+
+                // Guard Clause: Check if the main collection is null or empty
+                if (carbonInputs == null || !carbonInputs.Any())
                 {
-                    var element = elements[i];
-                    var submittedKeys = element.Kpis.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase);
-                    string path = $"Elements[{i}].Kpis";
-                    Enum.TryParse<ElementType>(element.Type, true, out var elementType);
-
-                    // 1. Mandatory KPI Check (GROUPED)
-                    if (MandatoryKpisByElement.TryGetValue(elementType, out var requiredSet))
+                    context.AddFailure(new ValidationFailure(elementPath, "Carbon calculator inputs are required when an Energy Centre element exists.")
                     {
-                        var missing = requiredSet.Where(req => !submittedKeys.Contains(req)).ToList();
+                        ErrorCode = "MISSING_CARBON_INPUTS",
+                        CustomState = new { elementId = (string)null, kpis = (List<string>)null }
+                    });
+                    return;
+                }
 
-                        if (missing.Any())
+                var allowedSections = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    "mata_data", "chp_totals", "hpm_totals", "blr_totals"
+                };
+
+                var invalidSections = carbonInputs.Keys.Where(key => !allowedSections.Contains(key)).ToList();
+                if (invalidSections.Any())
+                {
+                    context.AddFailure(new ValidationFailure(elementPath, $"Unexpected sections found in carbon calculator inputs: {string.Join(", ", invalidSections)}.")
+                    {
+                        ErrorCode = "INVALID_INPUT_SECTION",
+                        CustomState = new { elementId = (string)null, kpis = invalidSections }
+                    });
+                    return; // Stop early if the root structure is corrupted
+                }
+
+                // Check that at least one of the major asset total sections is present
+                bool hasChp = carbonInputs.TryGetValue("chp_totals", out var chpSection) && chpSection != null && chpSection.Any();
+                bool hasHpm = carbonInputs.TryGetValue("hpm_totals", out var hpmSection) && hpmSection != null && hpmSection.Any();
+                bool hasBlr = carbonInputs.TryGetValue("blr_totals", out var blrSection) && blrSection != null && blrSection.Any();
+
+                if (!hasChp && !hasHpm && !hasBlr)
+                {
+                    context.AddFailure(new ValidationFailure(elementPath, "At least one production asset section ('chp_totals', 'hpm_totals', or 'blr_totals') must be provided with valid data entries.")
+                    {
+                        ErrorCode = "MISSING_ASSET_SECTIONS",
+                        CustomState = new { elementId = (string)null, kpis = new List<string> { "chp_totals", "hpm_totals", "blr_totals" } }
+                    });
+                    return;
+                }
+
+                if (!carbonInputs.TryGetValue("mata_data", out var metaDataSection) || metaDataSection == null || !metaDataSection.ContainsKey("EC-DATA-19"))
+                {
+                    context.AddFailure(new ValidationFailure(elementPath, "The 'mata_data' section with 'EC-DATA-19' is required.")
+                    {
+                        ErrorCode = "MISSING_BACKGROUND_SECTION",
+                        CustomState = new { elementId = (string)null, kpis = new List<string> { "EC-DATA-19" } }
+                    });
+                }
+                else
+                {
+                    // Check for any unauthorized keys inside mata_data
+                    var allowedMetaKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "EC-DATA-19" };
+                    var invalidMetaKeys = metaDataSection.Keys.Where(k => !allowedMetaKeys.Contains(k)).ToList();
+
+                    if (invalidMetaKeys.Any())
+                    {
+                        context.AddFailure(new ValidationFailure($"{elementPath}.mata_data", $"Unexpected keys found in mata_data: {string.Join(", ", invalidMetaKeys)}.")
                         {
-                            context.AddFailure(new ValidationFailure(path, "Missing mandatory KPIs for this element.")
-                            {
-                                ErrorCode = "MISSING_MANDATORY_KPI",
-                                // Using 'kpis' (plural) to match your grouped model
-                                CustomState = new { elementId = element.ElementId, kpis = missing }
-                            });
-                        }
+                            ErrorCode = "INVALID_CARBON_KEY",
+                            CustomState = new { elementId = (string)null, kpis = invalidMetaKeys }
+                        });
                     }
 
-                    // 2. Business Rules (These helpers should also be updated to return lists in CustomState)
-                    if (element.Type == ElementType.EnergyCentre.ToString())
+                    if (metaDataSection.TryGetValue("EC-DATA-19", out var d19) && d19?.Value != null)
                     {
-                        ValidateExclusivity(element, submittedKeys, context, i, "EC-KPI-09A", "EC-KPI-09B");
-                        ValidateExclusivity(element, submittedKeys, context, i, "EC-KPI-10A", "EC-KPI-10B");
-
-                        var group16 = new[] { "EC-KPI-16A", "EC-KPI-16B", "EC-KPI-16C", "EC-KPI-16D", "EC-KPI-16E", "EC-KPI-16F" };
-                        ValidateAtLeastOne(element, submittedKeys, context, i, "EC-KPI-16", group16);
-
-                        var group17 = new[] { "EC-KPI-17A", "EC-KPI-17B", "EC-KPI-17C", "EC-KPI-17D", "EC-KPI-17E", "EC-KPI-17F" };
-                        ValidateAtLeastOne(element, submittedKeys, context, i, "EC-KPI-17", group17);
-                    }
-                    else if (element.Type == ElementType.Substation.ToString())
-                    {
-                        ValidateExclusivity(element, submittedKeys, context, i, "SS-KPI-09A", "SS-KPI-09B");
-                        ValidateExclusivity(element, submittedKeys, context, i, "SS-KPI-10A", "SS-KPI-10B");
+                        ValidateDate(context, null, elementPath, "EC-DATA-19", d19.Value.ToString());
                     }
                 }
-            });
 
+                // B. Validate CHP Totals
+                if (hasChp)
+                {
+                    var chpDates = new[] { "EC-DATA-52" };
+                    var chpNumbers = new[] { "EC-DATA-47", "EC-DATA-53", "EC-DATA-55", "EC-DATA-57" };
+
+                    // Validate keys before running field value analysis
+                    var allowedChpKeys = chpDates.Concat(chpNumbers).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                    var invalidChpKeys = chpSection!.Keys.Where(k => !allowedChpKeys.Contains(k)).ToList();
+
+                    if (invalidChpKeys.Any())
+                    {
+                        context.AddFailure(new ValidationFailure($"{elementPath}.chp_totals", $"Unexpected keys found in chp_totals: {string.Join(", ", invalidChpKeys)}.")
+                        {
+                            ErrorCode = "INVALID_CARBON_KEY",
+                            CustomState = new { elementId = (string)null, kpis = invalidChpKeys }
+                        });
+                    }
+
+                    ValidateSectionFields(context, null, elementPath, "chp_totals", chpSection, chpDates, chpNumbers);
+                }
+
+                // C. Validate HPM Totals
+                if (hasHpm)
+                {
+                    var hpmNumbers = new[] { "EC-DATA-66", "EC-DATA-68" };
+
+                    var allowedHpmKeys = hpmNumbers.ToHashSet(StringComparer.OrdinalIgnoreCase);
+                    var invalidHpmKeys = hpmSection!.Keys.Where(k => !allowedHpmKeys.Contains(k)).ToList();
+
+                    if (invalidHpmKeys.Any())
+                    {
+                        context.AddFailure(new ValidationFailure($"{elementPath}.hpm_totals", $"Unexpected keys found in hpm_totals: {string.Join(", ", invalidHpmKeys)}.")
+                        {
+                            ErrorCode = "INVALID_CARBON_KEY",
+                            CustomState = new { elementId = (string)null, kpis = invalidHpmKeys }
+                        });
+                    }
+
+                    ValidateSectionFields(context, null, elementPath, "hpm_totals", hpmSection, Array.Empty<string>(), hpmNumbers);
+                }
+
+                // D. Validate Boiler Totals
+                if (hasBlr)
+                {
+                    var blrNumbers = new[] { "EC-DATA-84", "EC-DATA-86" };
+
+                    var allowedBlrKeys = blrNumbers.ToHashSet(StringComparer.OrdinalIgnoreCase);
+                    var invalidBlrKeys = blrSection!.Keys.Where(k => !allowedBlrKeys.Contains(k)).ToList();
+
+                    if (invalidBlrKeys.Any())
+                    {
+                        context.AddFailure(new ValidationFailure($"{elementPath}.blr_totals", $"Unexpected keys found in blr_totals: {string.Join(", ", invalidBlrKeys)}.")
+                        {
+                            ErrorCode = "INVALID_CARBON_KEY",
+                            CustomState = new { elementId = (string)null, kpis = invalidBlrKeys }
+                        });
+                    }
+
+                    ValidateSectionFields(context, null, elementPath, "blr_totals", blrSection, Array.Empty<string>(), blrNumbers);
+                }
+            });
         }
 
         // ==========================================
@@ -349,7 +348,7 @@ namespace HNTAS.Core.Api.Validators.Arms
                     context.AddFailure(new ValidationFailure(elementPath, $"Field '{key}' is missing from the '{sectionName}' section.")
                     {
                         ErrorCode = "MISSING_MANDATORY_CARBON_KPI",
-                        CustomState = new { elementId, kpis = new List<string> { fullKpiPath } }
+                        CustomState = new { elementId = (string)null, kpis = new List<string> { fullKpiPath } }
                     });
                     continue;
                 }
@@ -378,7 +377,7 @@ namespace HNTAS.Core.Api.Validators.Arms
                 context.AddFailure(new ValidationFailure(elementPath, $"Value for '{kpiKey}' must be a valid date in YYYY-MM-DD format.")
                 {
                     ErrorCode = "INVALID_DATE_FORMAT",
-                    CustomState = new { elementId, kpis = new List<string> { kpiKey } }
+                    CustomState = new { elementId = (string)null, kpis = new List<string> { kpiKey } }
                 });
             }
         }
@@ -391,61 +390,7 @@ namespace HNTAS.Core.Api.Validators.Arms
                 context.AddFailure(new ValidationFailure(elementPath, $"Value for '{kpiKey}' must be a valid positive number.")
                 {
                     ErrorCode = "INVALID_NUMERIC_VALUE",
-                    CustomState = new { elementId, kpis = new List<string> { kpiKey } }
-                });
-            }
-        }
-
-
-        private void ValidateExclusivity(NetworkElementRequestV2 element, HashSet<string> submitted, ValidationContext<KpiSubmissionRequestV2> context, int index, string kpiA, string kpiB)
-        {
-            var path = $"Elements[{index}]";
-            bool hasA = submitted.Contains(kpiA);
-            bool hasB = submitted.Contains(kpiB);
-
-            // 1. Both provided (Mutual Exclusivity)
-            if (hasA && hasB)
-            {
-                context.AddFailure(new ValidationFailure(path, $"Reported both '{kpiA}' and '{kpiB}', but only one is allowed.")
-                {
-                    ErrorCode = "MUTUALLY_EXCLUSIVE_KPI",
-                    CustomState = new
-                    {
-                        elementId = element.ElementId,
-                        kpis = new List<string> { kpiA, kpiB } // Grouped list
-                    }
-                });
-            }
-            // 2. Neither provided (Mandatory Choice)
-            else if (!hasA && !hasB)
-            {
-                context.AddFailure(new ValidationFailure(path, $"Either '{kpiA}' or '{kpiB}' must be reported.")
-                {
-                    ErrorCode = "MISSING_MANDATORY_KPI",
-                    CustomState = new
-                    {
-                        elementId = element.ElementId,
-                        kpis = new List<string> { kpiA, kpiB } // Grouped list
-                    }
-                });
-            }
-        }
-
-        private void ValidateAtLeastOne(NetworkElementRequestV2 element, HashSet<string> submitted, ValidationContext<KpiSubmissionRequestV2> context, int index, string groupName, string[] groupKeys)
-        {
-            // Only apply group mandatory checks if the type is Energy Centre
-            if (element.Type == ElementType.EnergyCentre.ToString() && !groupKeys.Any(k => submitted.Contains(k)))
-            {
-                var path = $"Elements[{index}]";
-                context.AddFailure(new ValidationFailure(path, $"At least one KPI from the group '{groupKeys.First()}' to '{groupKeys.Last()}' must be reported.")
-                {
-                    ErrorCode = "MISSING_MANDATORY_GROUP",
-                    CustomState = new
-                    {
-                        elementId = element.ElementId,
-                        // Return the whole group so the frontend knows which fields to highlight
-                        kpis = groupKeys.ToList()
-                    }
+                    CustomState = new { elementId = (string)null, kpis = new List<string> { kpiKey } }
                 });
             }
         }

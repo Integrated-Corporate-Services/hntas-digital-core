@@ -1,5 +1,6 @@
 ﻿using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Enums;
+using HNTAS.Core.Api.Services;
 
 namespace HNTAS.Core.Api.Interfaces
 {
@@ -14,5 +15,7 @@ namespace HNTAS.Core.Api.Interfaces
         Task TrySendAssessorAssessmentEmailAsync(string emailAddress, string hnName, string hnId, string assessmentResult);
         Task TrySendCertificationCompleteEmailAsync(string emailAddress, string hnName, string hnId);
         Task TrySendHNDiscontinedEmailAsync(User userToUpdate, string name, ContributorRole contributorRole);
+        Task TrySendOfgemDataForExistingOrgOrRpEmailAsync(OfgemDataModelForNotification ofgemData);
+        Task TrySendOfgemDataForNewRpEmailAsync(OfgemDataModelForNotification ofgemData);
     }
 }

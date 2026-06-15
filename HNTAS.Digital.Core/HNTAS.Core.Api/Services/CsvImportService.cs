@@ -211,6 +211,13 @@ namespace HNTAS.Core.Api.Services
             }
             else
             {
+                var existingHn = await _heatNetworkService.GetByHnIdAsync(row.HnId);
+
+                if (existingHn != null)
+                {
+                    _logger.LogInformation("HeatNetwork {HnId} already exists.", row.HnId);
+                    return;
+                }
                 // Send email to user to reg their org and heat network
                 var ofgemDataModelPostImport = new OfgemDataModelPostImport
                 {

@@ -68,6 +68,10 @@ namespace HNTAS.Core.Api.Controllers
                         await _emailService.TrySendOfgemDataForNewRpEmailAsync(item);
                     }
                 }
+
+                // Removing the DataForExistingOrgOrUser and DataForNewOrgOrUser from the result before returning to the client
+                result.DataForExistingOrgOrUser.Clear();
+                result.DataForNewOrgOrUser.Clear();
                 return Ok(result);
             }
             catch (OperationCanceledException)

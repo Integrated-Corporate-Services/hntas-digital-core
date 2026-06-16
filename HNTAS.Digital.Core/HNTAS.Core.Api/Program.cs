@@ -38,7 +38,7 @@ builder.Services.AddAutoMapper(typeof(UserMappingProfile).Assembly);
 
 builder.Services.AddSingleton<IUserService, UserService>();
 builder.Services.AddSingleton<IOrganisationService, OrganisationService>();
-builder.Services.AddSingleton<IInvitationService, InvitationService>();
+builder.Services.AddScoped<IInvitationService, InvitationService>();
 builder.Services.AddSingleton<ICounterService, CounterService>();
 builder.Services.AddSingleton<ISoaService, SoaService>();
 builder.Services.AddSingleton<IGovUkNotifyService, GovUkNotifyService>();

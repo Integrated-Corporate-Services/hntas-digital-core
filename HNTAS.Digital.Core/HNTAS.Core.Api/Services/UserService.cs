@@ -9,6 +9,7 @@ using Microsoft.Extensions.Options;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using MongoDB.Driver.Linq;
+using System.Data;
 using System.Formats.Asn1;
 
 namespace HNTAS.Core.Api.Services
@@ -157,7 +158,7 @@ namespace HNTAS.Core.Api.Services
         }
 
         public async Task<UpdateResult> UpdateOrgIdAsync(string userId, string orgId)
-        {
+                        {
             var filter = Builders<User>.Filter.Eq(u => u.Id, userId);
 
             var update = Builders<User>.Update.Set(u => u.OrgId, orgId);

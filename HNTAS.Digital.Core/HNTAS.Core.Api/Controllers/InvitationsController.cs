@@ -213,6 +213,25 @@ namespace HNTAS.Core.Api.Controllers
             return NoContent();
         }
 
+        [HttpPatch("accept-invitation")]
+        [Consumes(MediaTypeNames.Application.Json)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [Produces("application/json")]
+        public async Task<IActionResult> AcceptInvitation(InvitedUserRequest request)
+        {
+            var result = await _invitationService.AcceptAsync(request);
+
+            if (result.IsNotFound)
+                return NotFound();
+
+            return result.IsCreated
+                ? StatusCode(201, result.UserId)
+                : Ok(result.UserId);
+        }
 
         /// <summary>
         /// Rejects a pending invitation by ID.

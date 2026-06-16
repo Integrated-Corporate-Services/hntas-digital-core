@@ -570,135 +570,6 @@ public class UsersController : ControllerBase
         }
     }
 
-    [HttpPatch("accept-invitation")]
-    [Consumes(MediaTypeNames.Application.Json)]
-    [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(string), StatusCodes.Status201Created)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    public async Task<ActionResult> AcceptInvitationAsync(InvitedUserRequest request)
-    {
-        if (!ModelState.IsValid)
-        {
-            var errors = string.Join("; ", ModelState.Values
-                .SelectMany(v => v.Errors)
-                .Select(e => e.ErrorMessage));
-
-            _logger.LogWarning("Invalid invited user data. Errors: {Errors}", errors);
-            return ValidationProblem(ModelState);
-        }
-
-        try
-        {
-            // Retrieve invitation
-            var invitation = await _invitationService.GetByIdAsync(request.InvitationId);
-            if (invitation == null)
-            {
-                _logger.LogWarning("Invitation not found for email: {Email}", request.InvitedEmail);
-                return NotFound(new ProblemDetails
-                {
-                    Status = StatusCodes.Status404NotFound,
-                    Title = "Invitation Not Found",
-                    Detail = $"No invitation found for email ({request.InvitedEmail})."
-                });
-            }
-
-            // Mark invitation as accepted
-            invitation.Status = InvitationStatus.Accepted;
-            invitation.AcceptedAt = DateTime.UtcNow;
-
-            // Check for existing user
-            var invitedUser = await _userService.GetByUserOneLoginIdAsync(request.OneLoginId);
-            var heatNetwork = await _heatNetworkService.GetByHnIdAsync(invitation.InvitedHnId!);
-            if (invitedUser != null && invitation.InvitedHnId != null)
-            {
-                invitedUser.HnRoleMappings = invitedUser.HnRoleMappings ?? new List<HnRoleMapping>();
-
-                if (invitation.InvitedOrgId != null)
-                {
-                    invitedUser.OrgId = invitation.InvitedOrgId;
-                }
-
-                foreach (var role in invitation.InvitedRoles)
-                {
-                    // Update HnRoleMappings
-                    var hnRoleMapping = invitedUser.HnRoleMappings.FirstOrDefault(m => m.HnId == invitation.InvitedHnId);
-                    if (hnRoleMapping == null)
-                    {
-                        hnRoleMapping = new HnRoleMapping
-                        {
-                            HnId = invitation.InvitedHnId,
-                            Role = role,
-                        };
-                        invitedUser.HnRoleMappings.Add(hnRoleMapping);
-                    }
-                    else if (!(hnRoleMapping.Role == role))
-                    {
-                        hnRoleMapping.Role = role;
-                    }
-                }
-
-                //await _userService.UpdateAsync(invitedUser.Id, invitedUser);
-                await _invitationService.ExecuteRoleSwapAsync(invitedUser, null, invitation);
-
-                _logger.LogInformation("Existing invited user updated: {UserId})", invitedUser.Id);
-
-                await AuditLogs(invitation, invitedUser.Id!, heatNetwork);
-                await NotificationHistoryForAcceptingInvite(invitation, invitedUser, heatNetwork);
-
-                return Ok(invitedUser.Id);
-            }
-            if (invitedUser != null && invitation.InvitedOrgId != null)
-            {
-                //Prepare Invited User (Gains Roles)
-                invitedUser.Roles = MapAndFilterRoles(invitation.InvitedRoles);
-                invitedUser.ContributingOrganisations.Add(invitation.InvitedOrgId);
-
-                var rpReplaceRole = MapAndFilterRoles(invitation.RolesToReplace);
-
-                //who is rp get rp user
-                var invitedOrg = await _organisationService.GetByOrgIdAsync(invitation.InvitedOrgId);
-                var rpuserId = invitation.ReplacedUserId ?? invitedOrg?.RpUserId;                
-                var rpUser = await _userService.GetByIdAsync(rpuserId);
-
-                rpUser.Roles = MapAndFilterRoles(invitation.RolesToReplace);                
-
-                await _invitationService.ExecuteRoleSwapAsync(invitedUser, rpUser, invitation);
-
-                //replace organisation RpUserId
-                var organisation = await _organisationService.GetByOrgIdAsync(invitation.InvitedOrgId);
-                organisation.RpUserId = invitedUser.Id;
-
-                await _organisationService.UpdateAsync(organisation.Id, organisation);
-                await AuditLogs(invitation, invitedUser.Id!, heatNetwork);
-                await NotificationHistoryForAcceptingInvite(invitation, invitedUser, heatNetwork);
-                return StatusCode(StatusCodes.Status201Created, invitedUser.Id);
-            }
-            else
-            {
-                // Create new user from invitation
-                var newUser = await BuildUserFromInvitation(request, invitation);
-                await _invitationService.ExecuteRoleSwapAsync(newUser, null, invitation);
-                _logger.LogInformation("New invited user registered: {UserId} (DB Id: {Id})", newUser.OneLoginId, newUser.Id);
-
-                await AuditLogs(invitation, newUser.Id!, heatNetwork);
-                await NotificationHistoryForAcceptingInvite(invitation, newUser, heatNetwork);
-                return StatusCode(StatusCodes.Status201Created, newUser.Id);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error during invited user registration. OneLoginId: {UserId}, Email: {Email}", request.OneLoginId, request.InvitedEmail);
-            return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
-            {
-                Status = StatusCodes.Status500InternalServerError,
-                Title = "Internal Server Error",
-                Detail = "An unexpected error occurred while registering the invited user."
-            });
-        }
-    }
-
 
     /// <summary>
     /// Gets list Contributor Roles from Enum class
@@ -724,9 +595,6 @@ public class UsersController : ControllerBase
         var roles = EnumHelper.GetEnumItems<UserRole>();
         return Ok(roles);
     }
-
-
-
 
     [HttpDelete("{id}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -784,6 +652,9 @@ public class UsersController : ControllerBase
         }
     }
 
+
+    // TODO - Not updating because the feature shall be discarded soon. Either update or discard this method, once dhb-690 implemented
+    #region managed-users delete/update
     [HttpGet("managed-users")]
     [ProducesResponseType(typeof(List<ManagedUserResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -870,6 +741,29 @@ public class UsersController : ControllerBase
         _logger.LogInformation("Managed users retrieved successfully for user ID: {UserId}", userId);
         return Ok(managedUsers);
     }
+    #endregion
+
+    [HttpGet("network-managers")]
+    [ProducesResponseType(typeof(List<InvitedUserResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [Produces("application/json")]
+    public async Task<ActionResult<List<InvitedUserResponse>>> GetNetworkManagersAsync(string userId)
+    {
+        var user = await _userService.GetUserWithDetailsAsync(userId);
+        if (user == null)
+        {
+            _logger.LogWarning("User with ID {UserId} not found.", StringFormatter.Sanitize(userId));
+            return NotFound();
+        }
+
+        var networkManagerInvitations = await _invitationService.GetNetworkManagersByInviterUserId(userId);
+
+        _logger.LogInformation("Successfully retrieved {Count} network manager invitations for user ID: {UserId}",
+            networkManagerInvitations.Count, StringFormatter.Sanitize(userId));
+        var managedNetworkMangers = _mapper.Map<List<InvitedUserResponse>>(networkManagerInvitations);
+
+        return Ok(managedNetworkMangers);        
+    }
 
     [HttpGet("registered-users")]
     [ProducesResponseType(typeof(List<UserResponse>), StatusCodes.Status200OK)]
@@ -886,7 +780,7 @@ public class UsersController : ControllerBase
 
         _logger.LogInformation("Attempting to retrieve managed contributors for user ID: {UserId}", userId);
 
-        var invitations = await _invitationService.GetByInvitedUserIdAsync(user.Id);
+        var invitations = await _invitationService.GetByInviterUserIdAsync(user.Id);
         var invitedEmails = invitations.Select(i => i.InvitedEmail).Distinct().ToList();
 
         var registeredUsers = await _userService.GetRegisteredUsers(invitedEmails);
@@ -996,34 +890,7 @@ public class UsersController : ControllerBase
         var usersResponse = _mapper.Map<List<UserResponse>>(users);
 
         return Ok(usersResponse);
-    }
-
-
-    private static readonly Dictionary<ContributorRole, UserRole> RoleMapping =
-    new Dictionary<ContributorRole, UserRole>
-    {
-        { ContributorRole.DesignatedDutyHolder, UserRole.DesignatedDutyHolder },
-        { ContributorRole.Contributor, UserRole.Contributor },            
-        { ContributorRole.Assessor, UserRole.Assessor },
-        { ContributorRole.Certifier, UserRole.Certifier },
-        { ContributorRole.NetworkManager, UserRole.NetworkManager },
-        { ContributorRole.ResponsiblePerson, UserRole.ResponsiblePerson }
-    };
-
-
-    private List<UserRole> MapAndFilterRoles(List<ContributorRole>? rolesToMap)
-    {
-        return rolesToMap?
-            .Select(role =>
-                RoleMapping.TryGetValue(role, out var mappedRole)
-                ? (UserRole?)mappedRole
-                : null
-            )
-            .Where(mappedRole => mappedRole.HasValue)
-            .Select(mappedRole => mappedRole!.Value)
-            .ToList()
-            ?? new List<UserRole>();
-    }
+    }   
 
     private static List<HeatNetworkInfo> MapHeatNetworks(UserDetailsResult user)
     {
@@ -1034,178 +901,4 @@ public class UsersController : ControllerBase
             Name = x.Name
         }).ToList() ?? new List<HeatNetworkInfo>();
     }
-
-    private async Task<User> BuildUserFromInvitation(InvitedUserRequest request, Invitation invitation)
-    {
-        var user = new User
-        {
-            OneLoginId = request.OneLoginId,
-            EmailId = request.InvitedEmail,
-            FirstName = invitation.FirstName,
-            LastName = invitation.LastName,
-            JobTitle = null,
-            Status = UserStatus.Active,
-            ContributingOrganisations = new List<string> { invitation.InvitedOrgId }
-        };
-
-        if (invitation.InvitedHnId != null)
-        {
-            user.HnRoleMappings = new List<HnRoleMapping>
-            {
-                new HnRoleMapping
-                {
-                    HnId = invitation.InvitedHnId,
-                    Role = invitation.InvitedRoles.FirstOrDefault()
-                }
-            };
-        }
-
-        user.Roles = MapAndFilterRoles(invitation.InvitedRoles);
-
-        return user;
-    }
-
-    private async Task AuditLogs(Invitation invitation, string userId, HeatNetwork heatNetwork)
-    {
-        // Log for Audit history
-        var isRegistrationEnabledString = Environment.GetEnvironmentVariable("IS_REGISTRATION_ENABLED");
-        if (!string.IsNullOrEmpty(isRegistrationEnabledString) &&
-                isRegistrationEnabledString.ToLower() == "true")
-
-        {
-            if (heatNetwork != null)
-            {
-                var phase = heatNetwork.Phase;
-                var stage = HeatNetworkHelper.GetStageFromPhase(phase);
-                var invitedRole = invitation.InvitedRoles.FirstOrDefault();
-                var entryType = "";
-                switch (invitedRole)
-                {
-                    case ContributorRole.DesignatedDutyHolder:
-                        entryType = "Designated duty holder assigned";
-                        break;                    
-                    case ContributorRole.Contributor:
-                        entryType = "Contributor assigned";
-                        break;                    
-                    default:
-                        break;
-                }
-                await _auditService.SaveAuditAsync<HeatNetwork>(
-                    entryType: entryType,
-                    actorId: userId,
-                    entityId: heatNetwork.HnId!,
-                    oldState: heatNetwork,
-                    newState: heatNetwork,
-                    elementName: "NA",
-                    phase: phase,
-                    stage: stage
-                );
-            }
-        }
-    }
-
-    private async Task NotificationHistoryForAcceptingInvite(Invitation invitation, User user, HeatNetwork heatNetwork)
-    {
-        var invitedRole = invitation.InvitedRoles.FirstOrDefault();
-        var eligibleRoles = new List<string>() { ContributorRole.ResponsiblePerson.ToString() };
-        var subject = string.Empty;
-        var action = string.Empty;
-        var description = string.Empty;
-        var notificationType = NotificationHistoryType.NA;
-        var actorIds = new List<string>() { invitation.InviterUserId };
-        var heatNetworkName = heatNetwork != null ? heatNetwork.Name : "";
-
-        if (invitedRole == ContributorRole.NetworkManager)
-        {
-            subject = NotificationHistorySubjects.NetworkManagerJoined;
-            action = NotificationHistoryActions.NetworkManagers;
-            description = $"{user.FirstName} {user.LastName} signed in";
-            notificationType = NotificationHistoryType.NetworkManagerAcceptsInvite;
-        }
-        else if (invitedRole == ContributorRole.DesignatedDutyHolder)
-        {
-            // check if the invitor is Network Manager, if yes then add RP to actorIds
-            var invitorDetailsOfNM = await _userService.GetByIdAsync(invitation.InviterUserId);
-            if (invitorDetailsOfNM != null && invitorDetailsOfNM.Roles.Contains(UserRole.NetworkManager))
-            {
-                // Get the RP user details and add to actorIds
-                var invitaions = await _invitationService.GetByInvitedEmailAsync(invitorDetailsOfNM.EmailId!);
-                if (invitaions != null)
-                    actorIds.AddRange(invitaions.InviterUserId);
-            }
-
-            eligibleRoles.Add(ContributorRole.NetworkManager.ToString());
-            subject = NotificationHistorySubjects.DesignatedDutyHolderJoined;
-            action = NotificationHistoryActions.DDHAndContributors;
-            description = $"{user.FirstName} {user.LastName} joined {invitation.InvitedHnId}-{heatNetworkName}";
-            notificationType = NotificationHistoryType.DdhAcceptsInviteToHeatNetwork;
-        }        
-        else if (invitedRole == ContributorRole.Contributor)
-        {
-            await AddAssociatedNetworkManagerAndRpIds(invitation, actorIds);
-            eligibleRoles.Add(ContributorRole.NetworkManager.ToString());
-            eligibleRoles.Add(ContributorRole.DesignatedDutyHolder.ToString());
-            subject = NotificationHistorySubjects.ContributorJoined;
-            action = NotificationHistoryActions.DDHAndContributors;
-            description = $"{user.FirstName} {user.LastName} joined {invitation.InvitedHnId}-{heatNetworkName}";
-            notificationType = NotificationHistoryType.ContributorAcceptsInviteToHeatNetwork;
-        }
-        
-        var notificationHistory = new NotificationHistory
-        {
-            NotificationType = notificationType,
-            ActorsId = actorIds,
-            Subject = subject,
-            Description = description,
-            Timestamp = DateTime.UtcNow,
-            Action = action,
-            EligibleRoles = eligibleRoles,
-            HeatNetworkId = invitation.InvitedHnId,
-            CreatedBy = user.Id
-        };
-
-        await _notificationHistoryService.CreateAsync(notificationHistory);
-    }
-
-    private async Task AddAssociatedNetworkManagerAndRpIds(Invitation invitation, List<string> actorIds)
-    {
-        var invitorDetails = await _userService.GetByIdAsync(invitation.InviterUserId);
-        if (invitorDetails == null) return;
-
-        var role = invitorDetails.HnRoleMappings
-            .Where(mapping => mapping.HnId == invitation.InvitedHnId)
-            .Select(mapping => mapping.Role)
-            .FirstOrDefault();
-
-
-        if (role == ContributorRole.NetworkManager)
-        {
-            var invitaions = await _invitationService.GetByInvitedEmailAsync(invitorDetails.EmailId!);
-            if (invitaions != null)
-                actorIds.AddRange(invitaions.InviterUserId);
-        }
-        else
-        {
-            var superInvitorDetails = await _invitationService.GetByInvitedDetailsAsync(
-                invitorDetails.EmailId,
-                invitation.InvitedHnId!,
-                role);
-
-            if (superInvitorDetails != null)
-            {
-                actorIds.Add(superInvitorDetails.InviterUserId!);
-                // check if the invitor is Network Manager, if yes then add RP to actorIds
-                var invitorDetailsOfNM = await _userService.GetByIdAsync(superInvitorDetails!.InviterUserId);
-                if (invitorDetailsOfNM != null && invitorDetailsOfNM.Roles.Contains(UserRole.NetworkManager))
-                {
-                    // Get the RP user details and add to actorIds
-                    var invitaions = await _invitationService.GetByInvitedEmailAsync(invitorDetailsOfNM.EmailId!);
-                    if (invitaions != null)
-                        actorIds.AddRange(invitaions.InviterUserId);
-                }
-            }
-        }
-            
-    }
-
 }

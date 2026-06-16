@@ -16,6 +16,9 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonElement("hnId")]
         public string? HnId { get; set; }
 
+        [BsonElement("orgId")]
+        public string OrgId { get; set; }
+
         [BsonElement("name")]
         public string Name { get; set; } = string.Empty;
         [BsonElement("additionalDescription")]
@@ -28,7 +31,7 @@ namespace HNTAS.Core.Api.Data.Models
         public ECDetails? ECDetails { get; set; }
 
         [BsonElement("pathway")]
-        public string Pathway { get; set; }
+        public string? Pathway { get; set; }
 
         [BsonElement("registrationSource")]
         [BsonRepresentation(BsonType.String)]
@@ -37,6 +40,10 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonElement("heatNetworkType")]
         [BsonRepresentation(BsonType.String)]
         public HeatNetworkType HeatNetworkType { get; set; }
+
+        [BsonElement("hasOwnEnergyCenter")]
+        [BsonRepresentation(BsonType.String)]
+        public bool HasOwnEnergyCenter { get; set; }
 
         [BsonElement("heatNetworkConnections")]
         public HeatNetworkConnections? HeatNetworkConnections { get; set; }
@@ -55,6 +62,8 @@ namespace HNTAS.Core.Api.Data.Models
 
         [BsonElement("designConstructionLog")]
         public DesignConstructionLog? DesignConstructionLog { get; set; }
+        [BsonElement("ofgemUserEmailId")]
+        public string? OfgemUserEmailId { get; set; }
 
         [BsonElement("createdBy")]
         public string CreatedBy { get; set; }
@@ -65,6 +74,6 @@ namespace HNTAS.Core.Api.Data.Models
         public DateTime CreatedAt { get; set; }
 
         [BsonElement("phase")]
-        public string Phase { get; set; }
+        public string? Phase { get; set; }
     }    
 }

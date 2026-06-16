@@ -7,6 +7,7 @@ using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
 using HNTAS.Core.Api.Models.NetworkDetails;
 using HNTAS.Core.Api.Models.Soa;
+using HNTAS.Core.Api.Models.Users;
 using HNTAS.Core.Api.Services;
 using Microsoft.AspNetCore.Mvc;
 using System;
@@ -26,10 +27,11 @@ namespace HNTAS.Core.Api.Controllers
         private readonly IAuditService _auditService;        
         private readonly IUserService _userService;
         private readonly IEmailService _emailService;
+        private readonly IInvitationService _invitationService;
+        private readonly IOrganisationService _organisationService;
         private readonly INotificationHistoryService _notificationHistoryService;
-        private readonly IInvitationService _intivationService;
 
-        public HeatNetworksController(IHeatNetworkService hnService, ILogger<HeatNetworksController> logger, ICounterService counterService, IMapper mapper, IUserService userService, IEmailService emailService, IAuditService auditService, INotificationHistoryService notificationHistoryService, IInvitationService intivationService)
+        public HeatNetworksController(IHeatNetworkService hnService, ILogger<HeatNetworksController> logger, ICounterService counterService, IMapper mapper, IUserService userService, IEmailService emailService, IInvitationService invitationService, IAuditService auditService, IOrganisationService organisationService, INotificationHistoryService notificationHistoryService)
         {
             _hnService = hnService;
             _logger = logger;
@@ -38,8 +40,9 @@ namespace HNTAS.Core.Api.Controllers
             _auditService = auditService;
             _userService = userService;
             _emailService = emailService;
+            _invitationService = invitationService;
             _notificationHistoryService = notificationHistoryService;
-            _intivationService = intivationService;
+            _organisationService = organisationService;
         }
 
         /// <summary>
@@ -142,6 +145,45 @@ namespace HNTAS.Core.Api.Controllers
             }
         }
 
+        [HttpGet("heat-network-by-userId")]
+        [Consumes(MediaTypeNames.Application.Json)]
+        [ProducesResponseType(typeof(List<HeatNetworkResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<List<HeatNetworkResponse>>> GetHeatNetworksByUserId(string userId) 
+        {
+            if (string.IsNullOrEmpty(userId))
+            {
+                _logger.LogWarning("GetHeatNetworksByUserId called with empty user Id");
+                return BadRequest("Please provide a valid user Id.");
+            }
+            try
+            {
+                var userDetails = await _userService.GetByIdAsync(userId);
+                var heatNetworks = new List<HeatNetworkResponse>();
+                foreach(var hnMapping in userDetails.HnRoleMappings)
+                {
+                    var heatNetwork = await _hnService.GetByHnIdAsync(hnMapping.HnId);
+
+                    if (heatNetwork == null)
+                    {
+                        _logger.LogInformation("No heat networks found for the provided ID: {HeatNetworkId}", StringFormatter.Sanitize(hnMapping.HnId));
+                        return NotFound("No heat network found for the given ID.");
+                    }
+
+                    var heatNetworkResponse = _mapper.Map<HeatNetworkResponse>(heatNetwork);
+                    heatNetworks.Add(heatNetworkResponse);
+                }
+                return heatNetworks;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while retrieving heat networks for ID: {UserId}", StringFormatter.Sanitize(userId));
+                return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while retrieving the heat networks.");
+            }
+        }
+
 
 
         [HttpPost("add-heat-network")]
@@ -161,11 +203,51 @@ namespace HNTAS.Core.Api.Controllers
                     heatNetworkDetails.UHnId = sequenceID.ToString();
                     _logger.LogInformation("Generated new heat network ID: {HeatNetworkId}", heatNetworkDetails.HnId);
                 }
-
+                UserDetailsResult user = await _userService.GetUserWithDetailsAsync(heatNetworkDetails.CreatedBy);
                 await _hnService.CreateAsync(heatNetworkDetails, true);
                 _logger.LogInformation("New heat network initially registered: {HNID} (DB Id: {Id})", heatNetworkDetails.HnId, heatNetworkDetails.Id);
+                
+                ContributorRole role = user.Roles[0] switch
+                {
+                    UserRole.ResponsiblePerson => ContributorRole.ResponsiblePerson,
+                    UserRole.NetworkManager => ContributorRole.NetworkManager
+                };
+                
+                User userWithUpdatedHnRoleMapping = await _userService.GetByIdAsync(heatNetworkDetails.CreatedBy);
+                userWithUpdatedHnRoleMapping.HnRoleMappings.Add(new HnRoleMapping { HnId = heatNetworkDetails.HnId, Role = role });
+                await _userService.UpdateAsync(heatNetworkDetails.CreatedBy, userWithUpdatedHnRoleMapping);
 
-                UserDetailsResult user = await _userService.GetUserWithDetailsAsync(heatNetworkDetails.CreatedBy);
+                if (role == ContributorRole.ResponsiblePerson)
+                {
+                    //find the network managers
+                    var invitations = await _invitationService.GetInvitedUsersAsRegisteredAsync(user.Id);
+                    var invitedEmails = invitations.Select(i => i.EmailId).Distinct().ToList();
+                    var invitedUsersDetail = await _userService.GetUsersByInvitedEmailsWithDetailsAsync(invitedEmails);
+                    var registeredUsers = _mapper.Map<List<ManagedUserResponse>>(invitedUsersDetail);
+                    var networkManagers = registeredUsers
+                        .Where(ru => ru.Roles != null &&
+                                     ru.Roles.Any(r => string.Equals(r, UserRole.NetworkManager.ToString(), StringComparison.OrdinalIgnoreCase)))
+                        .Select(ru => ru.Id)
+                        .ToList();
+                    // All networks managers reporting to the rp can access all heat networks the rp adds
+                    foreach(var nmId in networkManagers)
+                    {
+                        User nmWithUpdatedHnRoleMapping = await _userService.GetByIdAsync(nmId);
+                        nmWithUpdatedHnRoleMapping.HnRoleMappings.Add(new HnRoleMapping { HnId = heatNetworkDetails.HnId, Role = ContributorRole.NetworkManager });
+                        await _userService.UpdateAsync(nmId, nmWithUpdatedHnRoleMapping);
+                    }
+                }
+                if(role == ContributorRole.NetworkManager)
+                {
+                    // The Rp of the organisation that the networks are added to should be able to view them too, irrespective of who added them
+                    var orgDetails = await _organisationService.GetByOrgIdAsync(heatNetworkDetails.OrgId);
+                    var rpUserId = orgDetails.RpUserId;
+                    var rpUser = await _userService.GetByIdAsync(rpUserId);
+                    rpUser.HnRoleMappings.Add(new HnRoleMapping { HnId = heatNetworkDetails.HnId, Role = ContributorRole.ResponsiblePerson });
+                    await _userService.UpdateAsync(rpUser.Id, rpUser);
+                }
+                _logger.LogInformation("New heat network role mapping updated");
+
                 string userEmail = user.EmailId;
                 string fullName = user.FullName;
                 string hnId = heatNetworkDetails.HnId;
@@ -326,7 +408,7 @@ namespace HNTAS.Core.Api.Controllers
             }
             else
             {
-                var invitation = await _intivationService.GetByInvitedEmailAsync(user.EmailId!);
+                var invitation = await _invitationService.GetByInvitedEmailAsync(user.EmailId!);
                 if (invitation != null)
                     actorIds.Add(invitation.InviterUserId);
                 eligibleRoles.Add(UserRole.ResponsiblePerson.ToString());

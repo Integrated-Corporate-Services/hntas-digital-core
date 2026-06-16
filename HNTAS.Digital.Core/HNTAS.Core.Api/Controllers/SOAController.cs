@@ -355,7 +355,7 @@ namespace HNTAS.Core.Api.Controllers
                     return NotFound($"No heat network found for HnId '{request.HnId}'.");
                 }
 
-                await _soaService.UpdateSoaStatus(request.HnId, request.ElementType!, request.Stage, request.SoaStatuses!, request.SoaStatusUpdatedBy!, request.ElementSoaStatus);
+                await _soaService.UpdateSoaStatus(request.HnId, request.ElementType, request.Stage, request.SoaStatuses!, request.SoaStatusUpdatedBy!, request.ElementSoaStatus);
 
                 _logger.LogInformation("Updated statuses successfully for HN ID: {HnId}, Element:{ElementId}, Stage: {Stage}, UpdatedBy: {UpdatedBy}",
                  StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(request.ElementId!), request.Stage, StringFormatter.Sanitize(request.SoaStatusUpdatedBy!));
@@ -367,12 +367,12 @@ namespace HNTAS.Core.Api.Controllers
                     var updatedHeatNetwork = await _heatNetworkService.GetByHnIdAsync(request.HnId);
 
                     await _auditService.SaveAuditAsync<HeatNetwork>(
-                        entryType: "SOA - " + request.SoaStatuses,
+                        entryType: "SOA- Element status updated",
                         actorId: request.SoaStatusUpdatedBy!,
                         entityId: existingHeatNetwork.HnId!,
                         oldState: existingHeatNetwork,
                         newState: updatedHeatNetwork,
-                        elementName: request.ElementDisplayName!,
+                        elementName: HeatNetworkHelper.GetNetworkElementLabelByElementId(request.ElementType.ToString()),
                         phase: request.SoaPhase!,
                         stage: request.Stage.ToString()
                     );
@@ -423,15 +423,15 @@ namespace HNTAS.Core.Api.Controllers
                 existingHeatNetwork.NetworkElements = elementModelToUpdate;
                 await _heatNetworkService.UpdateAsync(request.HnId, existingHeatNetwork);
                 await NotificationHistoryForAssigningAssessor(request, existingHeatNetwork);
-                _logger.LogInformation("Saved Assessor Assigned for HN ID: {HnId}, Elements: {ElementIds}, UpdatedBy: {UpdatedBy}",
-                StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(string.Join(", ", request.ElementIds!)), StringFormatter.Sanitize(request.UpdatedBy));
+                _logger.LogInformation("Saved Assessor Assigned for HN ID: {HnId}, UpdatedBy: {UpdatedBy}",
+                StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(request.UpdatedBy));
 
                 return Ok();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to save Assessor Assigned for HN ID: {HnId}, Elements: {ElementIds}, UpdatedBy: {UpdatedBy}",
-                StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(string.Join(", ", request.ElementIds!)), StringFormatter.Sanitize(request.UpdatedBy));
+                _logger.LogError(ex, "Failed to save Assessor Assigned for HN ID: {HnId}, UpdatedBy: {UpdatedBy}",
+                StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(request.UpdatedBy));
                 throw;
             }
         }
@@ -662,10 +662,15 @@ namespace HNTAS.Core.Api.Controllers
             {
                 actors.Add(nmUserId);
             }
-            // check if request.UpdatedBy is in actors list, if not add to the list
-            //actors = actors.Contains(request.UpdatedBy) ? actors : actors.Append(request.UpdatedBy).ToList();
 
-            var description = $"{request.AssessorFirstName} {request.AssessorLastName} Assigned to {heatNetwork.HnId}-{heatNetwork.Name}";
+            var description = "";
+            var assessorDetails = request.AssessorAssessmentForElements.Select(a => a.AssessorAssessments).FirstOrDefault();
+            if (assessorDetails != null)
+            {
+                var assessor = assessorDetails.FirstOrDefault();
+                description = $"{assessor?.AssessorFirstName} {assessor?.AssessorLastName} Assigned to {heatNetwork.HnId}-{heatNetwork.Name}";
+            }
+            
             var eligibleRoles = new List<string> { ContributorRole.ResponsiblePerson.ToString()
                 , ContributorRole.NetworkManager.ToString(),
                 ContributorRole.DesignatedDutyHolder.ToString(),                
@@ -680,8 +685,10 @@ namespace HNTAS.Core.Api.Controllers
                 Action = NotificationHistoryActions.HeatNetworkDetails,
                 HeatNetworkId = heatNetwork.HnId,
                 CreatedBy = request.UpdatedBy,
-                EligibleRoles = eligibleRoles
+                EligibleRoles = eligibleRoles,
+                Stage = request.SoaStage
             };
+            
             await _notificationHistoryService.CreateAsync(notificationHistory);
         }
     }

@@ -6,16 +6,13 @@ namespace HNTAS.Core.Api.Enums
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public enum HeatNetworkType
     {
-        [Description("Communal (with an own energy centre)")]
-        CommunalWithEnergyCentre = 1,
+        [Description("Unset")]
+        Unset = 0,
 
-        [Description("Communal (without own energy centre)")]
-        CommunalWithoutEnergyCentre = 2,
+        [Description("Communal")]
+        Communal = 1,        
 
-        [Description("District (with its own main energy centre)")]
-        DistrictWithOwnMainEnergyCentre= 3,
-
-        [Description("District (without own main energy centre)")]
-        DistrictWithoutOwnMainEnergyCentre = 4,
+        [Description("District")]
+        District= 2
     }
 }

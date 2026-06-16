@@ -1,17 +1,14 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
-  <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <UserSecretsId>9e41519a-cb54-4c82-80e3-96c338372949</UserSecretsId>
-    <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
-  </PropertyGroup>
-
-
 <PropertyGroup>
+	<TargetFramework>net9.0</TargetFramework>
+	<Nullable>enable</Nullable>
+	<ImplicitUsings>enable</ImplicitUsings>
+	<UserSecretsId>9e41519a-cb54-4c82-80e3-96c338372949</UserSecretsId>
+	<DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
 	<EnableNETAnalyzers>true</EnableNETAnalyzers>
 	<EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+	<NoWarn>$(NoWarn);NU1903</NoWarn>
 </PropertyGroup>
 
 <ItemGroup>

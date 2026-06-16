@@ -752,7 +752,7 @@ public class UsersController : ControllerBase
         var user = await _userService.GetUserWithDetailsAsync(userId);
         if (user == null)
         {
-            _logger.LogWarning("User with ID {UserId} not found.", userId);
+            _logger.LogWarning("User with ID {UserId} not found.", StringFormatter.Sanitize(userId));
             return NotFound();
         }
 

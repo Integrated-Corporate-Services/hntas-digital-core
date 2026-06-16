@@ -11,5 +11,7 @@
         public string AssessorNotificationTemplatedId { get; set; } = null!;
         public string AssessmentCompleteNotificationTemplatedId { get; set; } = null!;
         public string CertificationCompleteNotificationTemplatedId { get; set; } = null!;
+        public string OfgemDataForExistingOrgOrRpTemplateId { get; set; } = null!;
+        public string OfgemDataForNewRpTemplateId { get; set; } = null!;
     }
 }

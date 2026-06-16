@@ -7,21 +7,39 @@ namespace HNTAS.Core.Api.Enums
     public enum UserRole
     {
         /// <summary>
-        /// Represents a regulatory contact role.
+        /// Represents a responsible person role.
         /// </summary>
-        [Description("Regulatory Contact")]
-        RegulatoryContact = 1,
+        [Description("Responsible Person")]
+        ResponsiblePerson = 1,
 
         /// <summary>
-        /// Represents a third-party user role.
+        /// Represents a Network Manager role.
         /// </summary>
-        [Description("Third Party")]
-        ThirdParty = 2,
+        [Description("Network Manager")]
+        NetworkManager = 2,
+
+        /// <summary>
+        /// Represents a Designated Duty Holder user role.
+        /// </summary>
+        [Description("Designated Duty Holder")]
+        DesignatedDutyHolder = 3,
 
         /// <summary>
         /// Represents a contributor user role.
         /// </summary>
         [Description("Contributor")]
-        Contributor = 3,
+        Contributor = 4,
+
+        /// <summary>
+        /// Represents a assessor user role.
+        /// </summary>
+        [Description("Assessor")]
+        Assessor = 5,
+
+        /// <summary>
+        /// Represents a certifier user role.
+        /// </summary>
+        [Description("Certifier")]
+        Certifier = 6
     }
 }

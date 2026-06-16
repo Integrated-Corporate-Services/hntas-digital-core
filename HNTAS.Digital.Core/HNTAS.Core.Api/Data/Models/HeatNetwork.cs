@@ -1,4 +1,5 @@
-﻿using MongoDB.Bson;
+﻿using HNTAS.Core.Api.Enums;
+using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
 namespace HNTAS.Core.Api.Data.Models
@@ -9,13 +10,68 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonRepresentation(BsonType.ObjectId)]
         public string? Id { get; set; }
 
-        [BsonElement("hn_id")]
-        public string? hn_id { get; set; }
+        [BsonElement("uHnId")]
+        public string? UHnId { get; set; }
 
-        [BsonElement("location")]
-        public string location { get; set; }
+        [BsonElement("hnId")]
+        public string? HnId { get; set; }
+
+        [BsonElement("orgId")]
+        public string OrgId { get; set; }
 
         [BsonElement("name")]
-        public string name { get; set; }
-    }
+        public string Name { get; set; } = string.Empty;
+        [BsonElement("additionalDescription")]
+        public string? AdditionalDescription { get; set; }
+
+        [BsonElement("address")]
+        public RegisteredAddress? Address { get; set; }
+
+        [BsonElement("ecDetails")]
+        public ECDetails? ECDetails { get; set; }
+
+        [BsonElement("pathway")]
+        public string Pathway { get; set; }
+
+        [BsonElement("registrationSource")]
+        [BsonRepresentation(BsonType.String)]
+        public RegistrationSource RegistrationSource { get; set; }
+
+        [BsonElement("heatNetworkType")]
+        [BsonRepresentation(BsonType.String)]
+        public HeatNetworkType HeatNetworkType { get; set; }
+
+        [BsonElement("hasOwnEnergyCenter")]
+        [BsonRepresentation(BsonType.String)]
+        public bool HasOwnEnergyCenter { get; set; }
+
+        [BsonElement("heatNetworkConnections")]
+        public HeatNetworkConnections? HeatNetworkConnections { get; set; }
+
+        [BsonElement("networkElements")]
+        public NetworkElements? NetworkElements { get; set; }
+
+        [BsonElement("soa")]
+        public Soa? Soa { get; set; }
+
+        [BsonElement("meteringAndMonitoringStrategy")]
+        public MeteringAndMonitoringStrategy? MeteringAndMonitoringStrategy { get; set; }
+
+        [BsonElement("assessmentPlan")]
+        public AssessmentPlan? AssessmentPlan { get; set; }
+
+        [BsonElement("designConstructionLog")]
+        public DesignConstructionLog? DesignConstructionLog { get; set; }
+
+        [BsonElement("createdBy")]
+        public string CreatedBy { get; set; }
+
+        [BsonElement("createdAt")]
+        [BsonRepresentation(BsonType.DateTime)]
+        [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
+        public DateTime CreatedAt { get; set; }
+
+        [BsonElement("phase")]
+        public string Phase { get; set; }
+    }    
 }

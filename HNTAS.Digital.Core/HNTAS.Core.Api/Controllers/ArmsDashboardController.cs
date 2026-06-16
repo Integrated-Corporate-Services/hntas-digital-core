@@ -203,23 +203,23 @@ namespace HNTAS.Core.Api.Controllers
 
             var carbonUiInputs = new Dictionary<string, CarbonInputUiDisplay>();
 
-            if (submission?.CarbonCalculatorRequest != null)
+            if (submission?.CarbonCalculatorInputs != null)
             {
                 // Define your UI label mapping configuration
                 var targetKeys = new[]
                 {
-                    (Section: "chp_totals", Key: "EC-DATA-53", Label: "chpUsefulHeatValue"),
-                    (Section: "chp_totals", Key: "EC-DATA-55", Label: "chpElectricityGeneratedValue"),
-                    (Section: "chp_totals", Key: "EC-DATA-57", Label: "chpFuelUsedValue"),
-                    (Section: "hpm_totals", Key: "EC-DATA-66", Label: "hpmUsefulHeatGeneratedValue"),
-                    (Section: "hpm_totals", Key: "EC-DATA-68", Label: "hpmEnergyUsedValue"),
-                    (Section: "blr_totals", Key: "EC-DATA-84", Label: "blrUsefulHeatGeneratedValue"),
-                    (Section: "blr_totals", Key: "EC-DATA-86", Label: "blrFuelUsedByValue")
+                    (Section: "chp_totals", Key: "EC-DATA-53", Label: "CHP Useful Heat"),
+                    (Section: "chp_totals", Key: "EC-DATA-55", Label: "CHP Electricity Generated"),
+                    (Section: "chp_totals", Key: "EC-DATA-57", Label: "CHP Fuel Used"),
+                    (Section: "hpm_totals", Key: "EC-DATA-66", Label: "HPM Useful Heat Generated"),
+                    (Section: "hpm_totals", Key: "EC-DATA-68", Label: "HPM Energy Used"),
+                    (Section: "blr_totals", Key: "EC-DATA-84", Label: "Boiler Useful Heat Generated"),
+                    (Section: "blr_totals", Key: "EC-DATA-86", Label: "Boiler Fuel Used")
                 };
 
                 foreach (var target in targetKeys)
                 {
-                    if (submission.CarbonCalculatorRequest.TryGetValue(target.Section, out var section) &&
+                    if (submission.CarbonCalculatorInputs.TryGetValue(target.Section, out var section) &&
                         section.TryGetValue(target.Key, out var kpiValue) && kpiValue?.Value != null)
                     {
                         if (BsonConversionHelper.TryGetDouble(kpiValue.Value, out var numericValue))

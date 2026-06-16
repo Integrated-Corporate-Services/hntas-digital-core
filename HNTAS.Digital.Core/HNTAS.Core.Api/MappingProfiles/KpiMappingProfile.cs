@@ -82,7 +82,7 @@ namespace HNTAS.Core.Api.MappingProfiles
             CreateMap<KpiSubmissionRequest, KpiSubmission>();
             CreateMap<KpiSubmissionRequestV2, KpiSubmission>()
              // Maps the incoming API property down to the MongoDB domain model field name
-             .ForMember(dest => dest.CarbonCalculatorRequest, opt => opt.MapFrom(src => src.CarbonInputsV2));
+             .ForMember(dest => dest.CarbonCalculatorInputs, opt => opt.MapFrom(src => src.CarbonInputsV2));
 
             CreateMap<CCKpiValueRequest, CCKpiValue>()
                 .ForMember(dest => dest.Value, opt => opt.MapFrom(src => ConvertJsonElementToBsonValue(src.Value)));

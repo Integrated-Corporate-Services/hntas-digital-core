@@ -19,9 +19,9 @@ namespace HNTAS.Core.Api.Data.Models.Arms.Submission
         [JsonPropertyName("consumer_connection_aggregated_kpis")]
         public Dictionary<string, KpiValueAggregated>? ConsumerConnectionAggregatedKpis { get; set; }
 
-        [JsonPropertyName("carbon_calculator_request")]
-        [BsonElement("carbonCalculatorRequest")]
-        public Dictionary<string, Dictionary<string, CCKpiValue>>? CarbonCalculatorRequest { get; set; }
+        [JsonPropertyName("carbon_calculator_inputs")]
+        [BsonElement("carbonCalculatorInputs")]
+        public Dictionary<string, Dictionary<string, CCKpiValue>>? CarbonCalculatorInputs { get; set; }
 
         [JsonPropertyName("carbon_calculator_response")]
         [BsonElement("carbonCalculatorResponse")]

@@ -204,7 +204,7 @@ namespace HNTAS.Core.Api.Validators.Arms
 
                 var allowedSections = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
                 {
-                    "mata_data", "chp_totals", "hpm_totals", "blr_totals"
+                    "chp_totals", "hpm_totals", "blr_totals"
                 };
 
                 var invalidSections = carbonInputs.Keys.Where(key => !allowedSections.Contains(key)).ToList();
@@ -233,43 +233,49 @@ namespace HNTAS.Core.Api.Validators.Arms
                     return;
                 }
 
-                if (!carbonInputs.TryGetValue("mata_data", out var metaDataSection) || metaDataSection == null || !metaDataSection.ContainsKey("EC-DATA-19"))
-                {
-                    context.AddFailure(new ValidationFailure(elementPath, "The 'mata_data' section with 'EC-DATA-19' is required.")
-                    {
-                        ErrorCode = "MISSING_BACKGROUND_SECTION",
-                        CustomState = new { elementId = (string)null, kpis = new List<string> { "EC-DATA-19" } }
-                    });
-                }
-                else
-                {
-                    // Check for any unauthorized keys inside mata_data
-                    var allowedMetaKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "EC-DATA-19" };
-                    var invalidMetaKeys = metaDataSection.Keys.Where(k => !allowedMetaKeys.Contains(k)).ToList();
+                //if (!carbonInputs.TryGetValue("meta_data", out var metaDataSection) || metaDataSection == null || !metaDataSection.ContainsKey("EC-DATA-19"))
+                //{
+                //    context.AddFailure(new ValidationFailure(elementPath, "The 'meta_data' section with 'EC-DATA-19' is required.")
+                //    {
+                //        ErrorCode = "MISSING_BACKGROUND_SECTION",
+                //        CustomState = new { elementId = (string)null, kpis = new List<string> { "EC-DATA-19" } }
+                //    });
+                //}
+                //else
+                //{
+                //    // Check for any unauthorized keys inside mata_data
+                //    var allowedMetaKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "EC-DATA-19" };
+                //    var invalidMetaKeys = metaDataSection.Keys.Where(k => !allowedMetaKeys.Contains(k)).ToList();
 
-                    if (invalidMetaKeys.Any())
-                    {
-                        context.AddFailure(new ValidationFailure($"{elementPath}.mata_data", $"Unexpected keys found in mata_data: {string.Join(", ", invalidMetaKeys)}.")
-                        {
-                            ErrorCode = "INVALID_CARBON_KEY",
-                            CustomState = new { elementId = (string)null, kpis = invalidMetaKeys }
-                        });
-                    }
+                //    if (invalidMetaKeys.Any())
+                //    {
+                //        context.AddFailure(new ValidationFailure($"{elementPath}.mata_data", $"Unexpected keys found in mata_data: {string.Join(", ", invalidMetaKeys)}.")
+                //        {
+                //            ErrorCode = "INVALID_CARBON_KEY",
+                //            CustomState = new { elementId = (string)null, kpis = invalidMetaKeys }
+                //        });
+                //    }
 
-                    if (metaDataSection.TryGetValue("EC-DATA-19", out var d19) && d19?.Value != null)
-                    {
-                        ValidateDate(context, null, elementPath, "EC-DATA-19", d19.Value.ToString());
-                    }
-                }
+                //    if (metaDataSection.TryGetValue("EC-DATA-19", out var d19) && d19?.Value != null)
+                //    {
+                //        ValidateDate(context, null, elementPath, "EC-DATA-19", d19.Value.ToString());
+                //    }
+                //}
 
                 // B. Validate CHP Totals
                 if (hasChp)
                 {
                     var chpDates = new[] { "EC-DATA-52" };
-                    var chpNumbers = new[] { "EC-DATA-47", "EC-DATA-53", "EC-DATA-55", "EC-DATA-57" };
 
-                    // Validate keys before running field value analysis
-                    var allowedChpKeys = chpDates.Concat(chpNumbers).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                    // 1. Separate mandatory numbers from optional ones
+                    var mandatoryChpNumbers = new[] { "EC-DATA-53", "EC-DATA-55", "EC-DATA-57" };
+                    var optionalChpNumbers = new[] { "EC-DATA-47" };
+
+                    var allowedChpKeys = chpDates
+                                        .Concat(mandatoryChpNumbers)
+                                        .Concat(optionalChpNumbers)
+                                        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
                     var invalidChpKeys = chpSection!.Keys.Where(k => !allowedChpKeys.Contains(k)).ToList();
 
                     if (invalidChpKeys.Any())
@@ -281,7 +287,8 @@ namespace HNTAS.Core.Api.Validators.Arms
                         });
                     }
 
-                    ValidateSectionFields(context, null, elementPath, "chp_totals", chpSection, chpDates, chpNumbers);
+                    // 3. Pass both arrays into your method wrapper (update your method signature if required)
+                    ValidateSectionFields(context, null, elementPath, "chp_totals", chpSection, chpDates, mandatoryChpNumbers, optionalChpNumbers);
                 }
 
                 // C. Validate HPM Totals
@@ -330,16 +337,20 @@ namespace HNTAS.Core.Api.Validators.Arms
         // Reusable Type Validation Helper Methods
         // ==========================================
         private static void ValidateSectionFields(
-            ValidationContext<KpiSubmissionRequestV2> context,
-            string elementId,
-            string elementPath,
-            string sectionName,
-            Dictionary<string, CCKpiValueRequest> section,
-            string[] dateKeys,
-            string[] numericKeys)
+              ValidationContext<KpiSubmissionRequestV2> context,
+              string elementId,
+              string elementPath,
+              string sectionName,
+              Dictionary<string, CCKpiValueRequest> section,
+              string[] dateKeys,
+              string[] numericKeys,
+              string[]? optionalNumericKeys = null) // Added optional array parameter
         {
-            var allExpectedKeys = dateKeys.Concat(numericKeys);
-            foreach (var key in allExpectedKeys)
+            // Combine all keys that require mandatory presence checks
+            var mandatoryKeys = dateKeys.Concat(numericKeys);
+
+            // 1. Validate Mandatory Keys (Must exist and have a value)
+            foreach (var key in mandatoryKeys)
             {
                 string fullKpiPath = $"{key}";
 
@@ -365,7 +376,25 @@ namespace HNTAS.Core.Api.Validators.Arms
                     ValidateNumeric(context, elementId, elementPath, fullKpiPath, stringValue);
                 }
             }
+
+            // 2. Validate Optional Numeric Keys (Only check format if provided in the payload)
+            if (optionalNumericKeys != null)
+            {
+                foreach (var key in optionalNumericKeys)
+                {
+                    string fullKpiPath = $"{key}";
+
+                    // If it exists in the dictionary and has a non-null value, validate its type structure
+                    if (section.TryGetValue(key, out var kpiData) && kpiData?.Value != null)
+                    {
+                        string stringValue = kpiData.Value.ToString() ?? string.Empty;
+                        ValidateNumeric(context, elementId, elementPath, fullKpiPath, stringValue);
+                    }
+                }
+            }
         }
+
+
 
         private static void ValidateDate(ValidationContext<KpiSubmissionRequestV2> context, string elementId, string elementPath, string kpiKey, string value)
         {

@@ -68,9 +68,7 @@ namespace HNTAS.Core.Api.Services
                 Background = new Background
                 {
                     // Mandatory field
-                    DateWorkbookCompleted = backgroundSection != null && backgroundSection.TryGetValue("EC-DATA-19", out var kpi19)
-                        ? kpi19.Value.ToString()
-                        : null,
+                    DateWorkbookCompleted = DateTime.UtcNow.ToString("yyyy-MM-dd"),
                     NetworkStatus = configDefaults["EC-DATA-20"].ToString(),
                     NetworkServiceProvision = configDefaults["EC-DATA-21"].ToString(),
                     Name = $"{heatNetwork.Name} ({request.MetaData.NetworkId}) - Period: {request.MetaData.PeriodStart}",

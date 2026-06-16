@@ -305,6 +305,7 @@ namespace HNTAS.Core.Api.Controllers
                     message = warnings.Any()
                         ? "Submission accepted, but some items require review."
                         : "Submission accepted successfully.",
+                    total_carbon_emission = dataModel.CarbonCalculatorResponse?.TotalCarbonEmission,
                     warnings = warnings
                 });
 

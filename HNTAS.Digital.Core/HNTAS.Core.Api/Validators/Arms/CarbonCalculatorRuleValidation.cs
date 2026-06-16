@@ -43,7 +43,7 @@ namespace HNTAS.Core.Api.Validators.Arms
             // ==========================================================
             // 2. In-Memory Carbon Calculator Inputs Validation
             // ==========================================================
-            if (dataModel.CarbonCalculatorRequest != null)
+            if (dataModel.CarbonCalculatorInputs != null)
             {
                 // Reference your updated config database sub-property naming path
                 var carbonConfig = config.CarbonCalculator;
@@ -64,7 +64,7 @@ namespace HNTAS.Core.Api.Validators.Arms
 
                 var invalidCarbonKpis = new List<string>();
 
-                foreach (var section in dataModel.CarbonCalculatorRequest.Values)
+                foreach (var section in dataModel.CarbonCalculatorInputs.Values)
                 {
                     if (section == null) continue;
 

@@ -195,6 +195,7 @@ namespace HNTAS.Core.Api.Controllers
         {
             try
             {
+                // Create new heat network
                 if (String.IsNullOrWhiteSpace(heatNetworkDetails.HnId))
                 {
                     var sequenceID = await _counterService.GetNextSequenceValue("heatNetworkId_sequence");
@@ -207,12 +208,14 @@ namespace HNTAS.Core.Api.Controllers
                 await _hnService.CreateAsync(heatNetworkDetails, true);
                 _logger.LogInformation("New heat network initially registered: {HNID} (DB Id: {Id})", heatNetworkDetails.HnId, heatNetworkDetails.Id);
                 
+
                 ContributorRole role = user.Roles[0] switch
                 {
                     UserRole.ResponsiblePerson => ContributorRole.ResponsiblePerson,
                     UserRole.NetworkManager => ContributorRole.NetworkManager
                 };
                 
+                // Add Hn Mapping to the user
                 User userWithUpdatedHnRoleMapping = await _userService.GetByIdAsync(heatNetworkDetails.CreatedBy);
                 userWithUpdatedHnRoleMapping.HnRoleMappings.Add(new HnRoleMapping { HnId = heatNetworkDetails.HnId, Role = role });
                 await _userService.UpdateAsync(heatNetworkDetails.CreatedBy, userWithUpdatedHnRoleMapping);
@@ -220,21 +223,18 @@ namespace HNTAS.Core.Api.Controllers
                 if (role == ContributorRole.ResponsiblePerson)
                 {
                     //find the network managers
-                    var invitations = await _invitationService.GetInvitedUsersAsRegisteredAsync(user.Id);
-                    var invitedEmails = invitations.Select(i => i.EmailId).Distinct().ToList();
-                    var invitedUsersDetail = await _userService.GetUsersByInvitedEmailsWithDetailsAsync(invitedEmails);
-                    var registeredUsers = _mapper.Map<List<ManagedUserResponse>>(invitedUsersDetail);
-                    var networkManagers = registeredUsers
-                        .Where(ru => ru.Roles != null &&
-                                     ru.Roles.Any(r => string.Equals(r, UserRole.NetworkManager.ToString(), StringComparison.OrdinalIgnoreCase)))
-                        .Select(ru => ru.Id)
-                        .ToList();
+                    var allNetworkManagers = await _invitationService.GetNetworkManagersByInviterUserId(heatNetworkDetails.CreatedBy);
+                    var acceptedNetworkManagers = allNetworkManagers.Where(nm => nm.Status == InvitationStatus.Accepted).ToList();
+
                     // All networks managers reporting to the rp can access all heat networks the rp adds
-                    foreach(var nmId in networkManagers)
+                    foreach (var nm in acceptedNetworkManagers)
                     {
-                        User nmWithUpdatedHnRoleMapping = await _userService.GetByIdAsync(nmId);
-                        nmWithUpdatedHnRoleMapping.HnRoleMappings.Add(new HnRoleMapping { HnId = heatNetworkDetails.HnId, Role = ContributorRole.NetworkManager });
-                        await _userService.UpdateAsync(nmId, nmWithUpdatedHnRoleMapping);
+                        if(nm.Status == InvitationStatus.Accepted)
+                        {
+                            User nmWithUpdatedHnRoleMapping = await _userService.GetByEmailAsync(nm.InvitedEmail);
+                            nmWithUpdatedHnRoleMapping.HnRoleMappings.Add(new HnRoleMapping { HnId = heatNetworkDetails.HnId, Role = ContributorRole.NetworkManager });
+                            await _userService.UpdateAsync(nmWithUpdatedHnRoleMapping.Id, nmWithUpdatedHnRoleMapping);
+                        }                        
                     }
                 }
                 if(role == ContributorRole.NetworkManager)

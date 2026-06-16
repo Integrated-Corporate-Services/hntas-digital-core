@@ -759,7 +759,7 @@ public class UsersController : ControllerBase
         var networkManagerInvitations = await _invitationService.GetNetworkManagersByInviterUserId(userId);
 
         _logger.LogInformation("Successfully retrieved {Count} network manager invitations for user ID: {UserId}",
-            networkManagerInvitations.Count, userId);
+            networkManagerInvitations.Count, StringFormatter.Sanitize(userId));
         var managedNetworkMangers = _mapper.Map<List<InvitedUserResponse>>(networkManagerInvitations);
 
         return Ok(managedNetworkMangers);        

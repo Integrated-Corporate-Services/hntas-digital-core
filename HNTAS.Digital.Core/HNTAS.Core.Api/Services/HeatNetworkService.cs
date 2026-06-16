@@ -354,6 +354,19 @@ namespace HNTAS.Core.Api.Services
             }
         }
 
+        public async Task<List<HeatNetwork>> GetByOfgemEmailIdAsync(string ofgemEmailId)
+        {
+            // filter where ofgemUserEmailId is ofgemEmailId and orgId is null
+            var filter = Builders<HeatNetwork>.Filter.And(
+                Builders<HeatNetwork>.Filter.Eq(hn => hn.OfgemUserEmailId, ofgemEmailId),
+                Builders<HeatNetwork>.Filter.Eq(hn => hn.OrgId, null)
+            );
+
+            // list all heat networks that match the filter
+            var heatNetworks = await _hnCollection.Find(filter).ToListAsync();
+            return heatNetworks;
+        }
+
         private static IQueryable<AssignedAssessor> ApplySorting(
             IQueryable<AssignedAssessor> query,
             string? sortBy,

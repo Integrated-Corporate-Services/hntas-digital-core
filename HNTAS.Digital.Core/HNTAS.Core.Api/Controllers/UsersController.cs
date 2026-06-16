@@ -385,6 +385,21 @@ public class UsersController : ControllerBase
 
             await _userService.UpdateAsync(id, existingUser);
 
+            // Ofgem Record processing
+            var existingNetworks = await _heatNetworkService.GetByOfgemEmailIdAsync(existingUser.EmailId);
+            if (existingNetworks.Any())
+            {
+                // update createdBy and orgId for each network; Update HnId in Organisation; Update HnId in User
+                foreach (var network in existingNetworks)
+                {
+                    network.CreatedBy = existingUser.Id!;
+                    network.OrgId = newOrg.OrgId;
+                    await _heatNetworkService.UpdateAsync(network.HnId!, network);
+                    await _organisationService.UpdateAsync(newOrg.OrgId, network.HnId!);
+                    await _userService.UpdateUserNetwork(existingUser.Id!, network.HnId!);
+                }
+            }
+
             _logger.LogInformation("Organisation details and status updated for user {UserId}. Generated OrgId: {OrgId}", id, newOrg.Id);
 
             await _emailService.TrySendOrgCreatedEmailAsync(existingUser, newOrg);

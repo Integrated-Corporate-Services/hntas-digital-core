@@ -292,7 +292,7 @@ namespace HNTAS.Core.Api.Services
                 },
                 HeatNetworkType = Enums.HeatNetworkType.Unset,
                 RegistrationSource = Enums.RegistrationSource.OFGEM,
-                OfgemUserEmailId = string.IsNullOrEmpty(userId) ? row.EmailId : null,
+                OfgemUserEmailId = string.IsNullOrEmpty(userId) ? row.EmailId.ToLower() : null,
                 CreatedBy = userId,
                 CreatedAt = ParseDate(row.DateOfHnRegistration)
             };

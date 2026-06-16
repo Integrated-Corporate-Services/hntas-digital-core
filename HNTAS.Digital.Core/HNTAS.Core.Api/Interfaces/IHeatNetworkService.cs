@@ -22,5 +22,6 @@ namespace HNTAS.Core.Api.Interfaces
         Task UpdateAssessmentPlanAsync(string hnId, NetworkDetailsDocument document);
         Task UpdateDesignConstructionLogAsync(string hnId, NetworkDetailsDocument document);
         Task<AssignedAssessorResponse> GetAssignedAssessors(AssignedAssessorRequest request);
+        Task<List<HeatNetwork>> GetByOfgemEmailIdAsync(string ofgemEmailId);
     }
 }

@@ -14,7 +14,7 @@ namespace HNTAS.Core.Api.Data.Models
         /// <summary>
         /// The current value of the sequence. This is the number that gets incremented atomically.
         /// </summary>
-        [BsonElement("sequence_value")]
+        [BsonElement("sequenceValue")]
         public long SequenceValue { get; set; }
     }
 }

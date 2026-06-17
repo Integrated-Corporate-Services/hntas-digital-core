@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Enums;
+using HNTAS.Core.Api.Extensions;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
 using HNTAS.Core.Api.Models.Users;
@@ -63,7 +64,7 @@ namespace HNTAS.Core.Api.Controllers
             var invitation = await _invitationService.GetByIdAsync(id);
             if (invitation == null)
             {
-                _logger.LogInformation("Invitation not found for the invitationId: {InvitationId}", id);
+                _logger.LogInformation("Invitation not found for the invitationId: {InvitationId}", id.ToSafeLog());
                 return NotFound();
             }
 
@@ -91,7 +92,7 @@ namespace HNTAS.Core.Api.Controllers
             if (!ModelState.IsValid)
             {
                 _logger.LogWarning("Invalid invitation data for user ID: {UserId}. Errors: {Errors}",
-                    id, string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
+                    id.ToSafeLog(), string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
                 return ValidationProblem(ModelState);
             }
 
@@ -105,7 +106,7 @@ namespace HNTAS.Core.Api.Controllers
                     hnDetails = await _hnService.GetByHnIdAsync(request.HnId);
                     if (hnDetails == null)
                     {
-                        _logger.LogWarning("Heat Network with HnId {HnId} not found for invitation.", request.HnId);
+                        _logger.LogWarning("Heat Network with HnId {HnId} not found for invitation.", request.HnId.ToSafeLog());
                         return NotFound(new ProblemDetails
                         {
                             Status = StatusCodes.Status404NotFound,
@@ -118,7 +119,7 @@ namespace HNTAS.Core.Api.Controllers
                 var existingUser = await _userService.GetByIdAsync(id);
                 if (existingUser == null)
                 {
-                    _logger.LogWarning("User with ID {UserId} not found for invitation update.", id);
+                    _logger.LogWarning("User with ID {UserId} not found for invitation update.", id.ToSafeLog());
                     return NotFound();
                 }
 
@@ -140,7 +141,7 @@ namespace HNTAS.Core.Api.Controllers
 
                 await _invitationService.CreateAsync(newInvitation); // Save the invitation to its collection
 
-                _logger.LogInformation("Invitation sent by user {UserId}. New invitation ID: {InvitationId}", id, newInvitation.Id);
+                _logger.LogInformation("Invitation sent by user {UserId}. New invitation ID: {InvitationId}", id.ToSafeLog(), newInvitation.Id);
 
 
                 if (request.ReplacedUserId != null && !(request.RolesToReplace.Contains(ContributorRole.ResponsiblePerson)
@@ -169,7 +170,7 @@ namespace HNTAS.Core.Api.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An error occurred while creating an invitation for user with ID: {UserId}", id);
+                _logger.LogError(ex, "An error occurred while creating an invitation for user with ID: {UserId}", id.ToSafeLog());
                 return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while creating the invitation.");
             }
         }
@@ -191,7 +192,7 @@ namespace HNTAS.Core.Api.Controllers
 
             if (invitation == null || invitation.Status != InvitationStatus.Invited)
             {
-                _logger.LogInformation("Invitation not found for the invitationId : {InvitationId}", invitationId);
+                _logger.LogInformation("Invitation not found for the invitationId : {InvitationId}", invitationId.ToSafeLog());
                 return NotFound();
             }
 
@@ -208,7 +209,7 @@ namespace HNTAS.Core.Api.Controllers
                 await _emailService.TrySendOrganisationInvitationEmailAsync(invitation, request.Token, organisation.Name, userResponse?.FullName);
             }
 
-            _logger.LogInformation("Invitation email sent for ID: {InvitationId}", invitationId);
+            _logger.LogInformation("Invitation email sent for ID: {InvitationId}", invitationId.ToSafeLog());
 
             return NoContent();
         }
@@ -247,7 +248,7 @@ namespace HNTAS.Core.Api.Controllers
             var invitation = await _invitationService.GetByIdAsync(invitationId);
             if (invitation == null)
             {
-                _logger.LogWarning("Invitation not found for ID: {InvitationId}", invitationId);
+                _logger.LogWarning("Invitation not found for ID: {InvitationId}", invitationId.ToSafeLog());
                 return NotFound();
             }
 
@@ -261,7 +262,7 @@ namespace HNTAS.Core.Api.Controllers
 
             await _invitationService.UpdateAsync(invitationId, invitation);
             await NotificationHistoryForRejectInvite(invitation);
-            _logger.LogInformation("Invitation {InvitationId} was rejected.", invitationId);
+            _logger.LogInformation("Invitation {InvitationId} was rejected.", invitationId.ToSafeLog());
             return NoContent();
         }
 
@@ -270,7 +271,7 @@ namespace HNTAS.Core.Api.Controllers
             var subject = string.Empty;
             var description = string.Empty;
             var inviterRole = user.Roles.FirstOrDefault();
-            
+
             var date = DateTime.UtcNow;
             var action = string.Empty;
             var heatNetworkId = invitation.InvitedHnId;
@@ -281,17 +282,17 @@ namespace HNTAS.Core.Api.Controllers
             description = $"Email to {invitedPerson}";
             var actorIds = new List<string> { invitation.InviterUserId };
             if (inviterRole == UserRole.ResponsiblePerson)
-            {                
+            {
                 eligibleRoles = new List<string>
                 {
-                    ContributorRole.ResponsiblePerson.ToString(),                    
+                    ContributorRole.ResponsiblePerson.ToString(),
                 };
 
                 if (invitedRole == ContributorRole.DesignatedDutyHolder)
                 {
                     subject = NotificationHistorySubjects.DesignatedDutyHolderInvited;
                     notificationType = NotificationHistoryType.RpInvitesDdhToHeatNetwork;
-                }                
+                }
                 else if (invitedRole == ContributorRole.NetworkManager)
                 {
                     subject = NotificationHistorySubjects.NetworkManagerInvited;
@@ -317,7 +318,7 @@ namespace HNTAS.Core.Api.Controllers
                     ContributorRole.ResponsiblePerson.ToString(),
                     ContributorRole.NetworkManager.ToString()
                 };
-                
+
                 if (invitedRole == ContributorRole.DesignatedDutyHolder)
                 {
                     notificationType = NotificationHistoryType.NetworkManagerInvitesDdhToHeatNetwork;
@@ -336,16 +337,16 @@ namespace HNTAS.Core.Api.Controllers
                 eligibleRoles = new List<string>
                 {
                     ContributorRole.ResponsiblePerson.ToString(),
-                    ContributorRole.NetworkManager.ToString(),                    
+                    ContributorRole.NetworkManager.ToString(),
                 };
                 notificationType = NotificationHistoryType.DdhInvitesContributorToHeatNetwork;
 
                 if (invitedRole == ContributorRole.Contributor)
                 {
                     eligibleRoles.Add(ContributorRole.Contributor.ToString());
-                    subject = NotificationHistorySubjects.ContributorInvited;                    
-                }                
-            }            
+                    subject = NotificationHistorySubjects.ContributorInvited;
+                }
+            }
 
             var notificationHistory = new NotificationHistory
             {
@@ -367,7 +368,7 @@ namespace HNTAS.Core.Api.Controllers
             var subject = string.Empty;
             var description = string.Empty;
             var date = DateTime.UtcNow;
-            var action = string.Empty;            
+            var action = string.Empty;
             var heatNetworkId = invitation.InvitedHnId;
             var eligibleRoles = new List<string> { ContributorRole.ResponsiblePerson.ToString() };
             NotificationHistoryType notificationType = NotificationHistoryType.NA;
@@ -391,7 +392,7 @@ namespace HNTAS.Core.Api.Controllers
                 subject = NotificationHistorySubjects.DesignatedDutyHolderRejected;
                 notificationType = NotificationHistoryType.DdhRejectsInviteToHeatNetwork;
                 action = NotificationHistoryActions.DDHAndContributors;
-            }            
+            }
             else if (invitedRole == ContributorRole.Contributor)
             {
                 await AddAssociatedNetworkManagerAndRpIds(invitation, actorIds);
@@ -405,7 +406,7 @@ namespace HNTAS.Core.Api.Controllers
                 subject = NotificationHistorySubjects.NetworkManagerRejected;
                 notificationType = NotificationHistoryType.NetworkManagerRejectsInvite;
                 action = NotificationHistoryActions.NetworkManagers;
-            }            
+            }
 
             var notificationHistory = new NotificationHistory
             {
@@ -458,7 +459,7 @@ namespace HNTAS.Core.Api.Controllers
                             actorIds.AddRange(invitaions.InviterUserId);
                     }
                 }
-            }                
+            }
         }
     }
 }

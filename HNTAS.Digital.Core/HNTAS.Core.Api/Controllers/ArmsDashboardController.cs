@@ -221,7 +221,7 @@ namespace HNTAS.Core.Api.Controllers
         public async Task<IActionResult> GetSubmissionHistory(string submissionId)
         {
             // 1. Log the incoming request
-            _logger.LogInformation("Received request for KPI history. SubmissionId: {SubmissionId}", submissionId);
+            _logger.LogInformation("Received request for KPI history. SubmissionId: {SubmissionId}", submissionId.ToSafeLog());
 
             if (string.IsNullOrEmpty(submissionId))
             {
@@ -236,7 +236,7 @@ namespace HNTAS.Core.Api.Controllers
                 var historyCount = history?.Count() ?? 0;
 
                 _logger.LogInformation("Successfully retrieved {Count} history records for SubmissionId: {SubmissionId}",
-                    historyCount, submissionId);
+                    historyCount, submissionId.ToSafeLog());
 
                 return Ok(history);
             }
@@ -244,7 +244,7 @@ namespace HNTAS.Core.Api.Controllers
             {
                 // 4. Capture the exact exception causing the red error in your logs
                 _logger.LogError(ex, "Unhandled error fetching KPI history for SubmissionId: {SubmissionId}. Message: {Message}",
-                    submissionId, ex.Message);
+                    submissionId.ToSafeLog(), ex.Message);
 
                 return StatusCode(StatusCodes.Status500InternalServerError, "An error occurred while retrieving history.");
             }

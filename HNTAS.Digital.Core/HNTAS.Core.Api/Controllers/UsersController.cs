@@ -157,25 +157,24 @@ public class UsersController : ControllerBase
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult<bool>> IsRpUser(string emailId)
     {
-
-        _logger.LogInformation("Checking if user with email ID {EmailId} is a Responsible Person.", emailId.ToMaskedEmailForLog());
+        string userId = string.Empty;
         try
         {
             var user = await _userService.GetByEmailAsync(emailId);
 
             if (user == null)
             {
-                _logger.LogWarning("User with email ID {EmailId} not found.", emailId.ToMaskedEmailForLog());
                 return NotFound();
             }
 
+            userId = user.Id; // Store user ID for logging in case of an error
+
             bool isRegulatoryContact = user.Roles.Contains(UserRole.ResponsiblePerson);
-            _logger.LogInformation("User with email ID {EmailId} is Responsible Person: {IsRp}", emailId.ToMaskedEmailForLog(), isRegulatoryContact);
             return Ok(isRegulatoryContact);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error occurred while checking Responsible Person role for email ID: {EmailId}", emailId.ToMaskedEmailForLog());
+            _logger.LogError(ex, "Error occurred while checking Responsible Person role for user Id : {UserId}", userId);
             return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while checking the user's role.");
         }
     }

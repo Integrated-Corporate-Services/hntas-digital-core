@@ -615,7 +615,7 @@ namespace HNTAS.Core.Api.Controllers
                 foreach (var email in emailRecipients.Distinct())
                 {
                     await _emailService.TrySendCertificationCompleteEmailAsync(email, hnName, hnId);
-                    _logger.LogInformation("Certification complete email sent to {EmailAddress} for HN ID: {HnId}", email.ToMaskedEmailForLog(), hnId.ToSafeLog());
+                    _logger.LogInformation("Certification complete email sent for HN ID: {HnId}", hnId.ToSafeLog());
                 }
 
 

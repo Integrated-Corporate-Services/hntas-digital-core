@@ -1,5 +1,6 @@
-using Microsoft.AspNetCore.Mvc;
+using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Services;
+using Microsoft.AspNetCore.Mvc;
 
 namespace HNTAS.Core.Api.Controllers
 {
@@ -12,6 +13,8 @@ namespace HNTAS.Core.Api.Controllers
         public int HeatNetworksUpdated { get; set; }
         public int UsersInserted { get; set; }
         public int UsersUpdated { get; set; }
+        public List<OfgemDataModelForNotification> DataForExistingOrgOrUser { get; set; } = new List<OfgemDataModelForNotification>();
+        public List<OfgemDataModelForNotification> DataForNewOrgOrUser { get; set; } = new List<OfgemDataModelForNotification>();
         public List<string> Errors { get; set; } = new List<string>();
     }    
 
@@ -21,11 +24,13 @@ namespace HNTAS.Core.Api.Controllers
     {
         private readonly ICsvImportService _csvImportService;
         private readonly ILogger<ImportController> _logger;
+        private readonly IEmailService _emailService;
 
-        public ImportController(ICsvImportService csvImportService, ILogger<ImportController> logger)
+        public ImportController(ICsvImportService csvImportService, ILogger<ImportController> logger, IEmailService emailService)
         {
             _csvImportService = csvImportService;
             _logger = logger;
+            _emailService = emailService;
         }
 
         /// <summary>
@@ -45,6 +50,28 @@ namespace HNTAS.Core.Api.Controllers
             try
             {
                 var result = await _csvImportService.ImportFromCsvAsync(file, ct);
+
+                // Notification for existing orgs/users
+                if (result.DataForExistingOrgOrUser.Any())
+                {
+                    foreach (var item in result.DataForExistingOrgOrUser)
+                    {
+                        await _emailService.TrySendOfgemDataForExistingOrgOrRpEmailAsync(item);                        
+                    }
+                }
+
+                // Notification for new RPs
+                if (result.DataForNewOrgOrUser.Any())
+                {
+                    foreach (var item in result.DataForNewOrgOrUser)
+                    {
+                        await _emailService.TrySendOfgemDataForNewRpEmailAsync(item);
+                    }
+                }
+
+                // Removing the DataForExistingOrgOrUser and DataForNewOrgOrUser from the result before returning to the client
+                result.DataForExistingOrgOrUser.Clear();
+                result.DataForNewOrgOrUser.Clear();
                 return Ok(result);
             }
             catch (OperationCanceledException)

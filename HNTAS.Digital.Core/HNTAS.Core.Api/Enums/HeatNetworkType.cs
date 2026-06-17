@@ -6,6 +6,9 @@ namespace HNTAS.Core.Api.Enums
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public enum HeatNetworkType
     {
+        [Description("Unset")]
+        Unset = 0,
+
         [Description("Communal")]
         Communal = 1,        
 

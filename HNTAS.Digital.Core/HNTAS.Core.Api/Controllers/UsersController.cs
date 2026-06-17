@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Enums;
+using HNTAS.Core.Api.Extensions;
 using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
@@ -22,9 +23,6 @@ public class UsersController : ControllerBase
     private readonly ICounterService _orgCounterService;
     private readonly IMapper _mapper;
     private readonly IEmailService _emailService;
-    private readonly IHeatNetworkService _heatNetworkService;
-    private readonly IAuditService _auditService;
-    private readonly INotificationHistoryService _notificationHistoryService;
 
 
     public UsersController(IUserService userService,
@@ -45,9 +43,6 @@ public class UsersController : ControllerBase
         _emailService = emailService;
         _orgCounterService = orgCounterService;
         _mapper = mapper;
-        _heatNetworkService = heatNetworkService;
-        _auditService = auditService;
-        _notificationHistoryService = notificationHistoryService;
     }
 
     /// <summary>
@@ -123,23 +118,23 @@ public class UsersController : ControllerBase
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult<UserResponse>> GetById(string id)
     {
-        _logger.LogInformation("Attempting to retrieve user with ID: {Id}", id);
+        _logger.LogInformation("Attempting to retrieve user with ID: {Id}", id.ToSafeLog());
         try
         {
             var user = await _userService.GetByIdAsync(id);
 
             if (user == null)
             {
-                _logger.LogWarning("User with ID {Id} not found.", id);
+                _logger.LogWarning("User with ID {Id} not found.", id.ToSafeLog());
                 return NotFound();
             }
-            _logger.LogInformation("Successfully retrieved user with ID: {Id}", id);
+            _logger.LogInformation("Successfully retrieved user with ID: {Id}", id.ToSafeLog());
             var userResponse = _mapper.Map<UserResponse>(user);
             return Ok(userResponse);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error validating user ID format: {Id}", id);
+            _logger.LogError(ex, "Error validating user ID format: {Id}", id.ToSafeLog());
             return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while validating the user ID.");
         }
     }
@@ -162,26 +157,24 @@ public class UsersController : ControllerBase
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult<bool>> IsRpUser(string emailId)
     {
-        var sanitizedEmailId = emailId?.Replace("\r", "").Replace("\n", "");
-
-        _logger.LogInformation("Checking if user with email ID {EmailId} is a Responsible Person.", sanitizedEmailId);
+        string userId = string.Empty;
         try
         {
             var user = await _userService.GetByEmailAsync(emailId);
 
             if (user == null)
             {
-                _logger.LogWarning("User with email ID {EmailId} not found.", sanitizedEmailId);
                 return NotFound();
             }
 
+            userId = user.Id; // Store user ID for logging in case of an error
+
             bool isRegulatoryContact = user.Roles.Contains(UserRole.ResponsiblePerson);
-            _logger.LogInformation("User with email ID {EmailId} is Responsible Person: {IsRp}", sanitizedEmailId, isRegulatoryContact);
             return Ok(isRegulatoryContact);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error occurred while checking Responsible Person role for email ID: {EmailId}", sanitizedEmailId);
+            _logger.LogError(ex, "Error occurred while checking Responsible Person role for user Id : {UserId}", userId);
             return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while checking the user's role.");
         }
     }
@@ -223,7 +216,7 @@ public class UsersController : ControllerBase
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult<UserResponse>> GetUserByOneLoginId(string oneLoginId)
     {
-        _logger.LogInformation("Attempting to retrieve user with ID: {Id}", oneLoginId);
+        _logger.LogInformation("Attempting to retrieve user with ID: {Id}", oneLoginId.ToSafeLog());
 
         try
         {
@@ -231,17 +224,17 @@ public class UsersController : ControllerBase
 
             if (user == null)
             {
-                _logger.LogWarning("User with ID {Id} not found.", oneLoginId);
+                _logger.LogWarning("User with ID {Id} not found.", oneLoginId.ToSafeLog());
                 return NotFound();
             }
 
-            _logger.LogInformation("Successfully retrieved user with ID: {Id}", oneLoginId);
+            _logger.LogInformation("Successfully retrieved user with ID: {Id}", oneLoginId.ToSafeLog());
             var userResponse = _mapper.Map<UserResponse>(user);
             return Ok(userResponse);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error retrieving user by OneLogin ID: {Id}", oneLoginId);
+            _logger.LogError(ex, "Error retrieving user by OneLogin ID: {Id}", oneLoginId.ToSafeLog());
             return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while retrieving the user.");
         }
     }
@@ -264,7 +257,7 @@ public class UsersController : ControllerBase
         if (!ModelState.IsValid)
         {
             _logger.LogWarning("Invalid initial registration data for UserId: {UserId}, EmailId: {EmailId}. Errors: {Errors}",
-                registrationData.OneLoginId, registrationData.EmailId, string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
+                registrationData.OneLoginId.ToSafeLog(), registrationData.EmailId.ToSafeLog(), string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
             return ValidationProblem(ModelState);
         }
 
@@ -278,7 +271,7 @@ public class UsersController : ControllerBase
                 {
                     Status = StatusCodes.Status409Conflict,
                     Title = "User Already Exists",
-                    Detail = $"A user with the provided UserId ({registrationData.OneLoginId}) already exists."
+                    Detail = $"A user with the provided UserId ({registrationData.OneLoginId.ToSafeLog()}) already exists."
                 });
             }
 
@@ -292,13 +285,13 @@ public class UsersController : ControllerBase
 
             await _userService.CreateAsync(newUser);
 
-            _logger.LogInformation("New user initially registered: {UserId} (DB Id: {Id})", newUser.OneLoginId, newUser.Id);
+            _logger.LogInformation("New user initially registered: {UserId} (DB Id: {Id})", newUser.OneLoginId.ToSafeLog(), newUser.Id);
 
             return StatusCode(StatusCodes.Status201Created, newUser.Id);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Unexpected error during initial user registration for UserId: {UserId}, EmailId: {EmailId}", registrationData.OneLoginId, registrationData.EmailId);
+            _logger.LogError(ex, "Unexpected error during initial user registration for UserId: {UserId}, EmailId: {EmailId}", registrationData.OneLoginId.ToSafeLog(), registrationData.EmailId.ToSafeLog());
             return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
             {
                 Status = StatusCodes.Status500InternalServerError,
@@ -335,7 +328,7 @@ public class UsersController : ControllerBase
         if (!ModelState.IsValid)
         {
             _logger.LogWarning("Invalid organisation details update data for user ID: {UserId}. Errors: {Errors}",
-                id, string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
+                id.ToSafeLog(), string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
             return ValidationProblem(ModelState);
         }
 
@@ -344,7 +337,7 @@ public class UsersController : ControllerBase
             var existingUser = await _userService.GetByIdAsync(id);
             if (existingUser == null)
             {
-                _logger.LogWarning("User with ID {UserId} not found for organisation details update.", id);
+                _logger.LogWarning("User with ID {UserId} not found for organisation details update.", id.ToSafeLog());
                 return NotFound();
             }
 
@@ -385,7 +378,7 @@ public class UsersController : ControllerBase
 
             await _userService.UpdateAsync(id, existingUser);
 
-            _logger.LogInformation("Organisation details and status updated for user {UserId}. Generated OrgId: {OrgId}", id, newOrg.Id);
+            _logger.LogInformation("Organisation details and status updated for user {UserId}. Generated OrgId: {OrgId}", id.ToSafeLog(), newOrg.Id);
 
             await _emailService.TrySendOrgCreatedEmailAsync(existingUser, newOrg);
 
@@ -393,7 +386,7 @@ public class UsersController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error updating organisation details for user {UserId}", id);
+            _logger.LogError(ex, "Error updating organisation details for user {UserId}", id.ToSafeLog());
             return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
             {
                 Status = StatusCodes.Status500InternalServerError,
@@ -435,9 +428,9 @@ public class UsersController : ControllerBase
             var existingUser = await _userService.GetByIdAsync(userId);
             if (existingUser == null)
             {
-                _logger.LogWarning("User with ID '{UserId}' not found for organisation registration.", userId);
+                _logger.LogWarning("User with ID '{UserId}' not found for organisation registration.", userId.ToSafeLog());
                 return NotFound($"User with ID '{userId}' was not found. Organisation was not created.");
-            }            
+            }
 
             var newOrganisation = new Organisation
             {
@@ -466,17 +459,17 @@ public class UsersController : ControllerBase
 
             if (updateResult.ModifiedCount == 0)
             {
-                _logger.LogError("Failed to modify user {UserId} OrgId. Matched: {Matched}, Modified: {Modified}. Starting rollback.", userId, updateResult.MatchedCount, updateResult.ModifiedCount);
+                _logger.LogError("Failed to modify user {UserId} OrgId. Matched: {Matched}, Modified: {Modified}. Starting rollback.", userId.ToSafeLog(), updateResult.MatchedCount, updateResult.ModifiedCount);
 
                 // Initiate Rollback: Delete the newly created Organisation
                 await _organisationService.RemoveAsync(newOrganisation.Id);
 
                 // Return a Server Error indicating the linking failed
-                return StatusCode(StatusCodes.Status500InternalServerError, $"Organisation created but failed to link to user {userId}. Rollback executed.");
+                return StatusCode(StatusCodes.Status500InternalServerError, $"Organisation created but failed to link to user {userId.ToSafeLog()}. Rollback executed.");
             }
 
             _logger.LogInformation("User {UserId} successfully updated with OrgId: {OrgId}. Modified count: {Count}",
-                userId, newOrganisation.OrgId, updateResult.ModifiedCount);
+                userId.ToSafeLog(), newOrganisation.OrgId, updateResult.ModifiedCount);
 
             // Return the created organisation object with 201 status
             return StatusCode(StatusCodes.Status201Created, newOrganisation);
@@ -516,7 +509,7 @@ public class UsersController : ControllerBase
         if (!ModelState.IsValid)
         {
             _logger.LogWarning("Invalid user details update data for user ID: {UserId}. Errors: {Errors}",
-                id, string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
+                id.ToSafeLog(), string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
             return ValidationProblem(ModelState);
         }
 
@@ -526,7 +519,7 @@ public class UsersController : ControllerBase
             var existingUser = await _userService.GetByIdAsync(id);
             if (existingUser == null)
             {
-                _logger.LogWarning("User with ID {UserId} not found for user details update.", id);
+                _logger.LogWarning("User with ID {UserId} not found for user details update.", id.ToSafeLog());
                 return NotFound();
             }
 
@@ -554,147 +547,18 @@ public class UsersController : ControllerBase
 
             await _userService.UpdateAsync(id, existingUser);
 
-            _logger.LogInformation("User details updated for user {UserId}.", id);
+            _logger.LogInformation("User details updated for user {UserId}.", id.ToSafeLog());
 
             return NoContent();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error updating user details for user {UserId}", id);
+            _logger.LogError(ex, "Error updating user details for user {UserId}", id.ToSafeLog());
             return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
             {
                 Status = StatusCodes.Status500InternalServerError,
                 Title = "Internal Server Error",
                 Detail = "An unexpected error occurred while updating User details."
-            });
-        }
-    }
-
-    [HttpPatch("accept-invitation")]
-    [Consumes(MediaTypeNames.Application.Json)]
-    [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(string), StatusCodes.Status201Created)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    public async Task<ActionResult> AcceptInvitationAsync(InvitedUserRequest request)
-    {
-        if (!ModelState.IsValid)
-        {
-            var errors = string.Join("; ", ModelState.Values
-                .SelectMany(v => v.Errors)
-                .Select(e => e.ErrorMessage));
-
-            _logger.LogWarning("Invalid invited user data. Errors: {Errors}", errors);
-            return ValidationProblem(ModelState);
-        }
-
-        try
-        {
-            // Retrieve invitation
-            var invitation = await _invitationService.GetByIdAsync(request.InvitationId);
-            if (invitation == null)
-            {
-                _logger.LogWarning("Invitation not found for email: {Email}", request.InvitedEmail);
-                return NotFound(new ProblemDetails
-                {
-                    Status = StatusCodes.Status404NotFound,
-                    Title = "Invitation Not Found",
-                    Detail = $"No invitation found for email ({request.InvitedEmail})."
-                });
-            }
-
-            // Mark invitation as accepted
-            invitation.Status = InvitationStatus.Accepted;
-            invitation.AcceptedAt = DateTime.UtcNow;
-
-            // Check for existing user
-            var invitedUser = await _userService.GetByUserOneLoginIdAsync(request.OneLoginId);
-            var heatNetwork = await _heatNetworkService.GetByHnIdAsync(invitation.InvitedHnId!);
-            if (invitedUser != null && invitation.InvitedHnId != null)
-            {
-                invitedUser.HnRoleMappings = invitedUser.HnRoleMappings ?? new List<HnRoleMapping>();
-
-                if (invitation.InvitedOrgId != null)
-                {
-                    invitedUser.OrgId = invitation.InvitedOrgId;
-                }
-
-                foreach (var role in invitation.InvitedRoles)
-                {
-                    // Update HnRoleMappings
-                    var hnRoleMapping = invitedUser.HnRoleMappings.FirstOrDefault(m => m.HnId == invitation.InvitedHnId);
-                    if (hnRoleMapping == null)
-                    {
-                        hnRoleMapping = new HnRoleMapping
-                        {
-                            HnId = invitation.InvitedHnId,
-                            Role = role,
-                        };
-                        invitedUser.HnRoleMappings.Add(hnRoleMapping);
-                    }
-                    else if (!(hnRoleMapping.Role == role))
-                    {
-                        hnRoleMapping.Role = role;
-                    }
-                }
-
-                //await _userService.UpdateAsync(invitedUser.Id, invitedUser);
-                await _invitationService.ExecuteRoleSwapAsync(invitedUser, null, invitation);
-
-                _logger.LogInformation("Existing invited user updated: {UserId})", invitedUser.Id);
-
-                await AuditLogs(invitation, invitedUser.Id!, heatNetwork);
-                await NotificationHistoryForAcceptingInvite(invitation, invitedUser, heatNetwork);
-
-                return Ok(invitedUser.Id);
-            }
-            if (invitedUser != null && invitation.InvitedOrgId != null)
-            {
-                //Prepare Invited User (Gains Roles)
-                invitedUser.Roles = MapAndFilterRoles(invitation.InvitedRoles);
-                invitedUser.ContributingOrganisations.Add(invitation.InvitedOrgId);
-
-                var rpReplaceRole = MapAndFilterRoles(invitation.RolesToReplace);
-
-                //who is rp get rp user
-                var invitedOrg = await _organisationService.GetByOrgIdAsync(invitation.InvitedOrgId);
-                var rpuserId = invitation.ReplacedUserId ?? invitedOrg?.RpUserId;                
-                var rpUser = await _userService.GetByIdAsync(rpuserId);
-
-                rpUser.Roles = MapAndFilterRoles(invitation.RolesToReplace);                
-
-                await _invitationService.ExecuteRoleSwapAsync(invitedUser, rpUser, invitation);
-
-                //replace organisation RpUserId
-                var organisation = await _organisationService.GetByOrgIdAsync(invitation.InvitedOrgId);
-                organisation.RpUserId = invitedUser.Id;
-
-                await _organisationService.UpdateAsync(organisation.Id, organisation);
-                await AuditLogs(invitation, invitedUser.Id!, heatNetwork);
-                await NotificationHistoryForAcceptingInvite(invitation, invitedUser, heatNetwork);
-                return StatusCode(StatusCodes.Status201Created, invitedUser.Id);
-            }
-            else
-            {
-                // Create new user from invitation
-                var newUser = await BuildUserFromInvitation(request, invitation);
-                await _invitationService.ExecuteRoleSwapAsync(newUser, null, invitation);
-                _logger.LogInformation("New invited user registered: {UserId} (DB Id: {Id})", newUser.OneLoginId, newUser.Id);
-
-                await AuditLogs(invitation, newUser.Id!, heatNetwork);
-                await NotificationHistoryForAcceptingInvite(invitation, newUser, heatNetwork);
-                return StatusCode(StatusCodes.Status201Created, newUser.Id);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error during invited user registration. OneLoginId: {UserId}, Email: {Email}", request.OneLoginId, request.InvitedEmail);
-            return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
-            {
-                Status = StatusCodes.Status500InternalServerError,
-                Title = "Internal Server Error",
-                Detail = "An unexpected error occurred while registering the invited user."
             });
         }
     }
@@ -725,32 +589,29 @@ public class UsersController : ControllerBase
         return Ok(roles);
     }
 
-
-
-
     [HttpDelete("{id}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> DeleteUser(string id)
     {
-        _logger.LogInformation("Attempting to delete user with ID: {UserId}", id);
+        _logger.LogInformation("Attempting to delete user with ID: {UserId}", id.ToSafeLog());
         var existingUser = await _userService.GetByIdAsync(id);
         if (existingUser == null)
         {
-            _logger.LogWarning("Delete request for user ID: {UserId} failed. User not found.", id);
+            _logger.LogWarning("Delete request for user ID: {UserId} failed. User not found.", id.ToSafeLog());
             return NotFound();
         }
 
         try
         {
             await _userService.RemoveAsync(id);
-            _logger.LogInformation("User with ID: {UserId} successfully removed.", id);
+            _logger.LogInformation("User with ID: {UserId} successfully removed.", id.ToSafeLog());
             return NoContent();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "An error occurred while deleting user with ID: {UserId}", id);
+            _logger.LogError(ex, "An error occurred while deleting user with ID: {UserId}", id.ToSafeLog());
             return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while deleting the user.");
         }
     }
@@ -784,6 +645,9 @@ public class UsersController : ControllerBase
         }
     }
 
+
+    // TODO - Not updating because the feature shall be discarded soon. Either update or discard this method, once dhb-690 implemented
+    #region managed-users delete/update
     [HttpGet("managed-users")]
     [ProducesResponseType(typeof(List<ManagedUserResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -793,7 +657,7 @@ public class UsersController : ControllerBase
         var user = await _userService.GetUserWithDetailsAsync(userId);
         if (user == null)
         {
-            _logger.LogWarning("User with ID {UserId} not found.", userId);
+            _logger.LogWarning("User with ID {UserId} not found.", userId.ToSafeLog());
             return NotFound();
         }
         var managedUsers = new List<ManagedUserResponse>();
@@ -867,8 +731,31 @@ public class UsersController : ControllerBase
             managedUsers.AddRange(invitedUsers);
         }
 
-        _logger.LogInformation("Managed users retrieved successfully for user ID: {UserId}", userId);
+        _logger.LogInformation("Managed users retrieved successfully for user ID: {UserId}", userId.ToSafeLog());
         return Ok(managedUsers);
+    }
+    #endregion
+
+    [HttpGet("network-managers")]
+    [ProducesResponseType(typeof(List<InvitedUserResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [Produces("application/json")]
+    public async Task<ActionResult<List<InvitedUserResponse>>> GetNetworkManagersAsync(string userId)
+    {
+        var user = await _userService.GetUserWithDetailsAsync(userId);
+        if (user == null)
+        {
+            _logger.LogWarning("User with ID {UserId} not found.", StringFormatter.Sanitize(userId));
+            return NotFound();
+        }
+
+        var networkManagerInvitations = await _invitationService.GetNetworkManagersByInviterUserId(userId);
+
+        _logger.LogInformation("Successfully retrieved {Count} network manager invitations for user ID: {UserId}",
+            networkManagerInvitations.Count, StringFormatter.Sanitize(userId));
+        var managedNetworkMangers = _mapper.Map<List<InvitedUserResponse>>(networkManagerInvitations);
+
+        return Ok(managedNetworkMangers);
     }
 
     [HttpGet("registered-users")]
@@ -880,13 +767,13 @@ public class UsersController : ControllerBase
         var user = await _userService.GetByIdAsync(userId);
         if (user == null)
         {
-            _logger.LogWarning("User with ID {UserId} not found.", userId);
+            _logger.LogWarning("User with ID {UserId} not found.", userId.ToSafeLog());
             return NotFound(); // Return 404 Not Found
         }
 
-        _logger.LogInformation("Attempting to retrieve managed contributors for user ID: {UserId}", userId);
+        _logger.LogInformation("Attempting to retrieve managed contributors for user ID: {UserId}", userId.ToSafeLog());
 
-        var invitations = await _invitationService.GetByInvitedUserIdAsync(user.Id);
+        var invitations = await _invitationService.GetByInviterUserIdAsync(user.Id);
         var invitedEmails = invitations.Select(i => i.InvitedEmail).Distinct().ToList();
 
         var registeredUsers = await _userService.GetRegisteredUsers(invitedEmails);
@@ -901,7 +788,7 @@ public class UsersController : ControllerBase
         // Exclude the responsible user from the contributors list
         var filteredUsers = registeredUsers.Where(ru => ru.EmailId != user.EmailId).ToList();
 
-        _logger.LogInformation("Successfully retrieved {Count} managed contributors for user ID: {UserId}", filteredUsers.Count, userId);
+        _logger.LogInformation("Successfully retrieved {Count} managed contributors for user ID: {UserId}", filteredUsers.Count, userId.ToSafeLog());
 
         return Ok(_mapper.Map<List<UserResponse>>(filteredUsers));
     }
@@ -923,7 +810,7 @@ public class UsersController : ControllerBase
         var rpUser = await _userService.GetResponsiblePersonByHnIdAsync(hnId);
         if (rpUser == null)
         {
-            return NotFound($"No Responsible Person found for Heat Network ID: {hnId}");
+            return NotFound($"No Responsible Person found for Heat Network ID: {hnId.ToSafeLog()}");
         }
 
         // Get other users with roles
@@ -998,33 +885,6 @@ public class UsersController : ControllerBase
         return Ok(usersResponse);
     }
 
-
-    private static readonly Dictionary<ContributorRole, UserRole> RoleMapping =
-    new Dictionary<ContributorRole, UserRole>
-    {
-        { ContributorRole.DesignatedDutyHolder, UserRole.DesignatedDutyHolder },
-        { ContributorRole.Contributor, UserRole.Contributor },            
-        { ContributorRole.Assessor, UserRole.Assessor },
-        { ContributorRole.Certifier, UserRole.Certifier },
-        { ContributorRole.NetworkManager, UserRole.NetworkManager },
-        { ContributorRole.ResponsiblePerson, UserRole.ResponsiblePerson }
-    };
-
-
-    private List<UserRole> MapAndFilterRoles(List<ContributorRole>? rolesToMap)
-    {
-        return rolesToMap?
-            .Select(role =>
-                RoleMapping.TryGetValue(role, out var mappedRole)
-                ? (UserRole?)mappedRole
-                : null
-            )
-            .Where(mappedRole => mappedRole.HasValue)
-            .Select(mappedRole => mappedRole!.Value)
-            .ToList()
-            ?? new List<UserRole>();
-    }
-
     private static List<HeatNetworkInfo> MapHeatNetworks(UserDetailsResult user)
     {
         var heatNetworks = UserNetworkHelper.GetAuthorizedNetworks(user);
@@ -1034,178 +894,4 @@ public class UsersController : ControllerBase
             Name = x.Name
         }).ToList() ?? new List<HeatNetworkInfo>();
     }
-
-    private async Task<User> BuildUserFromInvitation(InvitedUserRequest request, Invitation invitation)
-    {
-        var user = new User
-        {
-            OneLoginId = request.OneLoginId,
-            EmailId = request.InvitedEmail,
-            FirstName = invitation.FirstName,
-            LastName = invitation.LastName,
-            JobTitle = null,
-            Status = UserStatus.Active,
-            ContributingOrganisations = new List<string> { invitation.InvitedOrgId }
-        };
-
-        if (invitation.InvitedHnId != null)
-        {
-            user.HnRoleMappings = new List<HnRoleMapping>
-            {
-                new HnRoleMapping
-                {
-                    HnId = invitation.InvitedHnId,
-                    Role = invitation.InvitedRoles.FirstOrDefault()
-                }
-            };
-        }
-
-        user.Roles = MapAndFilterRoles(invitation.InvitedRoles);
-
-        return user;
-    }
-
-    private async Task AuditLogs(Invitation invitation, string userId, HeatNetwork heatNetwork)
-    {
-        // Log for Audit history
-        var isRegistrationEnabledString = Environment.GetEnvironmentVariable("IS_REGISTRATION_ENABLED");
-        if (!string.IsNullOrEmpty(isRegistrationEnabledString) &&
-                isRegistrationEnabledString.ToLower() == "true")
-
-        {
-            if (heatNetwork != null)
-            {
-                var phase = heatNetwork.Phase;
-                var stage = HeatNetworkHelper.GetStageFromPhase(phase);
-                var invitedRole = invitation.InvitedRoles.FirstOrDefault();
-                var entryType = "";
-                switch (invitedRole)
-                {
-                    case ContributorRole.DesignatedDutyHolder:
-                        entryType = "Designated duty holder assigned";
-                        break;                    
-                    case ContributorRole.Contributor:
-                        entryType = "Contributor assigned";
-                        break;                    
-                    default:
-                        break;
-                }
-                await _auditService.SaveAuditAsync<HeatNetwork>(
-                    entryType: entryType,
-                    actorId: userId,
-                    entityId: heatNetwork.HnId!,
-                    oldState: heatNetwork,
-                    newState: heatNetwork,
-                    elementName: "NA",
-                    phase: phase,
-                    stage: stage
-                );
-            }
-        }
-    }
-
-    private async Task NotificationHistoryForAcceptingInvite(Invitation invitation, User user, HeatNetwork heatNetwork)
-    {
-        var invitedRole = invitation.InvitedRoles.FirstOrDefault();
-        var eligibleRoles = new List<string>() { ContributorRole.ResponsiblePerson.ToString() };
-        var subject = string.Empty;
-        var action = string.Empty;
-        var description = string.Empty;
-        var notificationType = NotificationHistoryType.NA;
-        var actorIds = new List<string>() { invitation.InviterUserId };
-        var heatNetworkName = heatNetwork != null ? heatNetwork.Name : "";
-
-        if (invitedRole == ContributorRole.NetworkManager)
-        {
-            subject = NotificationHistorySubjects.NetworkManagerJoined;
-            action = NotificationHistoryActions.NetworkManagers;
-            description = $"{user.FirstName} {user.LastName} signed in";
-            notificationType = NotificationHistoryType.NetworkManagerAcceptsInvite;
-        }
-        else if (invitedRole == ContributorRole.DesignatedDutyHolder)
-        {
-            // check if the invitor is Network Manager, if yes then add RP to actorIds
-            var invitorDetailsOfNM = await _userService.GetByIdAsync(invitation.InviterUserId);
-            if (invitorDetailsOfNM != null && invitorDetailsOfNM.Roles.Contains(UserRole.NetworkManager))
-            {
-                // Get the RP user details and add to actorIds
-                var invitaions = await _invitationService.GetByInvitedEmailAsync(invitorDetailsOfNM.EmailId!);
-                if (invitaions != null)
-                    actorIds.AddRange(invitaions.InviterUserId);
-            }
-
-            eligibleRoles.Add(ContributorRole.NetworkManager.ToString());
-            subject = NotificationHistorySubjects.DesignatedDutyHolderJoined;
-            action = NotificationHistoryActions.DDHAndContributors;
-            description = $"{user.FirstName} {user.LastName} joined {invitation.InvitedHnId}-{heatNetworkName}";
-            notificationType = NotificationHistoryType.DdhAcceptsInviteToHeatNetwork;
-        }        
-        else if (invitedRole == ContributorRole.Contributor)
-        {
-            await AddAssociatedNetworkManagerAndRpIds(invitation, actorIds);
-            eligibleRoles.Add(ContributorRole.NetworkManager.ToString());
-            eligibleRoles.Add(ContributorRole.DesignatedDutyHolder.ToString());
-            subject = NotificationHistorySubjects.ContributorJoined;
-            action = NotificationHistoryActions.DDHAndContributors;
-            description = $"{user.FirstName} {user.LastName} joined {invitation.InvitedHnId}-{heatNetworkName}";
-            notificationType = NotificationHistoryType.ContributorAcceptsInviteToHeatNetwork;
-        }
-        
-        var notificationHistory = new NotificationHistory
-        {
-            NotificationType = notificationType,
-            ActorsId = actorIds,
-            Subject = subject,
-            Description = description,
-            Timestamp = DateTime.UtcNow,
-            Action = action,
-            EligibleRoles = eligibleRoles,
-            HeatNetworkId = invitation.InvitedHnId,
-            CreatedBy = user.Id
-        };
-
-        await _notificationHistoryService.CreateAsync(notificationHistory);
-    }
-
-    private async Task AddAssociatedNetworkManagerAndRpIds(Invitation invitation, List<string> actorIds)
-    {
-        var invitorDetails = await _userService.GetByIdAsync(invitation.InviterUserId);
-        if (invitorDetails == null) return;
-
-        var role = invitorDetails.HnRoleMappings
-            .Where(mapping => mapping.HnId == invitation.InvitedHnId)
-            .Select(mapping => mapping.Role)
-            .FirstOrDefault();
-
-
-        if (role == ContributorRole.NetworkManager)
-        {
-            var invitaions = await _invitationService.GetByInvitedEmailAsync(invitorDetails.EmailId!);
-            if (invitaions != null)
-                actorIds.AddRange(invitaions.InviterUserId);
-        }
-        else
-        {
-            var superInvitorDetails = await _invitationService.GetByInvitedDetailsAsync(
-                invitorDetails.EmailId,
-                invitation.InvitedHnId!,
-                role);
-
-            if (superInvitorDetails != null)
-            {
-                actorIds.Add(superInvitorDetails.InviterUserId!);
-                // check if the invitor is Network Manager, if yes then add RP to actorIds
-                var invitorDetailsOfNM = await _userService.GetByIdAsync(superInvitorDetails!.InviterUserId);
-                if (invitorDetailsOfNM != null && invitorDetailsOfNM.Roles.Contains(UserRole.NetworkManager))
-                {
-                    // Get the RP user details and add to actorIds
-                    var invitaions = await _invitationService.GetByInvitedEmailAsync(invitorDetailsOfNM.EmailId!);
-                    if (invitaions != null)
-                        actorIds.AddRange(invitaions.InviterUserId);
-                }
-            }
-        }
-            
-    }
-
 }

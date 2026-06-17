@@ -9,6 +9,8 @@ using Microsoft.Extensions.Options;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using MongoDB.Driver.Linq;
+using System.Data;
+using System.Formats.Asn1;
 
 namespace HNTAS.Core.Api.Services
 {
@@ -156,7 +158,7 @@ namespace HNTAS.Core.Api.Services
         }
 
         public async Task<UpdateResult> UpdateOrgIdAsync(string userId, string orgId)
-        {
+                        {
             var filter = Builders<User>.Filter.Eq(u => u.Id, userId);
 
             var update = Builders<User>.Update.Set(u => u.OrgId, orgId);
@@ -206,6 +208,19 @@ namespace HNTAS.Core.Api.Services
 
         public async Task<User?> GetRpAsync() =>
           await _usersCollection.Find(u => u.Roles.Contains(UserRole.ResponsiblePerson)).FirstOrDefaultAsync();
+
+        public async Task UpdateUserNetwork(string userId, string hnId)
+        {
+            var filter = Builders<User>.Filter.Eq(u => u.Id, userId);
+            // update hnRoleMappings array by adding a new mapping with the provided hnId and a default role (e.g., RP)
+            var update = Builders<User>.Update.AddToSet(u => u.HnRoleMappings, new HnRoleMapping
+            {
+                HnId = hnId,
+                Role = ContributorRole.ResponsiblePerson
+            });
+            await _usersCollection.UpdateOneAsync(filter, update);
+        }
+
         // --- Private Helper Method for Reusable Pipeline ---
 
         /// <summary>

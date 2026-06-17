@@ -165,17 +165,17 @@ public class UsersController : ControllerBase
 
             if (user == null)
             {
-                _logger.LogWarning("User with email ID {EmailId} not found.", emailId.ToSafeLog());
+                _logger.LogWarning("User with email ID {EmailId} not found.", emailId.ToMaskedEmailForLog());
                 return NotFound();
             }
 
             bool isRegulatoryContact = user.Roles.Contains(UserRole.ResponsiblePerson);
-            _logger.LogInformation("User with email ID {EmailId} is Responsible Person: {IsRp}", emailId.ToSafeLog(), isRegulatoryContact);
+            _logger.LogInformation("User with email ID {EmailId} is Responsible Person: {IsRp}", emailId.ToMaskedEmailForLog(), isRegulatoryContact);
             return Ok(isRegulatoryContact);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error occurred while checking Responsible Person role for email ID: {EmailId}", emailId.ToSafeLog());
+            _logger.LogError(ex, "Error occurred while checking Responsible Person role for email ID: {EmailId}", emailId.ToMaskedEmailForLog());
             return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while checking the user's role.");
         }
     }

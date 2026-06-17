@@ -630,7 +630,7 @@ public class UsersController : ControllerBase
             return BadRequest("'companiesHouseNumber' must be provided.");
         }
 
-        _logger.LogInformation("Checking if organisation with Companies House Number '{CompaniesHouseNumber}' has registered users.", companiesHouseNumber);
+        _logger.LogInformation("Checking if organisation with Companies House Number '{CompaniesHouseNumber}' has registered users.", StringFormatter.Sanitize(companiesHouseNumber));
 
         try
         {
@@ -781,7 +781,7 @@ public class UsersController : ControllerBase
         // Always check for null before calling .Any()
         if (registeredUsers == null || !registeredUsers.Any())
         {
-            _logger.LogInformation("No contributors found for user ID: {UserId}", userId);
+            _logger.LogInformation("No contributors found for user ID: {UserId}", userId.ToSafeLog());
             return Ok(new List<UserResponse>()); // Return an empty list to avoid null reference issues
         }
 

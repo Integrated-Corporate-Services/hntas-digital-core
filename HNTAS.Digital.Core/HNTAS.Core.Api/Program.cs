@@ -1,3 +1,4 @@
+using AutoMapper.Internal;
 using FluentValidation;
 using HNTAS.Core.Api.Configuration;
 using HNTAS.Core.Api.DataMigrations;
@@ -33,12 +34,21 @@ builder.Services.AddControllers()
     // This stops the RFC link from appearing for 400 errors
 });
 
-// Register AutoMapper and scan for profiles
-builder.Services.AddAutoMapper(typeof(UserMappingProfile).Assembly);
+// Register AutoMapper, scan for profiles, and apply global recursion protection
+builder.Services.AddAutoMapper(cfg =>
+{
+    cfg.AddMaps(typeof(UserMappingProfile).Assembly);
+
+    // Mitigate CVE-2026-32933 by forcing a max depth limit across all mappings
+    cfg.Internal().ForAllMaps((_, mapExpr) =>
+    {
+        mapExpr.MaxDepth(64);
+    });
+});
 
 builder.Services.AddSingleton<IUserService, UserService>();
 builder.Services.AddSingleton<IOrganisationService, OrganisationService>();
-builder.Services.AddSingleton<IInvitationService, InvitationService>();
+builder.Services.AddScoped<IInvitationService, InvitationService>();
 builder.Services.AddSingleton<ICounterService, CounterService>();
 builder.Services.AddSingleton<ISoaService, SoaService>();
 builder.Services.AddSingleton<IGovUkNotifyService, GovUkNotifyService>();

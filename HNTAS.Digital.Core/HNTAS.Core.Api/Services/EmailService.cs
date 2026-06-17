@@ -5,7 +5,6 @@ using HNTAS.Core.Api.Extensions;
 using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
 using Microsoft.Extensions.Options;
-using Newtonsoft.Json.Linq;
 
 namespace HNTAS.Core.Api.Services
 {
@@ -90,9 +89,9 @@ namespace HNTAS.Core.Api.Services
             );
 
             if (emailSent)
-                _logger.LogInformation("Organisation-updated email sent successfully to {EmailId}.", MaskEmail(userEmail));
+                _logger.LogInformation("Organisation-updated email sent successfully to {User}.", fullName);
             else
-                _logger.LogWarning("Organisation-updated email failed to send to {EmailId}.", MaskEmail(userEmail));
+                _logger.LogWarning("Organisation-updated email failed to send to {User}", fullName);
         }
 
         public async Task TrySendHeatNetworkRegistrationEmailAsync(string userEmail, string fullName, string hnId, string hnName)
@@ -235,7 +234,7 @@ namespace HNTAS.Core.Api.Services
 
         public async Task TrySendOfgemDataForExistingOrgOrRpEmailAsync(OfgemDataModelForNotification ofgemData)
         {
-            var hnIds = ofgemData.HeatNetworkIds;            
+            var hnIds = ofgemData.HeatNetworkIds;
             string formatedHnIds = hnIds != null && hnIds.Count > 1
                 ? string.Join(Environment.NewLine, hnIds.Select(i => $"* {i}"))
                 : (hnIds != null && hnIds.Count == 1 ? hnIds[0] : "N/A");

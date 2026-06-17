@@ -158,7 +158,7 @@ public class UsersController : ControllerBase
     public async Task<ActionResult<bool>> IsRpUser(string emailId)
     {
 
-        _logger.LogInformation("Checking if user with email ID {EmailId} is a Responsible Person.", emailId.ToSafeLog());
+        _logger.LogInformation("Checking if user with email ID {EmailId} is a Responsible Person.", emailId.ToMaskedEmailForLog());
         try
         {
             var user = await _userService.GetByEmailAsync(emailId);

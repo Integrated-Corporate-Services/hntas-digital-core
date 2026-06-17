@@ -38,7 +38,7 @@ namespace HNTAS.Core.Api.Helpers
         public static string Sanitize(string input)
         {
             if (string.IsNullOrEmpty(input))
-                return "[INVALID_USER_INPUT]";
+                return input;
 
             // Remove control characters (including newlines, tabs, etc.) to prevent log forging
             string sanitized = Regex.Replace(input, @"[\x00-\x1F\x7F]", string.Empty);

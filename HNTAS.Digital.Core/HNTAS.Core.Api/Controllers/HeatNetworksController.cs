@@ -199,11 +199,11 @@ namespace HNTAS.Core.Api.Controllers
                     var heatNetworkId = $"HN{sequenceID:D7}";
                     heatNetworkDetails.HnId = heatNetworkId;
                     heatNetworkDetails.UHnId = sequenceID.ToString();
-                    _logger.LogInformation("Generated new heat network ID: {HeatNetworkId}", heatNetworkDetails.HnId);
+                    _logger.LogInformation("Generated new heat network ID: {HeatNetworkId}", heatNetworkDetails.HnId.ToSafeLog());
                 }
                 UserDetailsResult user = await _userService.GetUserWithDetailsAsync(heatNetworkDetails.CreatedBy);
                 await _hnService.CreateAsync(heatNetworkDetails, true);
-                _logger.LogInformation("New heat network initially registered: {HNID} (DB Id: {Id})", heatNetworkDetails.HnId, heatNetworkDetails.Id);
+                _logger.LogInformation("New heat network initially registered: {HNID} (DB Id: {Id})", heatNetworkDetails.HnId.ToSafeLog(), heatNetworkDetails.Id.ToSafeLog());
 
 
                 ContributorRole role = user.Roles[0] switch

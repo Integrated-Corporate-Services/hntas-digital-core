@@ -1,5 +1,6 @@
 ﻿using AutoMapper;
 using HNTAS.Core.Api.Data.Models;
+using HNTAS.Core.Api.Extensions;
 using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models.Users;
@@ -46,13 +47,13 @@ namespace HNTAS.Core.Api.Controllers
                 var existingUser = await _userService.GetByIdAsync(userId);
                 if (existingUser == null)
                 {
-                    _logger.LogWarning("User with ID: {userId} not found for update.", userId);
+                    _logger.LogWarning("User with ID: {userId} not found for update.", userId.ToSafeLog());
                     return NotFound($"User with ID: {userId} not found.");
                 }
                 var existingOrg = await _organisationService.GetByOrgIdAsync(orgId);
                 if (existingOrg == null)
                 {
-                    _logger.LogWarning("Organisation with ID: {orgId} not found for update.", orgId);
+                    _logger.LogWarning("Organisation with ID: {orgId} not found for update.", orgId.ToSafeLog());
                     return NotFound($"Organisation with ID: {orgId} not found.");
                 }
 
@@ -178,7 +179,7 @@ namespace HNTAS.Core.Api.Controllers
 
                 if (organisation == null)
                 {
-                    _logger.LogWarning("Organisation with OrgId {OrgId} not found for heat network ID update.", orgId);
+                    _logger.LogWarning("Organisation with OrgId {OrgId} not found for heat network ID update.", orgId.ToSafeLog());
                     return NotFound();
                 }
 
@@ -194,7 +195,7 @@ namespace HNTAS.Core.Api.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An error occurred while updating heat network ID for organisation with OrgId: {OrgId}", orgId);
+                _logger.LogError(ex, "An error occurred while updating heat network ID for organisation with OrgId: {OrgId}", orgId.ToSafeLog());
                 return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while updating the heat network ID.");
             }
         }

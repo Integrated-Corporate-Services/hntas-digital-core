@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Enums;
+using HNTAS.Core.Api.Extensions;
 using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
@@ -22,9 +23,6 @@ public class UsersController : ControllerBase
     private readonly ICounterService _orgCounterService;
     private readonly IMapper _mapper;
     private readonly IEmailService _emailService;
-    private readonly IHeatNetworkService _heatNetworkService;
-    private readonly IAuditService _auditService;
-    private readonly INotificationHistoryService _notificationHistoryService;
 
 
     public UsersController(IUserService userService,
@@ -45,9 +43,6 @@ public class UsersController : ControllerBase
         _emailService = emailService;
         _orgCounterService = orgCounterService;
         _mapper = mapper;
-        _heatNetworkService = heatNetworkService;
-        _auditService = auditService;
-        _notificationHistoryService = notificationHistoryService;
     }
 
     /// <summary>
@@ -123,23 +118,23 @@ public class UsersController : ControllerBase
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult<UserResponse>> GetById(string id)
     {
-        _logger.LogInformation("Attempting to retrieve user with ID: {Id}", id);
+        _logger.LogInformation("Attempting to retrieve user with ID: {Id}", id.ToSafeLog());
         try
         {
             var user = await _userService.GetByIdAsync(id);
 
             if (user == null)
             {
-                _logger.LogWarning("User with ID {Id} not found.", id);
+                _logger.LogWarning("User with ID {Id} not found.", id.ToSafeLog());
                 return NotFound();
             }
-            _logger.LogInformation("Successfully retrieved user with ID: {Id}", id);
+            _logger.LogInformation("Successfully retrieved user with ID: {Id}", id.ToSafeLog());
             var userResponse = _mapper.Map<UserResponse>(user);
             return Ok(userResponse);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error validating user ID format: {Id}", id);
+            _logger.LogError(ex, "Error validating user ID format: {Id}", id.ToSafeLog());
             return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while validating the user ID.");
         }
     }
@@ -162,26 +157,24 @@ public class UsersController : ControllerBase
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult<bool>> IsRpUser(string emailId)
     {
-        var sanitizedEmailId = emailId?.Replace("\r", "").Replace("\n", "");
-
-        _logger.LogInformation("Checking if user with email ID {EmailId} is a Responsible Person.", sanitizedEmailId);
+        string userId = string.Empty;
         try
         {
             var user = await _userService.GetByEmailAsync(emailId);
 
             if (user == null)
             {
-                _logger.LogWarning("User with email ID {EmailId} not found.", sanitizedEmailId);
                 return NotFound();
             }
 
+            userId = user.Id; // Store user ID for logging in case of an error
+
             bool isRegulatoryContact = user.Roles.Contains(UserRole.ResponsiblePerson);
-            _logger.LogInformation("User with email ID {EmailId} is Responsible Person: {IsRp}", sanitizedEmailId, isRegulatoryContact);
             return Ok(isRegulatoryContact);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error occurred while checking Responsible Person role for email ID: {EmailId}", sanitizedEmailId);
+            _logger.LogError(ex, "Error occurred while checking Responsible Person role for user Id : {UserId}", userId);
             return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while checking the user's role.");
         }
     }
@@ -223,7 +216,7 @@ public class UsersController : ControllerBase
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult<UserResponse>> GetUserByOneLoginId(string oneLoginId)
     {
-        _logger.LogInformation("Attempting to retrieve user with ID: {Id}", oneLoginId);
+        _logger.LogInformation("Attempting to retrieve user with ID: {Id}", oneLoginId.ToSafeLog());
 
         try
         {
@@ -231,17 +224,17 @@ public class UsersController : ControllerBase
 
             if (user == null)
             {
-                _logger.LogWarning("User with ID {Id} not found.", oneLoginId);
+                _logger.LogWarning("User with ID {Id} not found.", oneLoginId.ToSafeLog());
                 return NotFound();
             }
 
-            _logger.LogInformation("Successfully retrieved user with ID: {Id}", oneLoginId);
+            _logger.LogInformation("Successfully retrieved user with ID: {Id}", oneLoginId.ToSafeLog());
             var userResponse = _mapper.Map<UserResponse>(user);
             return Ok(userResponse);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error retrieving user by OneLogin ID: {Id}", oneLoginId);
+            _logger.LogError(ex, "Error retrieving user by OneLogin ID: {Id}", oneLoginId.ToSafeLog());
             return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while retrieving the user.");
         }
     }
@@ -264,7 +257,7 @@ public class UsersController : ControllerBase
         if (!ModelState.IsValid)
         {
             _logger.LogWarning("Invalid initial registration data for UserId: {UserId}, EmailId: {EmailId}. Errors: {Errors}",
-                registrationData.OneLoginId, registrationData.EmailId, string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
+                registrationData.OneLoginId.ToSafeLog(), registrationData.EmailId.ToSafeLog(), string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
             return ValidationProblem(ModelState);
         }
 
@@ -278,7 +271,7 @@ public class UsersController : ControllerBase
                 {
                     Status = StatusCodes.Status409Conflict,
                     Title = "User Already Exists",
-                    Detail = $"A user with the provided UserId ({registrationData.OneLoginId}) already exists."
+                    Detail = $"A user with the provided UserId ({registrationData.OneLoginId.ToSafeLog()}) already exists."
                 });
             }
 
@@ -292,13 +285,13 @@ public class UsersController : ControllerBase
 
             await _userService.CreateAsync(newUser);
 
-            _logger.LogInformation("New user initially registered: {UserId} (DB Id: {Id})", newUser.OneLoginId, newUser.Id);
+            _logger.LogInformation("New user initially registered: {UserId} (DB Id: {Id})", newUser.OneLoginId.ToSafeLog(), newUser.Id);
 
             return StatusCode(StatusCodes.Status201Created, newUser.Id);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Unexpected error during initial user registration for UserId: {UserId}, EmailId: {EmailId}", registrationData.OneLoginId, registrationData.EmailId);
+            _logger.LogError(ex, "Unexpected error during initial user registration for UserId: {UserId}, EmailId: {EmailId}", registrationData.OneLoginId.ToSafeLog(), registrationData.EmailId.ToSafeLog());
             return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
             {
                 Status = StatusCodes.Status500InternalServerError,
@@ -335,7 +328,7 @@ public class UsersController : ControllerBase
         if (!ModelState.IsValid)
         {
             _logger.LogWarning("Invalid organisation details update data for user ID: {UserId}. Errors: {Errors}",
-                id, string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
+                id.ToSafeLog(), string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
             return ValidationProblem(ModelState);
         }
 
@@ -344,7 +337,7 @@ public class UsersController : ControllerBase
             var existingUser = await _userService.GetByIdAsync(id);
             if (existingUser == null)
             {
-                _logger.LogWarning("User with ID {UserId} not found for organisation details update.", id);
+                _logger.LogWarning("User with ID {UserId} not found for organisation details update.", id.ToSafeLog());
                 return NotFound();
             }
 
@@ -400,7 +393,7 @@ public class UsersController : ControllerBase
                 }
             }
 
-            _logger.LogInformation("Organisation details and status updated for user {UserId}. Generated OrgId: {OrgId}", id, newOrg.Id);
+            _logger.LogInformation("Organisation details and status updated for user {UserId}. Generated OrgId: {OrgId}", id.ToSafeLog(), newOrg.Id);
 
             await _emailService.TrySendOrgCreatedEmailAsync(existingUser, newOrg);
 
@@ -408,7 +401,7 @@ public class UsersController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error updating organisation details for user {UserId}", id);
+            _logger.LogError(ex, "Error updating organisation details for user {UserId}", id.ToSafeLog());
             return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
             {
                 Status = StatusCodes.Status500InternalServerError,
@@ -450,9 +443,9 @@ public class UsersController : ControllerBase
             var existingUser = await _userService.GetByIdAsync(userId);
             if (existingUser == null)
             {
-                _logger.LogWarning("User with ID '{UserId}' not found for organisation registration.", userId);
+                _logger.LogWarning("User with ID '{UserId}' not found for organisation registration.", userId.ToSafeLog());
                 return NotFound($"User with ID '{userId}' was not found. Organisation was not created.");
-            }            
+            }
 
             var newOrganisation = new Organisation
             {
@@ -481,17 +474,17 @@ public class UsersController : ControllerBase
 
             if (updateResult.ModifiedCount == 0)
             {
-                _logger.LogError("Failed to modify user {UserId} OrgId. Matched: {Matched}, Modified: {Modified}. Starting rollback.", userId, updateResult.MatchedCount, updateResult.ModifiedCount);
+                _logger.LogError("Failed to modify user {UserId} OrgId. Matched: {Matched}, Modified: {Modified}. Starting rollback.", userId.ToSafeLog(), updateResult.MatchedCount, updateResult.ModifiedCount);
 
                 // Initiate Rollback: Delete the newly created Organisation
                 await _organisationService.RemoveAsync(newOrganisation.Id);
 
                 // Return a Server Error indicating the linking failed
-                return StatusCode(StatusCodes.Status500InternalServerError, $"Organisation created but failed to link to user {userId}. Rollback executed.");
+                return StatusCode(StatusCodes.Status500InternalServerError, $"Organisation created but failed to link to user {userId.ToSafeLog()}. Rollback executed.");
             }
 
             _logger.LogInformation("User {UserId} successfully updated with OrgId: {OrgId}. Modified count: {Count}",
-                userId, newOrganisation.OrgId, updateResult.ModifiedCount);
+                userId.ToSafeLog(), newOrganisation.OrgId, updateResult.ModifiedCount);
 
             // Return the created organisation object with 201 status
             return StatusCode(StatusCodes.Status201Created, newOrganisation);
@@ -531,7 +524,7 @@ public class UsersController : ControllerBase
         if (!ModelState.IsValid)
         {
             _logger.LogWarning("Invalid user details update data for user ID: {UserId}. Errors: {Errors}",
-                id, string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
+                id.ToSafeLog(), string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
             return ValidationProblem(ModelState);
         }
 
@@ -541,7 +534,7 @@ public class UsersController : ControllerBase
             var existingUser = await _userService.GetByIdAsync(id);
             if (existingUser == null)
             {
-                _logger.LogWarning("User with ID {UserId} not found for user details update.", id);
+                _logger.LogWarning("User with ID {UserId} not found for user details update.", id.ToSafeLog());
                 return NotFound();
             }
 
@@ -569,13 +562,13 @@ public class UsersController : ControllerBase
 
             await _userService.UpdateAsync(id, existingUser);
 
-            _logger.LogInformation("User details updated for user {UserId}.", id);
+            _logger.LogInformation("User details updated for user {UserId}.", id.ToSafeLog());
 
             return NoContent();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error updating user details for user {UserId}", id);
+            _logger.LogError(ex, "Error updating user details for user {UserId}", id.ToSafeLog());
             return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
             {
                 Status = StatusCodes.Status500InternalServerError,
@@ -617,23 +610,23 @@ public class UsersController : ControllerBase
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> DeleteUser(string id)
     {
-        _logger.LogInformation("Attempting to delete user with ID: {UserId}", id);
+        _logger.LogInformation("Attempting to delete user with ID: {UserId}", id.ToSafeLog());
         var existingUser = await _userService.GetByIdAsync(id);
         if (existingUser == null)
         {
-            _logger.LogWarning("Delete request for user ID: {UserId} failed. User not found.", id);
+            _logger.LogWarning("Delete request for user ID: {UserId} failed. User not found.", id.ToSafeLog());
             return NotFound();
         }
 
         try
         {
             await _userService.RemoveAsync(id);
-            _logger.LogInformation("User with ID: {UserId} successfully removed.", id);
+            _logger.LogInformation("User with ID: {UserId} successfully removed.", id.ToSafeLog());
             return NoContent();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "An error occurred while deleting user with ID: {UserId}", id);
+            _logger.LogError(ex, "An error occurred while deleting user with ID: {UserId}", id.ToSafeLog());
             return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while deleting the user.");
         }
     }
@@ -652,7 +645,7 @@ public class UsersController : ControllerBase
             return BadRequest("'companiesHouseNumber' must be provided.");
         }
 
-        _logger.LogInformation("Checking if organisation with Companies House Number '{CompaniesHouseNumber}' has registered users.", companiesHouseNumber);
+        _logger.LogInformation("Checking if organisation with Companies House Number '{CompaniesHouseNumber}' has registered users.", StringFormatter.Sanitize(companiesHouseNumber));
 
         try
         {
@@ -679,7 +672,7 @@ public class UsersController : ControllerBase
         var user = await _userService.GetUserWithDetailsAsync(userId);
         if (user == null)
         {
-            _logger.LogWarning("User with ID {UserId} not found.", userId);
+            _logger.LogWarning("User with ID {UserId} not found.", userId.ToSafeLog());
             return NotFound();
         }
         var managedUsers = new List<ManagedUserResponse>();
@@ -753,7 +746,7 @@ public class UsersController : ControllerBase
             managedUsers.AddRange(invitedUsers);
         }
 
-        _logger.LogInformation("Managed users retrieved successfully for user ID: {UserId}", userId);
+        _logger.LogInformation("Managed users retrieved successfully for user ID: {UserId}", userId.ToSafeLog());
         return Ok(managedUsers);
     }
     #endregion
@@ -777,7 +770,7 @@ public class UsersController : ControllerBase
             networkManagerInvitations.Count, StringFormatter.Sanitize(userId));
         var managedNetworkMangers = _mapper.Map<List<InvitedUserResponse>>(networkManagerInvitations);
 
-        return Ok(managedNetworkMangers);        
+        return Ok(managedNetworkMangers);
     }
 
     [HttpGet("registered-users")]
@@ -789,11 +782,11 @@ public class UsersController : ControllerBase
         var user = await _userService.GetByIdAsync(userId);
         if (user == null)
         {
-            _logger.LogWarning("User with ID {UserId} not found.", userId);
+            _logger.LogWarning("User with ID {UserId} not found.", userId.ToSafeLog());
             return NotFound(); // Return 404 Not Found
         }
 
-        _logger.LogInformation("Attempting to retrieve managed contributors for user ID: {UserId}", userId);
+        _logger.LogInformation("Attempting to retrieve managed contributors for user ID: {UserId}", userId.ToSafeLog());
 
         var invitations = await _invitationService.GetByInviterUserIdAsync(user.Id);
         var invitedEmails = invitations.Select(i => i.InvitedEmail).Distinct().ToList();
@@ -803,14 +796,14 @@ public class UsersController : ControllerBase
         // Always check for null before calling .Any()
         if (registeredUsers == null || !registeredUsers.Any())
         {
-            _logger.LogInformation("No contributors found for user ID: {UserId}", userId);
+            _logger.LogInformation("No contributors found for user ID: {UserId}", userId.ToSafeLog());
             return Ok(new List<UserResponse>()); // Return an empty list to avoid null reference issues
         }
 
         // Exclude the responsible user from the contributors list
         var filteredUsers = registeredUsers.Where(ru => ru.EmailId != user.EmailId).ToList();
 
-        _logger.LogInformation("Successfully retrieved {Count} managed contributors for user ID: {UserId}", filteredUsers.Count, userId);
+        _logger.LogInformation("Successfully retrieved {Count} managed contributors for user ID: {UserId}", filteredUsers.Count, userId.ToSafeLog());
 
         return Ok(_mapper.Map<List<UserResponse>>(filteredUsers));
     }
@@ -832,7 +825,7 @@ public class UsersController : ControllerBase
         var rpUser = await _userService.GetResponsiblePersonByHnIdAsync(hnId);
         if (rpUser == null)
         {
-            return NotFound($"No Responsible Person found for Heat Network ID: {hnId}");
+            return NotFound($"No Responsible Person found for Heat Network ID: {hnId.ToSafeLog()}");
         }
 
         // Get other users with roles
@@ -905,7 +898,7 @@ public class UsersController : ControllerBase
         var usersResponse = _mapper.Map<List<UserResponse>>(users);
 
         return Ok(usersResponse);
-    }   
+    }
 
     private static List<HeatNetworkInfo> MapHeatNetworks(UserDetailsResult user)
     {

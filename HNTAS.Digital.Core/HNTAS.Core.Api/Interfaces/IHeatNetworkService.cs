@@ -1,5 +1,6 @@
 ﻿using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Data.Models.External;
+using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Models.AssignedAssessor;
 
 namespace HNTAS.Core.Api.Interfaces
@@ -23,5 +24,6 @@ namespace HNTAS.Core.Api.Interfaces
         Task UpdateDesignConstructionLogAsync(string hnId, NetworkDetailsDocument document);
         Task<AssignedAssessorResponse> GetAssignedAssessors(AssignedAssessorRequest request);
         Task<List<HeatNetwork>> GetByOfgemEmailIdAsync(string ofgemEmailId);
+        Task<HeatNetwork> GetByHnIdAndRegistrationSourceAsync(string hnId, RegistrationSource registrationSource);
     }
 }

@@ -28,6 +28,7 @@ namespace HNTAS.Core.Api.Models.Soa
         public MeteringAndMonitoringStrategyResponse? MeteringAndMonitoringStrategy { get; set; }
         public AssessmentPlanResponse? AssessmentPlan { get; set; }
         public DesignConstructionLogResponse? DesignConstructionLog { get; set; }
+        public DateTime? OfgemImportedDate { get; set; }
 
     }
 

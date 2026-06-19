@@ -354,6 +354,10 @@ namespace HNTAS.Core.Api.Services
             }
         }
 
+        public async Task<HeatNetwork> GetByHnIdAndRegistrationSourceAsync(string hnId, RegistrationSource registrationSource)
+        {
+            return await _hnCollection.Find(hn => hn.HnId == hnId && hn.RegistrationSource == registrationSource).FirstOrDefaultAsync();
+        }
         public async Task<List<HeatNetwork>> GetByOfgemEmailIdAsync(string ofgemEmailId)
         {
             // filter where ofgemUserEmailId is ofgemEmailId and orgId is null

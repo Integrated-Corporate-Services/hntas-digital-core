@@ -294,7 +294,8 @@ namespace HNTAS.Core.Api.Services
                 RegistrationSource = Enums.RegistrationSource.OFGEM,
                 OfgemUserEmailId = string.IsNullOrEmpty(userId) ? row.EmailId.ToLower() : null,
                 CreatedBy = userId,
-                CreatedAt = ParseDate(row.DateOfHnRegistration)
+                CreatedAt = ParseDate(row.DateOfHnRegistration),
+                OfgemImportedDate = DateTime.UtcNow
             };
 
             await _heatNetworkService.CreateAsync(newHn);

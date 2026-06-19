@@ -23,6 +23,7 @@ public class UsersController : ControllerBase
     private readonly ICounterService _orgCounterService;
     private readonly IMapper _mapper;
     private readonly IEmailService _emailService;
+    private readonly IHeatNetworkService _heatNetworkService;
 
 
     public UsersController(IUserService userService,
@@ -42,6 +43,7 @@ public class UsersController : ControllerBase
         _logger = logger;
         _emailService = emailService;
         _orgCounterService = orgCounterService;
+        _heatNetworkService = heatNetworkService;
         _mapper = mapper;
     }
 

@@ -148,7 +148,7 @@ namespace HNTAS.Core.Api.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<List<HeatNetworkResponse>>> GetHeatNetworksByUserId(string userId)
+        public async Task<ActionResult<List<HeatNetworkResponse>>> GetHeatNetworksByUserId(string userId, RegistrationSource registrationSource = RegistrationSource.HNTAS)
         {
             if (string.IsNullOrEmpty(userId))
             {
@@ -161,7 +161,7 @@ namespace HNTAS.Core.Api.Controllers
                 var heatNetworks = new List<HeatNetworkResponse>();
                 foreach (var hnMapping in userDetails.HnRoleMappings)
                 {
-                    var heatNetwork = await _hnService.GetByHnIdAsync(hnMapping.HnId);
+                    var heatNetwork = await _hnService.GetByHnIdAndRegistrationSourceAsync(hnMapping.HnId, registrationSource);
 
                     if (heatNetwork == null)
                     {

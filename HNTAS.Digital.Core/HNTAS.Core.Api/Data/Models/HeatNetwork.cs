@@ -31,7 +31,7 @@ namespace HNTAS.Core.Api.Data.Models
         public ECDetails? ECDetails { get; set; }
 
         [BsonElement("pathway")]
-        public string Pathway { get; set; }
+        public string? Pathway { get; set; }
 
         [BsonElement("registrationSource")]
         [BsonRepresentation(BsonType.String)]
@@ -62,7 +62,12 @@ namespace HNTAS.Core.Api.Data.Models
 
         [BsonElement("designConstructionLog")]
         public DesignConstructionLog? DesignConstructionLog { get; set; }
-
+        [BsonElement("ofgemUserEmailId")]
+        public string? OfgemUserEmailId { get; set; }
+        [BsonElement("ofgemImportedDate")]
+        [BsonRepresentation(BsonType.DateTime)]
+        [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
+        public DateTime? OfgemImportedDate { get; set; }
         [BsonElement("createdBy")]
         public string CreatedBy { get; set; }
 
@@ -72,6 +77,6 @@ namespace HNTAS.Core.Api.Data.Models
         public DateTime CreatedAt { get; set; }
 
         [BsonElement("phase")]
-        public string Phase { get; set; }
+        public string? Phase { get; set; }
     }    
 }

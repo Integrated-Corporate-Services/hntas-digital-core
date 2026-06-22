@@ -11,22 +11,24 @@ namespace HNTAS.Core.Api.Models.Soa
         public string UHnId { get; set; } = null!;
         public string HnId { get; set; } = null!;
         public string OrgId { get; set; } = null!;
-        public ECDetails ECDetails { get; set; } = null!;
+        public ECDetails? ECDetails { get; set; } = null!;
         public RegisteredAddress? Address { get; set; }
         public string Name { get; set; } = null!;
         public string? AdditionalDescription { get; set; }
-        public string Pathway { get; set; } = null!;
+        public string? Pathway { get; set; } = null!;
+        public RegistrationSource RegistrationSource { get; set; }
         public SoaResponse? Soa { get; set; }
         public string CreatedBy { get; set; } = null!;
         public DateTime CreatedAt { get; set; }
         public string? Phase { get; set; } = null;
-        public HeatNetworkType HeatNetworkType { get; set; }
+        public HeatNetworkType? HeatNetworkType { get; set; }
         public bool HasOwnEnergyCentre { get; set; }
         public HeatNetworkConnections? HeatNetworkConnections { get; set; } = new();
         public NetworkElementsResponse? NetworkElements { get; set; }
         public MeteringAndMonitoringStrategyResponse? MeteringAndMonitoringStrategy { get; set; }
         public AssessmentPlanResponse? AssessmentPlan { get; set; }
         public DesignConstructionLogResponse? DesignConstructionLog { get; set; }
+        public DateTime? OfgemImportedDate { get; set; }
 
     }
 

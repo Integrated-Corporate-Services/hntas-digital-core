@@ -89,9 +89,9 @@ namespace HNTAS.Core.Api.Services
             );
 
             if (emailSent)
-                _logger.LogInformation("Organisation-updated email sent successfully to {EmailId}.", MaskEmail(userEmail));
+                _logger.LogInformation("Organisation-updated email sent successfully to {User}.", fullName);
             else
-                _logger.LogWarning("Organisation-updated email failed to send to {EmailId}.", MaskEmail(userEmail));
+                _logger.LogWarning("Organisation-updated email failed to send to {User}", fullName);
         }
 
         public async Task TrySendHeatNetworkRegistrationEmailAsync(string userEmail, string fullName, string hnId, string hnName)
@@ -228,6 +228,46 @@ namespace HNTAS.Core.Api.Services
                     { "hn_user_name", $"{StringFormatter.ToTitleCaseSingleWord(userToUpdate.FirstName)} {StringFormatter.ToTitleCaseSingleWord(userToUpdate.LastName)}" },
                     { "hn_name",hnName },
                     { "hn_role", contributorRole.GetDescription() },
+               }
+           );
+        }
+
+        public async Task TrySendOfgemDataForExistingOrgOrRpEmailAsync(OfgemDataModelForNotification ofgemData)
+        {
+            var hnIds = ofgemData.HeatNetworkIds;
+            string formatedHnIds = hnIds != null && hnIds.Count > 1
+                ? string.Join(Environment.NewLine, hnIds.Select(i => $"* {i}"))
+                : (hnIds != null && hnIds.Count == 1 ? hnIds[0] : "N/A");
+
+            var startUrl = _hntasServiceSettings.BaseUrl;
+            var emailSent = await _govUkNotifyService.SendEmailAsync(
+           ofgemData.UserEmailId,
+           _notificationSettings.OfgemDataForExistingOrgOrRpTemplateId,
+               new Dictionary<string, dynamic>
+               {
+                    { "hntas-org-name", ofgemData.OrganisationName},
+                    { "hn-ids", formatedHnIds },
+                    { "hntas-digital-link", startUrl }
+               }
+           );
+        }
+
+        public async Task TrySendOfgemDataForNewRpEmailAsync(OfgemDataModelForNotification ofgemData)
+        {
+            var hnIds = ofgemData.HeatNetworkIds;
+            string formatedHnIds = hnIds != null && hnIds.Count > 1
+                ? string.Join(Environment.NewLine, hnIds.Select(i => $"* {i}"))
+                : (hnIds != null && hnIds.Count == 1 ? hnIds[0] : "N/A");
+
+            var startUrl = _hntasServiceSettings.BaseUrl;
+            var emailSent = await _govUkNotifyService.SendEmailAsync(
+           ofgemData.UserEmailId,
+           _notificationSettings.OfgemDataForNewRpTemplateId,
+               new Dictionary<string, dynamic>
+               {
+                    { "ofgem-org-name", ofgemData.OrganisationName},
+                    { "hn-ids", formatedHnIds },
+                    { "hntas-digital-link", startUrl }
                }
            );
         }

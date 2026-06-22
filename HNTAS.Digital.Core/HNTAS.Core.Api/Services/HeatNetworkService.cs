@@ -6,6 +6,9 @@ using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models.AssignedAssessor;
+using HNTAS.Core.Api.Models.HeatNetwork;
+using HNTAS.Core.Api.Models.NotificationHistory;
+using HNTAS.Core.Api.Models.Soa;
 using Microsoft.Extensions.Options;
 using MongoDB.Bson;
 using MongoDB.Driver;
@@ -369,6 +372,66 @@ namespace HNTAS.Core.Api.Services
             // list all heat networks that match the filter
             var heatNetworks = await _hnCollection.Find(filter).ToListAsync();
             return heatNetworks;
+        }
+
+        public async Task<ExistingNetworkResponse> GetExistingNetworks(ExistingNetworkRequest existingNetworkRequest)
+        {
+            try
+            {
+                var filter = Builders<HeatNetwork>.Filter.Eq(nh => nh.CreatedBy, existingNetworkRequest.UserId);
+
+                var totalCount = await _hnCollection.CountDocumentsAsync(filter);
+
+                var sortDirection = existingNetworkRequest.SortDirection?.ToLowerInvariant() ?? "desc";
+                var sort = sortDirection == "desc"
+                    ? Builders<HeatNetwork>.Sort.Descending(existingNetworkRequest.SortBy ?? "ofgemImportedDate")
+                    : Builders<HeatNetwork>.Sort.Ascending(existingNetworkRequest.SortBy ?? "ofgemImportedDate");
+
+                var existingNetworks = await _hnCollection
+                    .Find(filter)
+                    .Sort(sort)
+                    .Skip((existingNetworkRequest.Page - 1) * existingNetworkRequest.PageSize)
+                    .Limit(existingNetworkRequest.PageSize)
+                    .ToListAsync();
+
+                var existingNetworkData = existingNetworks.Select(nh => new HeatNetworkResponse
+                {
+                    Id = nh.Id,
+                    UHnId = nh.UHnId,
+                    HnId = nh.HnId,
+                    OrgId = nh.OrgId,
+                    Name = nh.Name,                    
+                    AdditionalDescription = nh.AdditionalDescription,
+                    Pathway = nh.Pathway,
+                    RegistrationSource = nh.RegistrationSource,
+                    OfgemImportedDate = nh.OfgemImportedDate,
+                    CreatedBy = nh.CreatedBy,
+                    CreatedAt = nh.CreatedAt,
+                    Phase = nh.Phase,
+                    HeatNetworkType = nh.HeatNetworkType,
+                }).ToList();
+
+                var existingNetworkResponses =
+                    new ExistingNetworkResponse
+                    {
+                        Items = existingNetworkData,
+                        PageNumber = existingNetworkRequest.Page,
+                        PageSize = existingNetworkRequest.PageSize,
+                        TotalCount = (int)totalCount,
+                        TotalPages = (int)Math.Ceiling(totalCount / (double)existingNetworkRequest.PageSize),
+                        UserId = existingNetworkRequest.UserId
+                    };
+
+                _logger.LogInformation("Retrieved existing network records");
+
+                return existingNetworkResponses;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving existing networks");
+                throw;
+            }
+
         }
 
         private static IQueryable<AssignedAssessor> ApplySorting(

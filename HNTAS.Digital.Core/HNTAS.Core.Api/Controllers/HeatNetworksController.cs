@@ -6,6 +6,7 @@ using HNTAS.Core.Api.Extensions;
 using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
+using HNTAS.Core.Api.Models.HeatNetwork;
 using HNTAS.Core.Api.Models.NetworkDetails;
 using HNTAS.Core.Api.Models.Soa;
 using Microsoft.AspNetCore.Mvc;
@@ -148,7 +149,7 @@ namespace HNTAS.Core.Api.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<List<HeatNetworkResponse>>> GetHeatNetworksByUserId(string userId)
+        public async Task<ActionResult<List<HeatNetworkResponse>>> GetHeatNetworksByUserId(string userId, RegistrationSource registrationSource = RegistrationSource.HNTAS)
         {
             if (string.IsNullOrEmpty(userId))
             {
@@ -161,7 +162,7 @@ namespace HNTAS.Core.Api.Controllers
                 var heatNetworks = new List<HeatNetworkResponse>();
                 foreach (var hnMapping in userDetails.HnRoleMappings)
                 {
-                    var heatNetwork = await _hnService.GetByHnIdAsync(hnMapping.HnId);
+                    var heatNetwork = await _hnService.GetByHnIdAndRegistrationSourceAsync(hnMapping.HnId, registrationSource);
 
                     if (heatNetwork == null)
                     {
@@ -177,6 +178,37 @@ namespace HNTAS.Core.Api.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "An error occurred while retrieving heat networks for ID: {UserId}", StringFormatter.Sanitize(userId));
+                return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while retrieving the heat networks.");
+            }
+        }
+
+        [HttpGet("existing-network-by-userId")]
+        [Consumes(MediaTypeNames.Application.Json)]
+        [ProducesResponseType(typeof(ExistingNetworkResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<ExistingNetworkResponse>> GetExistingNetworksByUserId(ExistingNetworkRequest request)
+        {
+            if (string.IsNullOrEmpty(request.UserId))
+            {
+                _logger.LogWarning("GetExistingNetworksByUserId called with empty user Id");
+                return BadRequest("Please provide a valid user Id.");
+            }
+            try
+            {
+                var existingNetworks = await _hnService.GetExistingNetworks(request);
+                if (existingNetworks is null)
+                {
+                    _logger.LogWarning("Existing network records are not found");
+                    return NotFound();
+                }
+
+                return Ok(existingNetworks);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while retrieving existing networks");
                 return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while retrieving the heat networks.");
             }
         }

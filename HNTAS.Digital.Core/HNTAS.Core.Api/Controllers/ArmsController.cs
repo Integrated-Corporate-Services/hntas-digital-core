@@ -204,8 +204,8 @@ namespace HNTAS.Core.Api.Controllers
         public async Task<IActionResult> SubmitKpisV2([FromBody] KpiSubmissionRequestV2 request)
         {
             _logger.LogInformation("ARMS KPI Request Received - Network: {NetworkId}, Period: {Period}",
-                 request.MetaData.NetworkId,
-                 request.MetaData.PeriodStart);
+                 request.MetaData.NetworkId.ToSafeLog(),
+                 request.MetaData.PeriodStart.ToSafeLog());
 
             try
             {
@@ -242,8 +242,8 @@ namespace HNTAS.Core.Api.Controllers
                 if (_armsSettings.EnableExtendedValidation)
                 {
                     _logger.LogInformation("Extended validation is enabled. Performing additional checks for Network: {NetworkId}, Period: {Period}",
-                        request.MetaData.NetworkId,
-                        request.MetaData.PeriodStart);
+                        request.MetaData.NetworkId.ToSafeLog(),
+                        request.MetaData.PeriodStart.ToSafeLog());
 
                     // Registry Validation (HeatNetwork Collection)
                     var networkResult = await _networkValidator.ValidateAsync(
@@ -313,7 +313,7 @@ namespace HNTAS.Core.Api.Controllers
             }
             catch (MongoException ex)
             {
-                _logger.LogError(ex, "Database connectivity error for Network: {NetworkId}, Period: {Period}. TraceId: {TraceId}", request.MetaData.NetworkId, request.MetaData.PeriodStart, HttpContext.TraceIdentifier);
+                _logger.LogError(ex, "Database connectivity error for Network: {NetworkId}, Period: {Period}. TraceId: {TraceId}", request.MetaData.NetworkId.ToSafeLog(), request.MetaData.PeriodStart, HttpContext.TraceIdentifier);
 
                 return Problem(
                     detail: "Database service temporarily unavailable.",
@@ -324,7 +324,7 @@ namespace HNTAS.Core.Api.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Internal error processing submission for {NetworkId} during Period: {Period}. TraceId: {TraceId}", request.MetaData.NetworkId, request.MetaData.PeriodStart, HttpContext.TraceIdentifier);
+                _logger.LogError(ex, "Internal error processing submission for {NetworkId} during Period: {Period}. TraceId: {TraceId}", request.MetaData.NetworkId.ToSafeLog(), request.MetaData.PeriodStart, HttpContext.TraceIdentifier);
 
                 return Problem(
                      detail: "An unexpected error occurred while processing your request.",
@@ -421,11 +421,11 @@ namespace HNTAS.Core.Api.Controllers
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<KpiConfigResponseV2>> GetKpiConfigV2(string networkId)
         {
-            _logger.LogInformation("ARMS KPI Config Request Received for Network: {NetworkId}", networkId);
+            _logger.LogInformation("ARMS KPI Config Request Received for Network: {NetworkId}", networkId.ToSafeLog());
 
             if (string.IsNullOrEmpty(networkId) || !Regex.IsMatch(networkId, @"^HN[0-9]{7}$"))
             {
-                _logger.LogWarning("Invalid NetworkId format received: {NetworkId}", networkId);
+                _logger.LogWarning("Invalid NetworkId format received: {NetworkId}", networkId.ToSafeLog());
                 return BadRequest(new ProblemDetails
                 {
                     Status = StatusCodes.Status400BadRequest,
@@ -441,12 +441,12 @@ namespace HNTAS.Core.Api.Controllers
 
                 if (config == null)
                 {
-                    _logger.LogWarning("KPI Config search returned no results for Network: {NetworkId}", networkId);
+                    _logger.LogWarning("KPI Config search returned no results for Network: {NetworkId}", networkId.ToSafeLog());
                     return NotFound(new ProblemDetails
                     {
                         Status = StatusCodes.Status404NotFound,
                         Title = "Configuration Not Found",
-                        Detail = $"No KPI configuration could be found for the network ID: {networkId}.",
+                        Detail = $"No KPI configuration could be found for the network ID: {networkId.ToSafeLog()}.",
                         Type = null
                     });
                 }
@@ -457,7 +457,7 @@ namespace HNTAS.Core.Api.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving KPI Config for Network: {NetworkId}", networkId);
+                _logger.LogError(ex, "Error retrieving KPI Config for Network: {NetworkId}", networkId.ToSafeLog());
 
                 return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
                 {
@@ -530,7 +530,7 @@ namespace HNTAS.Core.Api.Controllers
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> SaveConfigV2([FromBody] KpiConfigRequestV2 request)
         {
-            _logger.LogInformation("Received request to Save/Update KPI Config for NetworkId: {NetworkId}", request?.NetworkId);
+            _logger.LogInformation("Received request to Save/Update KPI Config for NetworkId: {NetworkId}", request?.NetworkId.ToSafeLog());
 
             if (request == null || string.IsNullOrEmpty(request.NetworkId))
             {
@@ -550,13 +550,13 @@ namespace HNTAS.Core.Api.Controllers
 
                 await _kpiService.CreateOrUpdateConfigurationAsync(configModel);
 
-                _logger.LogInformation("Successfully saved KPI Configuration for NetworkId: {NetworkId}", request.NetworkId);
+                _logger.LogInformation("Successfully saved KPI Configuration for NetworkId: {NetworkId}", request.NetworkId.ToSafeLog());
 
                 return Ok(new { message = "Configuration saved successfully" });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error occurred while saving KPI Configuration for NetworkId: {NetworkId}", request.NetworkId);
+                _logger.LogError(ex, "Error occurred while saving KPI Configuration for NetworkId: {NetworkId}", request.NetworkId.ToSafeLog());
 
                 return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
                 {

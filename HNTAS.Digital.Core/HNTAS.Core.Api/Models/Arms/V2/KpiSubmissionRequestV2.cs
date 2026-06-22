@@ -39,6 +39,20 @@ namespace HNTAS.Core.Api.Models.Arms.V2
             return fallback;
         }
 
+        public double AsDouble(double fallback = 0.0)
+        {
+            // 1. If it's already a native JSON number type, try to extract it as a double
+            if (Value.ValueKind == JsonValueKind.Number && Value.TryGetDouble(out var result))
+                return result;
+
+            // 2. If it was stored as a text string, attempt a safe parsing conversion
+            if (Value.ValueKind == JsonValueKind.String && double.TryParse(Value.GetString(), out var parsedStr))
+                return parsedStr;
+
+            // 3. Return default fallback if the structure is empty, null, or a non-numeric type
+            return fallback;
+        }
+
         // Safe helper to extract a string value
         public string AsString(string fallback = "")
         {

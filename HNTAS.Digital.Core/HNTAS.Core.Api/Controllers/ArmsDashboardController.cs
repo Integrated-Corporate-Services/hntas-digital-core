@@ -5,6 +5,7 @@ using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models.Arms.Dashboard;
 using Microsoft.AspNetCore.Mvc;
+using MongoDB.Bson;
 
 namespace HNTAS.Core.Api.Controllers
 {
@@ -203,33 +204,61 @@ namespace HNTAS.Core.Api.Controllers
 
             var carbonUiInputs = new Dictionary<string, CarbonInputUiDisplay>();
 
+            //get Config 
+            var config = await _armsKpiService.GetConfigurationAsync(submission.MetaData.NetworkId);
+
             if (submission?.CarbonCalculatorInputs != null)
             {
                 // Define your UI label mapping configuration
                 var targetKeys = new[]
                 {
-                    (Section: "chp_totals", Key: "EC-DATA-53", Label: "CHP Useful Heat"),
-                    (Section: "chp_totals", Key: "EC-DATA-55", Label: "CHP Electricity Generated"),
-                    (Section: "chp_totals", Key: "EC-DATA-57", Label: "CHP Fuel Used"),
-                    (Section: "hpm_totals", Key: "EC-DATA-66", Label: "HPM Useful Heat Generated"),
-                    (Section: "hpm_totals", Key: "EC-DATA-68", Label: "HPM Energy Used"),
-                    (Section: "blr_totals", Key: "EC-DATA-84", Label: "Boiler Useful Heat Generated"),
-                    (Section: "blr_totals", Key: "EC-DATA-86", Label: "Boiler Fuel Used")
+                    (Section: "chp_totals", Key: "EC-DATA-53", Label: "CHP Useful Heat Generated", IsFromConfig: false),
+                    (Section: "chp_totals", Key: "EC-DATA-55", Label: "CHP Electricity Generated", IsFromConfig: false),
+                    (Section: "chp_totals", Key: "EC-DATA-57", Label: "CHP Fuel Used", IsFromConfig: false),
+                    (Section: "chp_totals", Key: "EC-DATA-63", Label: "CHP Max Heat Output", IsFromConfig: true),
+                    (Section: "chp_totals", Key: "EC-DATA-64", Label: "CHP Max Electricity Output", IsFromConfig: true),
+                    (Section: "hpm_totals", Key: "EC-DATA-66", Label: "Heat Pump Useful Heat Generated", IsFromConfig: false),
+                    (Section: "hpm_totals", Key: "EC-DATA-68", Label: "Heat Pump Energy Used", IsFromConfig: false),
+                    (Section: "hpm_totals", Key: "EC-DATA-74", Label: "Heat Pump Max Heat Output", IsFromConfig: true),
+                    (Section: "blr_totals", Key: "EC-DATA-84", Label: "Boiler Useful Heat Generated", IsFromConfig: false),
+                    (Section: "blr_totals", Key: "EC-DATA-86", Label: "Boiler Fuel Used", IsFromConfig: false),
+                    (Section: "blr_totals", Key: "EC-DATA-92", Label: "Boiler Fuel Max Heat Output", IsFromConfig: true)
                 };
+
+                // 1. Extract and safeguard the defaults dictionary BEFORE entering the loop
+                var defaultsDictionary = config?.CarbonCalculator?.Defaults;
 
                 foreach (var target in targetKeys)
                 {
-                    if (submission.CarbonCalculatorInputs.TryGetValue(target.Section, out var section) &&
-                        section.TryGetValue(target.Key, out var kpiValue) && kpiValue?.Value != null)
+                    BsonValue? rawValue = null;
+
+                    if (target.IsFromConfig)
                     {
-                        if (BsonConversionHelper.TryGetDouble(kpiValue.Value, out var numericValue))
+                        // 2. Safe, clean dictionary lookup without TryGetValue or LINQ overhead
+                        if (defaultsDictionary != null && defaultsDictionary.ContainsKey(target.Key))
                         {
-                            carbonUiInputs[target.Key] = new CarbonInputUiDisplay
-                            {
-                                Label = target.Label,
-                                Value = numericValue
-                            };
+                            rawValue = defaultsDictionary[target.Key];
                         }
+                    }
+                    else
+                    {
+                        // Always read from user submission data input
+                        if (submission?.CarbonCalculatorInputs != null &&
+                            submission.CarbonCalculatorInputs.TryGetValue(target.Section, out var section) &&
+                            section.TryGetValue(target.Key, out var kpiValue) && kpiValue?.Value != null)
+                        {
+                            rawValue = kpiValue.Value;
+                        }
+                    }
+
+                    // Process and add to output in the exact order requested
+                    if (rawValue != null && BsonConversionHelper.TryGetDouble(rawValue, out var numericValue))
+                    {
+                        carbonUiInputs[target.Key] = new CarbonInputUiDisplay
+                        {
+                            Label = target.Label,
+                            Value = numericValue
+                        };
                     }
                 }
             }

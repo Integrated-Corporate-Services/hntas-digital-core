@@ -8,7 +8,7 @@ namespace HNTAS.Core.Api.Services
 {
     public interface ICsvImportService
     {
-        Task<ImportResult> ImportFromCsvAsync(IFormFile file, CancellationToken ct = default);
+        Task<ImportResult> ImportFromCsvAsync(string fileContent, CancellationToken ct = default);
     }
 
     public class CsvImportService : ICsvImportService
@@ -31,20 +31,16 @@ namespace HNTAS.Core.Api.Services
             _heatNetworkService = heatNetworkService;
             _orgCounterService = orgCounterService;
             _logger = logger;
-        }
+        }        
 
-        public async Task<ImportResult> ImportFromCsvAsync(IFormFile file, CancellationToken ct = default)
+        public async Task<ImportResult> ImportFromCsvAsync(string fileContent, CancellationToken ct = default)
         {
-            var result = new ImportResult();
+            var stream = new MemoryStream(Encoding.UTF8.GetBytes(fileContent));            
+            stream.Position = 0;
 
-            if (file == null || file.Length == 0)
-            {
-                result.Errors.Add("No file provided or file is empty.");
-                return result;
-            }
+            var result = new ImportResult();            
 
-            var csvParser = new CsvParser();
-            using var stream = file.OpenReadStream();
+            var csvParser = new CsvParser();            
 
             if (!csvParser.TryParseHeaders(stream, out var headerIndex, out var error))
             {
@@ -81,7 +77,7 @@ namespace HNTAS.Core.Api.Services
                     result.Errors.Add($"Line {lineNumber}: {ex.Message}");
                 }
             }
-            
+
             var dataForExistingOrgOrUser = ofgemDataModelPostImportList
                 .Where(x => x.IsUserOrOrganisationExist)
                 .GroupBy(x => x.UserEmailId)
@@ -107,7 +103,7 @@ namespace HNTAS.Core.Api.Services
             result.DataForExistingOrgOrUser = dataForExistingOrgOrUser;
             result.DataForNewOrgOrUser = dataForNewOrgOrUser;
 
-            return result;            
+            return result;
         }
 
         private CsvRow ParseCsvRow(string line, Dictionary<string, int> headerIndex)
@@ -231,7 +227,8 @@ namespace HNTAS.Core.Api.Services
 
                 ofgemDataModelPostImportList.Add(ofgemDataModelPostImport);
 
-                await CreateHeatNetwork(row, null, null);                
+                await CreateHeatNetwork(row, null, null);
+                result.HeatNetworksInserted++;
             }
         }
         private async Task ProcessHeatNetworkAsync(

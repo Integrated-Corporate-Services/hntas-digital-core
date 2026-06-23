@@ -56,6 +56,23 @@ namespace HNTAS.Core.Api.Services
                 .FirstOrDefaultAsync();
         }
 
+        public async Task<List<KpiSubmission>> GetSubmissionsForYearAsync(string networkId, int year)
+        {
+            var filterBuilder = Builders<KpiSubmission>.Filter;
+
+            // 1. Filter by the specific heat network ID
+            var filter = filterBuilder.Eq(x => x.MetaData.NetworkId, networkId);
+
+            // 2. Filter by the calendar year using a Regex match (e.g., "^2026-")
+            // This matches any period starting with the year format like "2026-01", "2026-02", etc.
+            filter &= filterBuilder.Regex(x => x.MetaData.PeriodStart, $"^{year}-");
+
+            // 3. Return full documents so CarbonInputsV2 payload data is populated for calculations
+            return await _kpiCollection
+                .Find(filter)
+                .ToListAsync();
+        }
+
         public async Task<string> CreateOrUpdateSubmissionAsync(KpiSubmission submission)
         {
             // Define the "Identity" of this report

@@ -11,13 +11,7 @@ Backend API responsible for business logic, validation, and data persistence for
 | :--- | :--- |
 | **Runtime** | .NET 9, C# |
 | **API Framework** | ASP.NET Core Web API |
-| **Database** | AWS DocumentDB (MongoDB-compatible) |
-| **Container Hosting** | AWS ECS Fargate |
-| **Storage** | AWS S3 |
-| **API & Security** | AWS API Gateway, AWS WAF |
-| **Monitoring & Logs** | AWS CloudWatch |
-| **CI/CD** | AWS CodePipeline, GitHub |
-| **Testing** | JMeter |
+| **Database** | DocumentDB (MongoDB-compatible) |
 
 ## Running Locally
 

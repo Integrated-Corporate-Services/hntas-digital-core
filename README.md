@@ -19,6 +19,18 @@ Backend API responsible for business logic, validation, and data persistence for
 - .NET 9 SDK
 - Docker Desktop installed
 
+
+## Getting Started
+
+Clone the repository and restore dependencies from the root directory:
+
+
+```bash
+git clone <repository-url>
+cd hntas-digital-core/HNTAS.Digital.Core
+dotnet restore
+```
+
 ### Install Docker
 Download and install Docker Desktop from:  
 https://www.docker.com/products/docker-desktop/
@@ -44,7 +56,7 @@ docker run --name hntas-mongo -p 27017:27017 -d mongo:latest
 
 ### Run API
 ```bash
-cd src/HNTAS.DIGITAL.CORE
+cd HNTAS.Core.Api
 dotnet run --launch-profile https
 ```
 

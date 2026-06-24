@@ -34,22 +34,29 @@ namespace HNTAS.Core.Api.Services
                     {
                         var valueChange = g.FirstOrDefault(x => string.Equals(x.Property, "value", StringComparison.OrdinalIgnoreCase));
                         var statusChange = g.FirstOrDefault(x => string.Equals(x.Property, "assessmentStatus", StringComparison.OrdinalIgnoreCase));
-                        var imputationChange = g.FirstOrDefault(x => string.Equals(x.Property, "isKpiImputed", StringComparison.OrdinalIgnoreCase));
+                        var imputationChange = g.FirstOrDefault(x => string.Equals(x.Property, "isKpiImputed", StringComparison.OrdinalIgnoreCase) ||
+                                                                   string.Equals(x.Property, "isImputed", StringComparison.OrdinalIgnoreCase));
+
+                        // Identify if this row belongs to a Carbon Calculator Input metric
+                        bool isCarbonInput = g.Key.ElementId == null && !g.Key.Aggregated && g.Key.KpiId != null;
+
+                        // Fallback text assignments based on the metric type
+                        string fallbackStatus = isCarbonInput ? "N/A" : "No Change";
 
                         return new KpiHistoryResponse
                         {
                             Timestamp = doc.Timestamp,
                             SourceSystem = doc.SourceSystem,
                             KpiId = g.Key.KpiId,
-                            ElementId = g.Key.ElementId ?? "Aggregated",
+                            ElementId = g.Key.ElementId ?? (g.Key.Aggregated ? "Aggregated" : null),
                             IsAggregated = g.Key.Aggregated,
 
                             OldValue = valueChange?.Old?.ToString(),
                             NewValue = valueChange?.New?.ToString(),
 
-                            // FIX: If statusChange is null, the status didn't change during this edit
-                            OldStatus = statusChange == null ? "No Change" : TranslateStatus(statusChange.Old),
-                            NewStatus = statusChange == null ? "No Change" : TranslateStatus(statusChange.New),
+                            // FIX: Uses "N/A" for Carbon Inputs, and "No Change" for standard KPIs
+                            OldStatus = statusChange == null ? fallbackStatus : TranslateStatus(statusChange.Old),
+                            NewStatus = statusChange == null ? fallbackStatus : TranslateStatus(statusChange.New),
 
                             IsImputed = (bool?)imputationChange?.New ?? false
                         };
@@ -97,6 +104,16 @@ namespace HNTAS.Core.Api.Services
                 }
             }
 
+            // 3. Process Carbon Calculator Metric Inputs
+            if (incoming.CarbonCalculatorInputs != null)
+            {
+                var inputDeltas = CalculateCarbonInputDeltas(existing.CarbonCalculatorInputs, incoming.CarbonCalculatorInputs);
+                if (inputDeltas != null && inputDeltas.Any())
+                {
+                    deltas.AddRange(inputDeltas);
+                }
+            }
+
             if (deltas.Any())
             {
                 var auditDoc = new KpiSubmissionAudit
@@ -110,6 +127,111 @@ namespace HNTAS.Core.Api.Services
                 };
                 await _auditCollection.InsertOneAsync(auditDoc);
             }
+        }
+
+
+        // 2. Comparison for Root-Level Dictionary Inputs (Updated target)
+        private List<KpiDeltaAudit> CalculateCarbonInputDeltas(
+    Dictionary<string, Dictionary<string, CCKpiValue>>? oldSections,
+    Dictionary<string, Dictionary<string, CCKpiValue>> newSections)
+        {
+            var list = new List<KpiDeltaAudit>();
+
+            foreach (var (sectionName, newMetrics) in newSections)
+            {
+                // Try to get the matching section from the old submission data
+                Dictionary<string, CCKpiValue>? oldMetrics = null;
+                oldSections?.TryGetValue(sectionName, out oldMetrics);
+
+                foreach (var (metricCode, @new) in newMetrics)
+                {
+                    // Try to find the matching previous KPI data layout
+                    CCKpiValue? old = null;
+                    oldMetrics?.TryGetValue(metricCode, out old);
+
+                    // 1. Convert to uniform string representations for an accurate comparison check
+                    string oldStringValue = old?.Value?.ToString() ?? string.Empty;
+                    string newStringValue = @new.Value?.ToString() ?? string.Empty;
+
+                    if (oldStringValue != newStringValue)
+                    {
+                        // Extract native C# primitive values (int, double, or string) safely
+                        object parsedOld = GetNativeValue(old?.Value);
+                        object parsedNew = GetNativeValue(@new.Value);
+
+                        // If a brand new item was added, ensure the old baseline displays as 0 instead of an empty string
+                        if (string.IsNullOrEmpty(oldStringValue))
+                        {
+                            parsedOld = 0;
+                        }
+
+                        // Add Value Change Audit record
+                        list.Add(new KpiDeltaAudit
+                        {
+                            ElementId = null,
+                            Aggregated = false,
+                            KpiId = metricCode,
+                            Property = "Value",
+                            Old = parsedOld, // Saves cleanly to MongoDB without _t and _v structures
+                            New = parsedNew
+                        });
+                    }
+
+                    // 2. Audit 'IsImputed' changes
+                    if (old?.IsImputed != @new.IsImputed)
+                    {
+                        list.Add(new KpiDeltaAudit
+                        {
+                            ElementId = null,
+                            Aggregated = false,
+                            KpiId = metricCode,
+                            Property = "IsImputed",
+                            Old = old?.IsImputed,
+                            New = @new.IsImputed
+                        });
+                    }
+
+                    // 3. Audit 'ImputationDetails' changes
+                    if (old?.ImputationDetails != @new.ImputationDetails)
+                    {
+                        list.Add(new KpiDeltaAudit
+                        {
+                            ElementId = null,
+                            Aggregated = false,
+                            KpiId = metricCode,
+                            Property = "ImputationDetails",
+                            Old = old?.ImputationDetails,
+                            New = @new.ImputationDetails
+                        });
+                    }
+                }
+            }
+
+            return list;
+        }
+
+        private object GetNativeValue(object? rawValue)
+        {
+            if (rawValue == null)
+            {
+                return 0; // Default fallback for missing values
+            }
+
+            // Unbox MongoDB specific BSON types to raw C# primitives
+            if (rawValue is MongoDB.Bson.BsonInt32 bInt) return bInt.Value;
+            if (rawValue is MongoDB.Bson.BsonDouble bDbl) return bDbl.Value;
+            if (rawValue is MongoDB.Bson.BsonInt64 bLng) return bLng.Value;
+            if (rawValue is MongoDB.Bson.BsonString bStr) return bStr.Value;
+
+            // If it's already a native C# numeric primitive, return it directly
+            if (rawValue is int or double or decimal or long)
+            {
+                return rawValue;
+            }
+
+            // If it's a string representation, check if it's a numeric value or text/date string
+            string stringValue = rawValue.ToString() ?? string.Empty;
+            return double.TryParse(stringValue, out var parsedDouble) ? parsedDouble : stringValue;
         }
 
         private List<KpiDeltaAudit> CalculateAggregatedDeltas(string kpiId, KpiValueAggregated old, KpiValueAggregated @new)

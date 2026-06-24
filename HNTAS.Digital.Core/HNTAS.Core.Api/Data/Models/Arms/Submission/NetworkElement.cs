@@ -20,5 +20,6 @@ namespace HNTAS.Core.Api.Data.Models.Arms.Submission
         [JsonPropertyName("kpis")]
         [BsonElement("kpis")]
         public Dictionary<string, KpiValue> Kpis { get; set; } = new();
+
     }
 }

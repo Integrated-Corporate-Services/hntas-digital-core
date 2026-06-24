@@ -64,7 +64,10 @@ namespace HNTAS.Core.Api.Data.Models
         public DesignConstructionLog? DesignConstructionLog { get; set; }
         [BsonElement("ofgemUserEmailId")]
         public string? OfgemUserEmailId { get; set; }
-
+        [BsonElement("ofgemImportedDate")]
+        [BsonRepresentation(BsonType.DateTime)]
+        [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
+        public DateTime? OfgemImportedDate { get; set; }
         [BsonElement("createdBy")]
         public string CreatedBy { get; set; }
 

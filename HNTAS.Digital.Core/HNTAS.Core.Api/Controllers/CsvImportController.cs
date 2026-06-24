@@ -31,32 +31,30 @@ namespace HNTAS.Core.Api.Controllers
             _csvImportService = csvImportService;
             _logger = logger;
             _emailService = emailService;
-        }
+        }        
 
-        /// <summary>
-        /// Upload a CSV file and import rows into Organisations, HeatNetworks and Users collections.
-        /// Expected CSV headers: hnId, hnName, hnLocation, organisationId, organisationName, userEmailId
-        /// Existing route kept for compatibility.
-        /// </summary>
         [HttpPost("upload-csv")]
-        [Consumes("multipart/form-data")]
-        public async Task<IActionResult> UploadCsv([FromForm(Name = "file")] IFormFile file, CancellationToken ct)
+        [Consumes("text/plain")]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(ImportResult))]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(StatusCodes.Status499ClientClosedRequest)]
+        public async Task<ActionResult<ImportResult>> UploadCsv(string fileContent, CancellationToken ct)
         {
-            if (file == null || file.Length == 0)
+            if (string.IsNullOrEmpty(fileContent))
             {
                 return BadRequest(new { error = "No file provided or file is empty." });
             }
 
             try
             {
-                var result = await _csvImportService.ImportFromCsvAsync(file, ct);
+                var result = await _csvImportService.ImportFromCsvAsync(fileContent, ct);
 
                 // Notification for existing orgs/users
                 if (result.DataForExistingOrgOrUser.Any())
                 {
                     foreach (var item in result.DataForExistingOrgOrUser)
                     {
-                        await _emailService.TrySendOfgemDataForExistingOrgOrRpEmailAsync(item);                        
+                        await _emailService.TrySendOfgemDataForExistingOrgOrRpEmailAsync(item);
                     }
                 }
 
@@ -85,6 +83,7 @@ namespace HNTAS.Core.Api.Controllers
                 return StatusCode(StatusCodes.Status500InternalServerError, new { error = ex.Message });
             }
 
-        }        
+        }
+
     }
 }

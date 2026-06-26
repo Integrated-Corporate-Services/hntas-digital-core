@@ -337,60 +337,83 @@ namespace HNTAS.Core.Api.Validators.Arms
         // Reusable Type Validation Helper Methods
         // ==========================================
         private static void ValidateSectionFields(
-              ValidationContext<KpiSubmissionRequestV2> context,
-              string elementId,
-              string elementPath,
-              string sectionName,
-              Dictionary<string, CCKpiValueRequest> section,
-              string[] dateKeys,
-              string[] numericKeys,
-              string[]? optionalNumericKeys = null) // Added optional array parameter
+            ValidationContext<KpiSubmissionRequestV2> context,
+            string elementId,
+            string elementPath,
+            string sectionName,
+            Dictionary<string, CCKpiValueRequest> section,
+            string[] dateKeys,
+            string[] numericKeys,
+            string[]? optionalNumericKeys = null)
         {
-            // Combine all keys that require mandatory presence checks
-            var mandatoryKeys = dateKeys.Concat(numericKeys);
+            var missingKpis = new List<string>();
+            var invalidNumericKpis = new List<string>(); // Added to track numeric format failures
 
-            // 1. Validate Mandatory Keys (Must exist and have a value)
-            foreach (var key in mandatoryKeys)
+            // 1. Process Mandatory Keys
+            foreach (var key in dateKeys.Concat(numericKeys))
             {
                 string fullKpiPath = $"{key}";
 
                 if (!section.TryGetValue(key, out var kpiData) || kpiData?.Value == null)
                 {
-                    context.AddFailure(new ValidationFailure(elementPath, $"Field '{key}' is missing from the '{sectionName}' section.")
-                    {
-                        ErrorCode = "MISSING_MANDATORY_CARBON_KPI",
-                        CustomState = new { elementId = (string)null, kpis = new List<string> { fullKpiPath } }
-                    });
+                    missingKpis.Add(fullKpiPath);
                     continue;
                 }
 
                 string stringValue = kpiData.Value.ToString() ?? string.Empty;
 
-                // Run data type validation
                 if (dateKeys.Contains(key))
                 {
                     ValidateDate(context, elementId, elementPath, fullKpiPath, stringValue);
                 }
                 else if (numericKeys.Contains(key))
                 {
-                    ValidateNumeric(context, elementId, elementPath, fullKpiPath, stringValue);
+                    // Instead of firing an error immediately inside ValidateNumeric, 
+                    // check format directly or capture it if it fails:
+                    if (!double.TryParse(stringValue, out double val) || val < 0)
+                    {
+                        invalidNumericKpis.Add(fullKpiPath);
+                    }
                 }
             }
 
-            // 2. Validate Optional Numeric Keys (Only check format if provided in the payload)
+            // 2. Process Optional Numeric Keys
             if (optionalNumericKeys != null)
             {
                 foreach (var key in optionalNumericKeys)
                 {
                     string fullKpiPath = $"{key}";
 
-                    // If it exists in the dictionary and has a non-null value, validate its type structure
                     if (section.TryGetValue(key, out var kpiData) && kpiData?.Value != null)
                     {
                         string stringValue = kpiData.Value.ToString() ?? string.Empty;
-                        ValidateNumeric(context, elementId, elementPath, fullKpiPath, stringValue);
+                        if (!double.TryParse(stringValue, out double val) || val < 0)
+                        {
+                            invalidNumericKpis.Add(fullKpiPath);
+                        }
                     }
                 }
+            }
+
+            if (missingKpis.Any())
+            {
+                string missingList = string.Join(", ", missingKpis.Select(k => $"'{k}'"));
+                context.AddFailure(new ValidationFailure(elementPath, $"Fields {missingList} are missing from the '{sectionName}' section.")
+                {
+                    ErrorCode = "MISSING_MANDATORY_CARBON_KPI",
+                    CustomState = new { elementId = (string)null, kpis = missingKpis }
+                });
+            }
+
+            // Grouped Invalid Numeric Fields Error
+            if (invalidNumericKpis.Any())
+            {
+                string invalidList = string.Join(", ", invalidNumericKpis.Select(k => $"'{k}'"));
+                context.AddFailure(new ValidationFailure(elementPath, $"Values for fields {invalidList} must be valid positive numbers.")
+                {
+                    ErrorCode = "INVALID_NUMERIC_VALUE",
+                    CustomState = new { elementId = (string)null, kpis = invalidNumericKpis }
+                });
             }
         }
 
@@ -406,19 +429,6 @@ namespace HNTAS.Core.Api.Validators.Arms
                 context.AddFailure(new ValidationFailure(elementPath, $"Value for '{kpiKey}' must be a valid date in YYYY-MM-DD format.")
                 {
                     ErrorCode = "INVALID_DATE_FORMAT",
-                    CustomState = new { elementId = (string)null, kpis = new List<string> { kpiKey } }
-                });
-            }
-        }
-
-        private static void ValidateNumeric(ValidationContext<KpiSubmissionRequestV2> context, string elementId, string elementPath, string kpiKey, string value)
-        {
-            bool isNumeric = decimal.TryParse(value, out decimal numericVal);
-            if (!isNumeric || numericVal < 0)
-            {
-                context.AddFailure(new ValidationFailure(elementPath, $"Value for '{kpiKey}' must be a valid positive number.")
-                {
-                    ErrorCode = "INVALID_NUMERIC_VALUE",
                     CustomState = new { elementId = (string)null, kpis = new List<string> { kpiKey } }
                 });
             }

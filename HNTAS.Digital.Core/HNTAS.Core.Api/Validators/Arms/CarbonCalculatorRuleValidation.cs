@@ -45,7 +45,6 @@ namespace HNTAS.Core.Api.Validators.Arms
             // ==========================================================
             if (dataModel.CarbonCalculatorInputs != null)
             {
-                // Reference your updated config database sub-property naming path
                 var carbonConfig = config.CarbonCalculator;
 
                 if (carbonConfig?.Rules == null || !carbonConfig.Rules.Any())
@@ -58,11 +57,13 @@ namespace HNTAS.Core.Api.Validators.Arms
                         StatusCode: 500,
                         Errors: new List<KpiSubmissionApiError>
                         {
-                    new KpiSubmissionApiError { Code = "CONFIGURATION_ERROR", Message = "Carbon Calculator validation rules are missing in the configuration." }
+                            new KpiSubmissionApiError { Code = "CONFIGURATION_ERROR", Message = "Carbon Calculator validation rules are missing in the configuration." }
                         });
                 }
 
-                var invalidCarbonKpis = new List<string>();
+                // Separate tracking lists for distinct error scenarios
+                var failedThresholdKpis = new List<string>();
+                var outsideLimitKpis = new List<string>();
 
                 foreach (var section in dataModel.CarbonCalculatorInputs.Values)
                 {
@@ -70,35 +71,48 @@ namespace HNTAS.Core.Api.Validators.Arms
 
                     foreach (var (dataId, dataValue) in section)
                     {
-                        // Pull validation logic rules from the database configurations dictionary mapping
                         if (carbonConfig.Rules.TryGetValue(dataId, out var rule) && rule != null)
                         {
-                            // Clean handling for BsonValues: convert numeric types or strings to double safely
                             if (dataValue?.Value != null && BsonConversionHelper.TryGetDouble(dataValue.Value, out var numericValue))
                             {
                                 var status = Assess(numericValue, rule);
 
-                                if (status == KPIAssessmentStatus.Fail || status == KPIAssessmentStatus.OutsideLimit)
+                                // Route validation failures into their appropriate bucket
+                                if (status == KPIAssessmentStatus.Fail)
                                 {
-                                    invalidCarbonKpis.Add(dataId);
+                                    failedThresholdKpis.Add(dataId);
+                                }
+                                else if (status == KPIAssessmentStatus.OutsideLimit)
+                                {
+                                    outsideLimitKpis.Add(dataId);
                                 }
                             }
                             else
                             {
                                 _logger.LogDebug("Carbon input value for {DataId} could not be parsed as a number.", dataId);
-                                invalidCarbonKpis.Add(dataId);
+                                failedThresholdKpis.Add(dataId);
                             }
                         }
                     }
                 }
 
-                if (invalidCarbonKpis.Any())
+                if (failedThresholdKpis.Any())
                 {
                     errors.Add(new KpiSubmissionApiError
                     {
                         Code = "INVALID_CARBON_INPUT_VALUE",
-                        Message = "One or more carbon calculator inputs are outside allowable threshold tolerances.",
-                        Kpis = invalidCarbonKpis
+                        Message = "One or more carbon calculator inputs failed the required compliance thresholds.",
+                        Kpis = failedThresholdKpis
+                    });
+                }
+
+                if (outsideLimitKpis.Any())
+                {
+                    errors.Add(new KpiSubmissionApiError
+                    {
+                        Code = "CARBON_INPUT_OUTSIDE_LIMITS",
+                        Message = "One or more carbon calculator inputs are outside the lower and upper limit.",
+                        Kpis = outsideLimitKpis
                     });
                 }
             }

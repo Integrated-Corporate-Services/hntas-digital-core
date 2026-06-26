@@ -15,21 +15,18 @@ namespace HNTAS.Core.Api.Services
     {
         private readonly IOrganisationService _organisationService;
         private readonly IUserService _userService;
-        private readonly IHeatNetworkService _heatNetworkService;
-        private readonly ICounterService _orgCounterService;
+        private readonly IHeatNetworkService _heatNetworkService;        
         private readonly ILogger<CsvImportService> _logger;
 
         public CsvImportService(
             IOrganisationService organisationService,
             IUserService userService,
-            IHeatNetworkService heatNetworkService,
-            ICounterService orgCounterService,
+            IHeatNetworkService heatNetworkService,            
             ILogger<CsvImportService> logger)
         {
             _organisationService = organisationService;
             _userService = userService;
-            _heatNetworkService = heatNetworkService;
-            _orgCounterService = orgCounterService;
+            _heatNetworkService = heatNetworkService;            
             _logger = logger;
         }        
 

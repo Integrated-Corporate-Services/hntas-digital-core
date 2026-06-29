@@ -64,6 +64,7 @@ builder.Services.AddScoped<IKpiRuleValidator, KpiRuleValidator>();
 builder.Services.AddScoped<IHeatNetworkValidator, HeatNetworkValidator>();
 builder.Services.AddScoped<IKpiSubmissionAuditService, KpiSubmissionAuditService>();
 builder.Services.AddScoped<IUserStatsService, UserStatsService>();
+builder.Services.AddScoped<ISuperUserService, SuperUserService>();
 
 //Data Migrations
 builder.Services.AddScoped<IDataMigration, SeedCountriesAndTerritories>();

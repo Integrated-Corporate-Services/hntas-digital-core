@@ -1,9 +1,11 @@
 ﻿using HNTAS.Core.Api.Enums;
 using System.ComponentModel.DataAnnotations;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
 
 namespace HNTAS.Core.Api.Models.Users
 {
+    [ExcludeFromCodeCoverage]
     public class InitialUserRegistrationRequest
     {
         [Required(ErrorMessage = "OneLogin Id is required.")]

@@ -1,7 +1,9 @@
 ﻿using MongoDB.Bson.Serialization.Attributes;
+using System.Diagnostics.CodeAnalysis;
 
 namespace HNTAS.Core.Api.Models
 {
+    [ExcludeFromCodeCoverage]
     public class ManagedUserResponse
     {
         [BsonElement("_id")]
@@ -26,6 +28,7 @@ namespace HNTAS.Core.Api.Models
         public DateTime? InvitedAt { get; set; }
     }
 
+    [ExcludeFromCodeCoverage]
     public class HeatNetworkInfo
     {
         [BsonElement("hnId")]

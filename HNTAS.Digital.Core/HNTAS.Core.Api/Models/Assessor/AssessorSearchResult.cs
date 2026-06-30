@@ -1,5 +1,8 @@
-﻿namespace HNTAS.Core.Api.Models.Assessor
+﻿using System.Diagnostics.CodeAnalysis;
+
+namespace HNTAS.Core.Api.Models.Assessor
 {
+    [ExcludeFromCodeCoverage]
     public class AssessorSearchResult
     {
         public string Id { get; set; } = null!;

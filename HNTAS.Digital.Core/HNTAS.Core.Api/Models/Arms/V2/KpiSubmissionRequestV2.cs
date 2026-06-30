@@ -1,8 +1,10 @@
-﻿using System.Text.Json;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace HNTAS.Core.Api.Models.Arms.V2
 {
+    [ExcludeFromCodeCoverage]
     [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
     public class KpiSubmissionRequestV2 : BaseKpiSubmissionRequest
     {
@@ -20,6 +22,7 @@ namespace HNTAS.Core.Api.Models.Arms.V2
         public Dictionary<string, Dictionary<string, CCKpiValueRequest>>? CarbonInputsV2 { get; set; }
     }
 
+    [ExcludeFromCodeCoverage]
     [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
     public class CCKpiValueRequest
     {

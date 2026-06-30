@@ -1,8 +1,10 @@
 ﻿using HNTAS.Core.Api.Data.Models.Arms.Submission;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
 
 namespace HNTAS.Core.Api.Models.Arms
 {
+    [ExcludeFromCodeCoverage]
     public class BaseKpiSubmissionRequest
     {
         [JsonPropertyOrder(1)]

@@ -1,7 +1,9 @@
 ﻿using HNTAS.Core.Api.Enums;
+using System.Diagnostics.CodeAnalysis;
 
 namespace HNTAS.Core.Api.Models.Soa
 {
+    [ExcludeFromCodeCoverage]
     public class ElementSoaAssignAssessorRequest
     {
         public List<AssessorAssessmentForElement> AssessorAssessmentForElements { get; set; } = [];
@@ -10,11 +12,14 @@ namespace HNTAS.Core.Api.Models.Soa
         public string UpdatedBy { get; set; } = string.Empty;
     }
 
+    [ExcludeFromCodeCoverage]
     public class AssessorAssessmentForElement
     {
         public ElementTypeInShort ElementType { get; set; }
         public List<AssessorAssessment> AssessorAssessments { get; set; } = [];
     }
+
+    [ExcludeFromCodeCoverage]
     public class AssessorAssessment
     {
         public string AssessorEmail { get; set; } = string.Empty;

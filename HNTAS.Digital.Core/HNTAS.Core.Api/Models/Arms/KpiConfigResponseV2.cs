@@ -1,9 +1,11 @@
 ﻿using HNTAS.Core.Api.Data.Models.Arms.Configuration;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace HNTAS.Core.Api.Models.Arms
 {
+    [ExcludeFromCodeCoverage]
     public class KpiConfigResponseV2
     {
         [JsonPropertyName("network_id")]
@@ -16,6 +18,7 @@ namespace HNTAS.Core.Api.Models.Arms
         public CarbonCalculatorConfigResponse? CarbonCalculator { get; set; } = new();
     }
 
+    [ExcludeFromCodeCoverage]
     public class CarbonCalculatorConfigResponse
     {
         [JsonPropertyName("rules")]

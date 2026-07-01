@@ -57,10 +57,10 @@ namespace HNTAS.Core.Api.Services
             }            
         }
 
-        public async Task CreateAssessorAsync(Assessor assessor)
-        {
-            await _assessorCollection.InsertOneAsync(assessor);
-        }
+        //public async Task CreateAssessorAsync(Assessor assessor)
+        //{
+        //    await _assessorCollection.InsertOneAsync(assessor);
+        //}
 
 
 

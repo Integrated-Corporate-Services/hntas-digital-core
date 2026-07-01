@@ -1,7 +1,9 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.Diagnostics.CodeAnalysis;
 
 namespace HNTAS.Core.Api.Models
 {
+    [ExcludeFromCodeCoverage]
     public class AuditLogRequest
     {
         public string HnId { get; set; }

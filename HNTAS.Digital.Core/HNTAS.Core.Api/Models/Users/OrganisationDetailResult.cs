@@ -1,9 +1,11 @@
 ﻿using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Enums;
 using MongoDB.Bson.Serialization.Attributes;
+using System.Diagnostics.CodeAnalysis;
 
 namespace HNTAS.Core.Api.Models.Users
 {
+    [ExcludeFromCodeCoverage]
     public class OrganisationDetailResult
     {
         [BsonElement("orgId")]

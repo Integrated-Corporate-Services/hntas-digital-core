@@ -1,8 +1,10 @@
 ﻿using HNTAS.Core.Api.Enums;
 using System.ComponentModel.DataAnnotations;
+using System.Diagnostics.CodeAnalysis;
 
 namespace HNTAS.Core.Api.Models.NetworkDetails
 {
+    [ExcludeFromCodeCoverage]
     public class DocumentRequest
     {
         [Required]

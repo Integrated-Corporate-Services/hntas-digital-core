@@ -132,152 +132,152 @@ namespace HNTAS.Core.Api.Services
             }
         }
 
-        public async Task UpdateMeteringAndMonitoringStrategyAsync(string hnId, NetworkDetailsDocument document)
-        {
-            var updateFilter = Builders<HeatNetwork>.Filter.And(
-                Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
-                Builders<HeatNetwork>.Filter.ElemMatch(
-                    hn => hn.MeteringAndMonitoringStrategy!.Documents,
-                    doc => doc.S3Key != null
-                ));
+        //public async Task UpdateMeteringAndMonitoringStrategyAsync(string hnId, NetworkDetailsDocument document)
+        //{
+        //    var updateFilter = Builders<HeatNetwork>.Filter.And(
+        //        Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
+        //        Builders<HeatNetwork>.Filter.ElemMatch(
+        //            hn => hn.MeteringAndMonitoringStrategy!.Documents,
+        //            doc => doc.S3Key != null
+        //        ));
 
-            var update = Builders<HeatNetwork>.Update
-                .Set("meteringAndMonitoringStrategy.documents.$", document)
-                .Set(hn => hn.MeteringAndMonitoringStrategy!.UpdatedAt, DateTime.UtcNow)
-                .Set(hn => hn.MeteringAndMonitoringStrategy.UpdatedBy, document.UploadedBy)
-                .Set(hn => hn.MeteringAndMonitoringStrategy.Status, NetworkDetailsStatus.Complete);
+        //    var update = Builders<HeatNetwork>.Update
+        //        .Set("meteringAndMonitoringStrategy.documents.$", document)
+        //        .Set(hn => hn.MeteringAndMonitoringStrategy!.UpdatedAt, DateTime.UtcNow)
+        //        .Set(hn => hn.MeteringAndMonitoringStrategy.UpdatedBy, document.UploadedBy)
+        //        .Set(hn => hn.MeteringAndMonitoringStrategy.Status, NetworkDetailsStatus.Complete);
 
-            var result = await _hnCollection.UpdateOneAsync(updateFilter, update);
+        //    var result = await _hnCollection.UpdateOneAsync(updateFilter, update);
 
-            if (result.ModifiedCount == 0)
-            {
-                var initFilter = Builders<HeatNetwork>.Filter.And(
-                    Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
-                    Builders<HeatNetwork>.Filter.Eq(hn => hn.MeteringAndMonitoringStrategy, null)
-                );
+        //    if (result.ModifiedCount == 0)
+        //    {
+        //        var initFilter = Builders<HeatNetwork>.Filter.And(
+        //            Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
+        //            Builders<HeatNetwork>.Filter.Eq(hn => hn.MeteringAndMonitoringStrategy, null)
+        //        );
 
-                var initUpdate = Builders<HeatNetwork>.Update.Set(
-                    hn => hn.MeteringAndMonitoringStrategy,
-                    new MeteringAndMonitoringStrategy
-                    {
-                        CreatedAt = DateTime.UtcNow,
-                        CreatedBy = document.UploadedBy,
-                        Status = NetworkDetailsStatus.Complete,
-                        Documents = new List<NetworkDetailsUploadedDocument>()
-                    }
-                );
+        //        var initUpdate = Builders<HeatNetwork>.Update.Set(
+        //            hn => hn.MeteringAndMonitoringStrategy,
+        //            new MeteringAndMonitoringStrategy
+        //            {
+        //                CreatedAt = DateTime.UtcNow,
+        //                CreatedBy = document.UploadedBy,
+        //                Status = NetworkDetailsStatus.Complete,
+        //                Documents = new List<NetworkDetailsUploadedDocument>()
+        //            }
+        //        );
 
-                await _hnCollection.UpdateOneAsync(initFilter, initUpdate);
+        //        await _hnCollection.UpdateOneAsync(initFilter, initUpdate);
 
-                var insertFilter = Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId);
+        //        var insertFilter = Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId);
 
-                var insertUpdate = Builders<HeatNetwork>.Update
-                    .Push("meteringAndMonitoringStrategy.documents", document)
-                    .Set(hn => hn.MeteringAndMonitoringStrategy!.UpdatedAt, DateTime.UtcNow)
-                    .Set(hn => hn.MeteringAndMonitoringStrategy.UpdatedBy, document.UploadedBy)
-                    .Set(hn => hn.MeteringAndMonitoringStrategy.Status, NetworkDetailsStatus.Complete);
+        //        var insertUpdate = Builders<HeatNetwork>.Update
+        //            .Push("meteringAndMonitoringStrategy.documents", document)
+        //            .Set(hn => hn.MeteringAndMonitoringStrategy!.UpdatedAt, DateTime.UtcNow)
+        //            .Set(hn => hn.MeteringAndMonitoringStrategy.UpdatedBy, document.UploadedBy)
+        //            .Set(hn => hn.MeteringAndMonitoringStrategy.Status, NetworkDetailsStatus.Complete);
 
-                await _hnCollection.UpdateOneAsync(insertFilter, insertUpdate);
-            }
-        }
+        //        await _hnCollection.UpdateOneAsync(insertFilter, insertUpdate);
+        //    }
+        //}
 
-        public async Task UpdateAssessmentPlanAsync(string hnId, NetworkDetailsDocument document)
-        {
-            var updateFilter = Builders<HeatNetwork>.Filter.And(
-                Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
-                Builders<HeatNetwork>.Filter.ElemMatch(
-                    hn => hn.AssessmentPlan!.Documents,
-                    doc => doc.S3Key != null
-                ));
+        //public async Task UpdateAssessmentPlanAsync(string hnId, NetworkDetailsDocument document)
+        //{
+        //    var updateFilter = Builders<HeatNetwork>.Filter.And(
+        //        Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
+        //        Builders<HeatNetwork>.Filter.ElemMatch(
+        //            hn => hn.AssessmentPlan!.Documents,
+        //            doc => doc.S3Key != null
+        //        ));
 
-            var update = Builders<HeatNetwork>.Update
-                .Set("assessmentPlan.documents.$", document)
-                .Set(hn => hn.AssessmentPlan!.UpdatedAt, DateTime.UtcNow)
-                .Set(hn => hn.AssessmentPlan.UpdatedBy, document.UploadedBy)
-                .Set(hn => hn.AssessmentPlan.Status, NetworkDetailsStatus.Complete);
+        //    var update = Builders<HeatNetwork>.Update
+        //        .Set("assessmentPlan.documents.$", document)
+        //        .Set(hn => hn.AssessmentPlan!.UpdatedAt, DateTime.UtcNow)
+        //        .Set(hn => hn.AssessmentPlan.UpdatedBy, document.UploadedBy)
+        //        .Set(hn => hn.AssessmentPlan.Status, NetworkDetailsStatus.Complete);
 
-            var result = await _hnCollection.UpdateOneAsync(updateFilter, update);
+        //    var result = await _hnCollection.UpdateOneAsync(updateFilter, update);
 
-            if (result.ModifiedCount == 0)
-            {
-                var initFilter = Builders<HeatNetwork>.Filter.And(
-                    Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
-                    Builders<HeatNetwork>.Filter.Eq(hn => hn.AssessmentPlan, null)
-                );
+        //    if (result.ModifiedCount == 0)
+        //    {
+        //        var initFilter = Builders<HeatNetwork>.Filter.And(
+        //            Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
+        //            Builders<HeatNetwork>.Filter.Eq(hn => hn.AssessmentPlan, null)
+        //        );
 
-                var initUpdate = Builders<HeatNetwork>.Update.Set(
-                    hn => hn.AssessmentPlan,
-                    new AssessmentPlan
-                    {
-                        CreatedAt = DateTime.UtcNow,
-                        CreatedBy = document.UploadedBy,
-                        Status = NetworkDetailsStatus.Complete,
-                        Documents = new List<NetworkDetailsUploadedDocument>()
-                    }
-                );
+        //        var initUpdate = Builders<HeatNetwork>.Update.Set(
+        //            hn => hn.AssessmentPlan,
+        //            new AssessmentPlan
+        //            {
+        //                CreatedAt = DateTime.UtcNow,
+        //                CreatedBy = document.UploadedBy,
+        //                Status = NetworkDetailsStatus.Complete,
+        //                Documents = new List<NetworkDetailsUploadedDocument>()
+        //            }
+        //        );
 
-                await _hnCollection.UpdateOneAsync(initFilter, initUpdate);
+        //        await _hnCollection.UpdateOneAsync(initFilter, initUpdate);
 
-                var insertFilter = Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId);
+        //        var insertFilter = Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId);
 
-                var insertUpdate = Builders<HeatNetwork>.Update
-                    .Push("assessmentPlan.documents", document)
-                    .Set(hn => hn.AssessmentPlan!.UpdatedAt, DateTime.UtcNow)
-                    .Set(hn => hn.AssessmentPlan.UpdatedBy, document.UploadedBy)
-                    .Set(hn => hn.AssessmentPlan.Status, NetworkDetailsStatus.Complete);
+        //        var insertUpdate = Builders<HeatNetwork>.Update
+        //            .Push("assessmentPlan.documents", document)
+        //            .Set(hn => hn.AssessmentPlan!.UpdatedAt, DateTime.UtcNow)
+        //            .Set(hn => hn.AssessmentPlan.UpdatedBy, document.UploadedBy)
+        //            .Set(hn => hn.AssessmentPlan.Status, NetworkDetailsStatus.Complete);
 
-                await _hnCollection.UpdateOneAsync(insertFilter, insertUpdate);
-            }
-        }
+        //        await _hnCollection.UpdateOneAsync(insertFilter, insertUpdate);
+        //    }
+        //}
 
-        public async Task UpdateDesignConstructionLogAsync(string hnId, NetworkDetailsDocument document)
-        {
-            var updateFilter = Builders<HeatNetwork>.Filter.And(
-                Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
-                Builders<HeatNetwork>.Filter.ElemMatch(
-                    hn => hn.DesignConstructionLog!.Documents,
-                    doc => doc.S3Key != null
-                ));
+        //public async Task UpdateDesignConstructionLogAsync(string hnId, NetworkDetailsDocument document)
+        //{
+        //    var updateFilter = Builders<HeatNetwork>.Filter.And(
+        //        Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
+        //        Builders<HeatNetwork>.Filter.ElemMatch(
+        //            hn => hn.DesignConstructionLog!.Documents,
+        //            doc => doc.S3Key != null
+        //        ));
 
-            var update = Builders<HeatNetwork>.Update
-                .Set("designConstructionLog.documents.$", document)
-                .Set(hn => hn.DesignConstructionLog!.UpdatedAt, DateTime.UtcNow)
-                .Set(hn => hn.DesignConstructionLog.UpdatedBy, document.UploadedBy)
-                .Set(hn => hn.DesignConstructionLog.Status, NetworkDetailsStatus.Complete);
+        //    var update = Builders<HeatNetwork>.Update
+        //        .Set("designConstructionLog.documents.$", document)
+        //        .Set(hn => hn.DesignConstructionLog!.UpdatedAt, DateTime.UtcNow)
+        //        .Set(hn => hn.DesignConstructionLog.UpdatedBy, document.UploadedBy)
+        //        .Set(hn => hn.DesignConstructionLog.Status, NetworkDetailsStatus.Complete);
 
-            var result = await _hnCollection.UpdateOneAsync(updateFilter, update);
+        //    var result = await _hnCollection.UpdateOneAsync(updateFilter, update);
 
-            if (result.ModifiedCount == 0)
-            {
-                var initFilter = Builders<HeatNetwork>.Filter.And(
-                    Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
-                    Builders<HeatNetwork>.Filter.Eq(hn => hn.DesignConstructionLog, null)
-                );
+        //    if (result.ModifiedCount == 0)
+        //    {
+        //        var initFilter = Builders<HeatNetwork>.Filter.And(
+        //            Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
+        //            Builders<HeatNetwork>.Filter.Eq(hn => hn.DesignConstructionLog, null)
+        //        );
 
-                var initUpdate = Builders<HeatNetwork>.Update.Set(
-                    hn => hn.DesignConstructionLog,
-                    new DesignConstructionLog
-                    {
-                        CreatedAt = DateTime.UtcNow,
-                        CreatedBy = document.UploadedBy,
-                        Status = NetworkDetailsStatus.Complete,
-                        Documents = new List<NetworkDetailsUploadedDocument>()
-                    }
-                );
+        //        var initUpdate = Builders<HeatNetwork>.Update.Set(
+        //            hn => hn.DesignConstructionLog,
+        //            new DesignConstructionLog
+        //            {
+        //                CreatedAt = DateTime.UtcNow,
+        //                CreatedBy = document.UploadedBy,
+        //                Status = NetworkDetailsStatus.Complete,
+        //                Documents = new List<NetworkDetailsUploadedDocument>()
+        //            }
+        //        );
 
-                await _hnCollection.UpdateOneAsync(initFilter, initUpdate);
+        //        await _hnCollection.UpdateOneAsync(initFilter, initUpdate);
 
-                var insertFilter = Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId);
+        //        var insertFilter = Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId);
 
-                var insertUpdate = Builders<HeatNetwork>.Update
-                    .Push("designConstructionLog.documents", document)
-                    .Set(hn => hn.DesignConstructionLog!.UpdatedAt, DateTime.UtcNow)
-                    .Set(hn => hn.DesignConstructionLog.UpdatedBy, document.UploadedBy)
-                    .Set(hn => hn.DesignConstructionLog.Status, NetworkDetailsStatus.Complete);
+        //        var insertUpdate = Builders<HeatNetwork>.Update
+        //            .Push("designConstructionLog.documents", document)
+        //            .Set(hn => hn.DesignConstructionLog!.UpdatedAt, DateTime.UtcNow)
+        //            .Set(hn => hn.DesignConstructionLog.UpdatedBy, document.UploadedBy)
+        //            .Set(hn => hn.DesignConstructionLog.Status, NetworkDetailsStatus.Complete);
 
-                await _hnCollection.UpdateOneAsync(insertFilter, insertUpdate);
-            }
-        }
+        //        await _hnCollection.UpdateOneAsync(insertFilter, insertUpdate);
+        //    }
+        //}
 
         public async Task<AssignedAssessorResponse> GetAssignedAssessors(AssignedAssessorRequest request)
         {            

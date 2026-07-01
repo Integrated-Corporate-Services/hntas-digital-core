@@ -2,9 +2,11 @@
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using System.ComponentModel.DataAnnotations;
+using System.Diagnostics.CodeAnalysis;
 
 namespace HNTAS.Core.Api.Data.Models
 {
+    [ExcludeFromCodeCoverage]
     public class Invitation
     {
         [BsonId]

@@ -170,7 +170,7 @@ namespace HNTAS.Core.Api.Controllers
             }
             catch (MongoException ex)
             {
-                _logger.LogError(ex, "Database connectivity error for Network: {NetworkId}, Period: {Period}. TraceId: {TraceId}", request.MetaData.NetworkId.ToSafeLog(), request.MetaData.PeriodStart.ToSafeLog(), HttpContext.TraceIdentifier);
+                _logger.LogError(ex, "Database connectivity error for Network: {NetworkId}, Period: {Period}. TraceId: {TraceId}", request.MetaData.NetworkId.ToSafeLog(), request.MetaData.PeriodStart.ToSafeLog(), HttpContext?.TraceIdentifier ?? "N/A");
 
                 return Problem(
                     detail: "Database service temporarily unavailable.",
@@ -181,7 +181,7 @@ namespace HNTAS.Core.Api.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Internal error processing submission for {NetworkId} during Period: {Period}. TraceId: {TraceId}", request.MetaData.NetworkId.ToSafeLog(), request.MetaData.PeriodStart.ToSafeLog(), HttpContext.TraceIdentifier);
+                _logger.LogError(ex, "Internal error processing submission for {NetworkId} during Period: {Period}. TraceId: {TraceId}", request.MetaData.NetworkId.ToSafeLog(), request.MetaData.PeriodStart.ToSafeLog(), HttpContext?.TraceIdentifier ?? "N/A");
 
                 return Problem(
                      detail: "An unexpected error occurred while processing your request.",
@@ -313,7 +313,7 @@ namespace HNTAS.Core.Api.Controllers
             }
             catch (MongoException ex)
             {
-                _logger.LogError(ex, "Database connectivity error for Network: {NetworkId}, Period: {Period}. TraceId: {TraceId}", request.MetaData.NetworkId.ToSafeLog(), request.MetaData.PeriodStart, HttpContext.TraceIdentifier);
+                _logger.LogError(ex, "Database connectivity error for Network: {NetworkId}, Period: {Period}. TraceId: {TraceId}", request.MetaData.NetworkId.ToSafeLog(), request.MetaData.PeriodStart, HttpContext?.TraceIdentifier ?? "N/A");
 
                 return Problem(
                     detail: "Database service temporarily unavailable.",
@@ -324,7 +324,7 @@ namespace HNTAS.Core.Api.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Internal error processing submission for {NetworkId} during Period: {Period}. TraceId: {TraceId}", request.MetaData.NetworkId.ToSafeLog(), request.MetaData.PeriodStart, HttpContext.TraceIdentifier);
+                _logger.LogError(ex, "Internal error processing submission for {NetworkId} during Period: {Period}. TraceId: {TraceId}", request.MetaData.NetworkId.ToSafeLog(), request.MetaData.PeriodStart, HttpContext?.TraceIdentifier ?? "N/A");
 
                 return Problem(
                      detail: "An unexpected error occurred while processing your request.",
@@ -333,13 +333,6 @@ namespace HNTAS.Core.Api.Controllers
                      type: null
                  );
             }
-        }
-
-        private string? ExtractId(string propertyName)
-        {
-            // Simple logic to pull numbers/IDs out of brackets like [0] or [CC-KPI-03]
-            var match = System.Text.RegularExpressions.Regex.Match(propertyName, @"\[(.*?)\]");
-            return match.Success ? match.Groups[1].Value : null;
         }
 
         string FormatStatus(KPIAssessmentStatus status) => status switch

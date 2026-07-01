@@ -96,6 +96,18 @@ builder.Services.AddSingleton<IMongoDatabase>(sp =>
 });
 
 
+builder.Services.AddSingleton<INotificationClientWrapper>(sp =>
+{
+    var apiKey = Environment.GetEnvironmentVariable("GOV_NOTIFY_API_KEY");
+
+    if (string.IsNullOrEmpty(apiKey))
+        throw new InvalidOperationException("GOV_NOTIFY_API_KEY is not configured.");
+
+    return new NotificationClientService(apiKey);
+});
+
+
+
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<ICarbonCalculatorService, CarbonCalculatorService>();
 builder.Services.AddScoped<ICsvImportService, CsvImportService>();

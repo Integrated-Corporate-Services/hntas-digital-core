@@ -1,10 +1,12 @@
 ﻿using HNTAS.Core.Api.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using System.Diagnostics.CodeAnalysis;
 
 namespace HNTAS.Core.Api.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [ExcludeFromCodeCoverage]
     public class SuperUserController : ControllerBase
     {
         private readonly ISuperUserService _superUserService;

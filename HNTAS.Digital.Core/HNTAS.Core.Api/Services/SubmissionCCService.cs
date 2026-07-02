@@ -7,14 +7,14 @@ using MongoDB.Bson;
 
 namespace HNTAS.Core.Api.Services
 {
-    public class SubmissionCarbonCalculator : ISubmissionCarbonCalculator
+    public class SubmissionCCService : ISubmissionCCService
     {
         private readonly ICarbonCalculatorService _ccService;
-        private readonly ILogger<SubmissionCarbonCalculator> _logger;
+        private readonly ILogger<SubmissionCCService> _logger;
         private readonly IArmsKpiService _kpiService;
         private readonly IHeatNetworkService _heatNetworkService;
 
-        public SubmissionCarbonCalculator(ICarbonCalculatorService ccService, ILogger<SubmissionCarbonCalculator> logger, IArmsKpiService kpiService, IHeatNetworkService heatNetworkService)
+        public SubmissionCCService(ICarbonCalculatorService ccService, ILogger<SubmissionCCService> logger, IArmsKpiService kpiService, IHeatNetworkService heatNetworkService)
         {
             _ccService = ccService;
             _logger = logger;

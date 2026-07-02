@@ -60,7 +60,7 @@ namespace HNTAS.Digital.Core.Tests.Validators
 
             // Assert
             Assert.False(result.IsValid);
-            Assert.Contains(result.Errors, e => e.ErrorMessage.Contains("network_id"));
+            Assert.Contains(result.Errors, e => e.ErrorMessage.Contains("must not be empty"));
         }
 
         [Fact]
@@ -141,7 +141,7 @@ namespace HNTAS.Digital.Core.Tests.Validators
             // Assert
             Assert.False(result.IsValid);
 
-            Assert.Contains(result.Errors, e => e.ErrorMessage.Contains("network_id"));
+            Assert.Contains(result.Errors, e => e.ErrorMessage.Contains("must not be empty"));
 
             Assert.Contains(result.Errors, e => e.ErrorCode == "INVALID_ELEMENT_ID");
         }

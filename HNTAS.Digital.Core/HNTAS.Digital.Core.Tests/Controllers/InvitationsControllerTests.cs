@@ -5,6 +5,7 @@ using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
 using HNTAS.Core.Api.Models.Users;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -145,6 +146,163 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             Assert.Equal("new-invite-id", createdResult.Value);
             _mockInvitationService.Verify(i => i.CreateAsync(It.IsAny<Invitation>()), Times.Once);
             _mockUserService.Verify(u => u.GetByIdAsync(inviterId), Times.Once);
+        }
+
+        [Fact]
+        public async Task AddUserInvitation_NetworkNotFound()
+        {
+            // Arrange
+            var inviterId = "inviter-123";
+            var existingUser = new User { Id = inviterId, EmailId = "inviter@example.com" };
+            _mockUserService.Setup(u => u.GetByIdAsync(inviterId)).ReturnsAsync(existingUser);
+
+            var request = new AddInvitationRequest
+            {
+                EmailAddress = "newuser@example.com",
+                FirstName = "New",
+                LastName = "User",
+                HnId = "HN100001",
+                OrgId = null,
+                ContributorRoles = new List<ContributorRole> { ContributorRole.Certifier },
+                RolesToReplace = new List<ContributorRole>()
+            };
+
+            // Capture the invitation and set Id in CreateAsync callback
+            _mockInvitationService
+                .Setup(i => i.CreateAsync(It.IsAny<Invitation>()))
+                .Returns<Invitation>(inv =>
+                {
+                    inv.Id = "new-invite-id";
+                    return Task.CompletedTask;
+                });
+
+            _mockHnService.Setup(h => h.GetByHnIdAsync(It.IsAny<string>())).ReturnsAsync((HeatNetwork)null!);
+
+            var controller = CreateController();
+
+            // Act
+            var result = await controller.AddUserInvitation(inviterId, request);
+
+            // Assert
+            Assert.IsType<NotFoundObjectResult>(result);
+            
+        }
+
+        [Fact]
+        public async Task AddUserInvitation_UserNotFound()
+        {
+            // Arrange
+            var inviterId = "inviter-123";
+            var existingUser = new User { Id = inviterId, EmailId = "inviter@example.com" };
+            _mockUserService.Setup(u => u.GetByIdAsync(inviterId)).ReturnsAsync(existingUser);
+
+            var request = new AddInvitationRequest
+            {
+                EmailAddress = "newuser@example.com",
+                FirstName = "New",
+                LastName = "User",
+                HnId = null,
+                OrgId = null,
+                ContributorRoles = new List<ContributorRole> { ContributorRole.Certifier },
+                RolesToReplace = new List<ContributorRole>()
+            };
+
+            // Capture the invitation and set Id in CreateAsync callback
+            _mockInvitationService
+                .Setup(i => i.CreateAsync(It.IsAny<Invitation>()))
+                .Returns<Invitation>(inv =>
+                {
+                    inv.Id = "new-invite-id";
+                    return Task.CompletedTask;
+                });
+
+            _mockUserService.Setup(h => h.GetByIdAsync(It.IsAny<string>())).ReturnsAsync((User)null!);
+
+            var controller = CreateController();
+
+            // Act
+            var result = await controller.AddUserInvitation(inviterId, request);
+
+            // Assert
+            Assert.IsType<NotFoundResult>(result);
+
+        }
+
+        [Fact]
+        public async Task AddUserInvitation_ThrowException()
+        {
+            // Arrange
+            var inviterId = "inviter-123";
+            var existingUser = new User { Id = inviterId, EmailId = "inviter@example.com" };
+            _mockUserService.Setup(u => u.GetByIdAsync(inviterId)).Throws(new Exception());
+
+            var request = new AddInvitationRequest
+            {
+                EmailAddress = "newuser@example.com",
+                FirstName = "New",
+                LastName = "User",
+                HnId = null,
+                OrgId = null,
+                ContributorRoles = new List<ContributorRole> { ContributorRole.Certifier },
+                RolesToReplace = new List<ContributorRole>()
+            };            
+
+            var controller = CreateController();
+
+            // Act
+            var result = await controller.AddUserInvitation(inviterId, request);
+
+            // Assert
+            var res = Assert.IsType<ObjectResult>(result);
+            Assert.Equal(StatusCodes.Status500InternalServerError, res.StatusCode);
+
+        }
+
+        [Theory]
+        [InlineData(UserRole.ResponsiblePerson, ContributorRole.NetworkManager)]
+        [InlineData(UserRole.ResponsiblePerson, ContributorRole.DesignatedDutyHolder)]
+        [InlineData(UserRole.ResponsiblePerson, ContributorRole.Contributor)]
+        [InlineData(UserRole.NetworkManager, ContributorRole.DesignatedDutyHolder)]
+        [InlineData(UserRole.NetworkManager, ContributorRole.Contributor)]
+        [InlineData(UserRole.DesignatedDutyHolder, ContributorRole.Contributor)]        
+        public async Task AddUserInvitation_UpdateUser(UserRole invitorRole, ContributorRole invitedRole)
+        {
+            // Arrange
+            var inviterId = "inviter-123";
+            var existingUser = new User { Id = inviterId, EmailId = "inviter@example.com" };
+            _mockUserService.Setup(u => u.GetByIdAsync(inviterId)).ReturnsAsync(existingUser);
+
+            var request = new AddInvitationRequest
+            {
+                EmailAddress = "newuser@example.com",
+                FirstName = "New",
+                LastName = "User",
+                HnId = null,
+                OrgId = null,
+                ContributorRoles = new List<ContributorRole> { invitedRole },
+                RolesToReplace = new List<ContributorRole> { ContributorRole.Contributor},
+                ReplacedUserId = "nonexistent-user"
+            };
+
+            // Capture the invitation and set Id in CreateAsync callback
+            _mockInvitationService
+                .Setup(i => i.CreateAsync(It.IsAny<Invitation>()))
+                .Returns<Invitation>(inv =>
+                {
+                    inv.Id = "new-invite-id";
+                    return Task.CompletedTask;
+                });
+
+            _mockUserService.Setup(h => h.GetByIdAsync(It.IsAny<string>())).ReturnsAsync(new User { Id = "test", HnRoleMappings = new List<HnRoleMapping> { new HnRoleMapping { HnId = "HN100001", Role= ContributorRole.NetworkManager} }, Roles = new List<UserRole> { invitorRole } });
+            _mockUserService.Setup(u => u.UpdateAsync(It.IsAny<string>(), It.IsAny<User>())).Returns(Task.CompletedTask);
+            _mockEmailService.Setup(e => e.TrySendHNDiscontinedEmailAsync(It.IsAny<User>(), It.IsAny<string>(), It.IsAny<ContributorRole>())).Returns(Task.CompletedTask);
+            var controller = CreateController();
+
+            // Act
+            var result = await controller.AddUserInvitation(inviterId, request);
+
+            // Assert
+            Assert.IsType<ObjectResult>(result);
         }
 
         [Fact]

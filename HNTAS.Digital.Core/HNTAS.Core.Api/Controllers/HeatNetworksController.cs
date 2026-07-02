@@ -92,7 +92,7 @@ namespace HNTAS.Core.Api.Controllers
 
                 if (heatNetworks == null || !heatNetworks.Any())
                 {
-                    _logger.LogInformation("No heat networks found for the provided IDs: {HeatNetworkIds}", string.Join(", ", heatNetworks?.Select(x => x.HnId).ToArray()));
+                    _logger.LogInformation("No heat networks found for the provided IDs: {HeatNetworkIds}", string.Join(", ", hnIds?.Select(x => x).ToArray()!));
                     return NotFound("No heat networks found for the given IDs.");
                 }
 
@@ -363,64 +363,7 @@ namespace HNTAS.Core.Api.Controllers
                 _logger.LogError(ex, "An error occurred while updating NetworkElements for HnId: {HnId}", StringFormatter.Sanitize(hnId));
                 return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while updating the heat network.");
             }
-        }
-
-        //[HttpPatch("network-details-document-update")]
-        //[ProducesResponseType(StatusCodes.Status200OK)]
-        //[ProducesResponseType(StatusCodes.Status400BadRequest)]
-        //[ProducesResponseType(StatusCodes.Status404NotFound)]
-        //public async Task<IActionResult> SaveDocument([FromBody] NetworkDetailsUploadDocumentRequest request)
-        //{
-        //    if (!ModelState.IsValid)
-        //    {
-        //        _logger.LogWarning("Invalid SaveDocument request: {@Errors}",
-        //            ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage));
-        //        return BadRequest(ModelState);
-        //    }
-
-        //    _logger.LogInformation("Saving {DocumentType} document for HN ID: {HnId}, UploadedBy: {UploadedBy}",
-        //        request.DocumentType, request.HnId.ToSafeLog(), request.UploadedBy.ToSafeLog());
-
-
-
-        //    var document = new NetworkDetailsDocument
-        //    {
-        //        FileName = request.FileName,
-        //        S3Key = request.S3Key,
-        //        UploadedAt = DateTime.UtcNow,
-        //        UploadedBy = request.UploadedBy
-        //    };
-
-        //    try
-        //    {
-        //        switch (request.DocumentType)
-        //        {
-        //            case DocumentType.MeteringAndMonitoringStrategy:
-        //                await _hnService.UpdateMeteringAndMonitoringStrategyAsync(request.HnId, document);
-        //                break;
-        //            case DocumentType.AssessmentPlan:
-        //                await _hnService.UpdateAssessmentPlanAsync(request.HnId, document);
-        //                break;
-        //            case DocumentType.DesignConstructionLog:
-        //                await _hnService.UpdateDesignConstructionLogAsync(request.HnId, document);
-        //                break;
-        //            default:
-        //                _logger.LogWarning("Unsupported document type: {DocumentType}", request.DocumentType);
-        //                return BadRequest($"Unsupported document type: {request.DocumentType}");
-        //        }
-
-        //        _logger.LogInformation("{DocumentType} document saved successfully for HN ID: {HnId}, UploadedBy: {UploadedBy}",
-        //            request.DocumentType, request.HnId.ToSafeLog(), request.UploadedBy.ToSafeLog());
-
-        //        return Ok();
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        _logger.LogError(ex, "Failed to save {DocumentType} document for HN ID: {HnId}, UploadedBy: {UploadedBy}",
-        //            request.DocumentType, request.HnId.ToSafeLog(), request.UploadedBy.ToSafeLog());
-        //        throw;
-        //    }
-        //}
+        }        
 
         private async Task NotificationHistoryForAddingHeatNetwork(HeatNetwork heatNetwork, UserDetailsResult user)
         {

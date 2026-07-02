@@ -54,6 +54,7 @@ builder.Services.AddSingleton<ISoaService, SoaService>();
 builder.Services.AddSingleton<IGovUkNotifyService, GovUkNotifyService>();
 builder.Services.AddSingleton<IHeatNetworkService, HeatNetworkService>();
 builder.Services.AddSingleton<IEmailService, EmailService>();
+builder.Services.AddScoped<IFeedbackService, FeedbackService>();
 builder.Services.AddSingleton<ICountryAndTerritoryService, CountryAndTerritoryService>();
 builder.Services.AddSingleton<IAssessorService, AssessorService>();
 builder.Services.AddSingleton<IAuditService, AuditService>();
@@ -63,6 +64,7 @@ builder.Services.AddScoped<IKpiRuleValidator, KpiRuleValidator>();
 builder.Services.AddScoped<IHeatNetworkValidator, HeatNetworkValidator>();
 builder.Services.AddScoped<IKpiSubmissionAuditService, KpiSubmissionAuditService>();
 builder.Services.AddScoped<IUserStatsService, UserStatsService>();
+builder.Services.AddScoped<ISuperUserService, SuperUserService>();
 
 //Data Migrations
 builder.Services.AddScoped<IDataMigration, SeedCountriesAndTerritories>();

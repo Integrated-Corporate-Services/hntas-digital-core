@@ -1,5 +1,6 @@
 ﻿using HNTAS.Core.Api.Configuration;
 using HNTAS.Core.Api.Data.Models;
+using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
@@ -10,11 +11,6 @@ using System.Text.Json.Nodes;
 
 namespace HNTAS.Core.Api.Services
 {
-    public interface ICarbonCalculatorService
-    {
-        Task<CarbonCalculatorResponse?> RunAsync(CarbonCalculatorRequest hnId, CancellationToken ct = default);
-    }
-
     public sealed class CarbonCalculatorService : ICarbonCalculatorService
     {
         // Configs inside the class

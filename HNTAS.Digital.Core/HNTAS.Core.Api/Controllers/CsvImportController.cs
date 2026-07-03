@@ -1,6 +1,5 @@
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
-using HNTAS.Core.Api.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HNTAS.Core.Api.Controllers

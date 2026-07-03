@@ -1,23 +1,10 @@
 using HNTAS.Core.Api.Interfaces;
+using HNTAS.Core.Api.Models;
 using HNTAS.Core.Api.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HNTAS.Core.Api.Controllers
 {
-    public class ImportResult
-    {
-        public int RowsProcessed { get; set; }
-        public int OrganisationsInserted { get; set; }
-        public int OrganisationsUpdated { get; set; }
-        public int HeatNetworksInserted { get; set; }
-        public int HeatNetworksUpdated { get; set; }
-        public int UsersInserted { get; set; }
-        public int UsersUpdated { get; set; }
-        public List<OfgemDataModelForNotification> DataForExistingOrgOrUser { get; set; } = new List<OfgemDataModelForNotification>();
-        public List<OfgemDataModelForNotification> DataForNewOrgOrUser { get; set; } = new List<OfgemDataModelForNotification>();
-        public List<string> Errors { get; set; } = new List<string>();
-    }    
-
     [ApiController]
     [Route("api/[controller]")]
     public class ImportController : ControllerBase
@@ -31,7 +18,7 @@ namespace HNTAS.Core.Api.Controllers
             _csvImportService = csvImportService;
             _logger = logger;
             _emailService = emailService;
-        }        
+        }
 
         [HttpPost("upload-csv")]
         [Consumes("text/plain")]

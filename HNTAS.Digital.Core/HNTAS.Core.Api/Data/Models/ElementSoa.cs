@@ -29,6 +29,7 @@ namespace HNTAS.Core.Api.Data.Models
 
     }
 
+    [ExcludeFromCodeCoverage]
     public class SoaAssessor
     {
         [BsonElement("firstName")]
@@ -39,7 +40,7 @@ namespace HNTAS.Core.Api.Data.Models
 
         [BsonElement("email")]
         public string Email { get; set; } = null!;
-        
+
         [BsonElement("assessment")]
         public string Assessment { get; set; } = null!;
 
@@ -48,6 +49,7 @@ namespace HNTAS.Core.Api.Data.Models
         public UserStatus Status { get; set; }
     }
 
+    [ExcludeFromCodeCoverage]
     public class SoaStatusWithCount
     {
         [BsonElement("soaStatus")]

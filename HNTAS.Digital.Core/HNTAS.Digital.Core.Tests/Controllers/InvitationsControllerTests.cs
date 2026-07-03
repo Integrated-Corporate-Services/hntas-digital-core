@@ -409,15 +409,19 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             _mockEmailService.Verify(e => e.TrySendHeatNetworkInvitationEmailAsync(It.IsAny<Invitation>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
         }
 
-        [Fact]
-        public async Task RejectInvitation_Positive_PendingInvitation_UpdatesAndReturnsNoContent()
+        [Theory]
+        [InlineData(ContributorRole.DesignatedDutyHolder)]
+        [InlineData(ContributorRole.Contributor)]
+        [InlineData(ContributorRole.NetworkManager)]
+        public async Task RejectInvitation_Positive_PendingInvitation_UpdatesAndReturnsNoContent(ContributorRole invitedRole)
         {
             // Arrange
             var invitationId = "to-reject";
             var invitation = new Invitation
             {
                 Id = invitationId,
-                Status = InvitationStatus.Invited
+                Status = InvitationStatus.Invited,
+                InvitedRoles = new List<ContributorRole> { invitedRole }
             };
 
             _mockInvitationService.Setup(s => s.GetByIdAsync(invitationId)).ReturnsAsync(invitation);
@@ -429,6 +433,8 @@ namespace HNTAS.Digital.Core.Tests.Controllers
                     Assert.NotNull(updated.RejectedAt);
                 });
 
+            _mockUserService.Setup(u => u.GetByIdAsync(It.IsAny<string>())).ReturnsAsync(new User { Id = "test", EmailId = "test", Roles = new List<UserRole> { UserRole.NetworkManager} });
+            _mockInvitationService.Setup(i => i.GetByInvitedEmailAsync(It.IsAny<string>())).ReturnsAsync(new Invitation() { InviterUserId = "test"});
             var controller = CreateController();
 
             // Act

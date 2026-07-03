@@ -358,6 +358,40 @@ namespace HNTAS.Digital.Core.Tests.Controllers
         }
 
         [Fact]
+        public async Task SendInvitationEmail_Positive_HeatNetworkInvitation_OrgNotNull_EmailSentAndNoContentReturned()
+        {
+            // Arrange
+            var invitationId = "invite-1";
+            var invitation = new Invitation
+            {
+                Id = invitationId,
+                InvitedHnId = null,
+                Status = InvitationStatus.Invited,
+                InvitedEmail = "invitee@hn.com",
+                InvitedOrgId = "ORG-123"
+            };
+
+            var request = new SendInvitationEmailRequest { Token = "token-123" };
+
+            _mockInvitationService.Setup(s => s.GetByIdAsync(invitationId)).ReturnsAsync(invitation);
+            _mockHnService.Setup(h => h.GetByHnIdAsync(invitation.InvitedHnId)).ReturnsAsync(new HeatNetwork { Name = "Test HN", HnId = invitation.InvitedHnId });
+
+            _mockUserService.Setup(u => u.GetByIdAsync(It.IsAny<string>())).ReturnsAsync(new User { Id = "test", EmailId = "test" });
+            _mockMapper.Setup(m => m.Map<UserResponse>(It.IsAny<User>())).Returns(new UserResponse() { FullName = "test" });
+            _mockOrganisationService.Setup(o => o.GetByOrgIdAsync(It.IsAny<string>())).ReturnsAsync(new Organisation { Name = "Test Org", OrgId = "ORG-1" });
+            _mockEmailService.Setup(e => e.TrySendOrganisationInvitationEmailAsync(It.IsAny<Invitation>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>())).Returns(Task.CompletedTask);
+
+            var controller = CreateController();
+
+            // Act
+            var result = await controller.SendInvitationEmail(invitationId, request);
+
+            // Assert
+            Assert.IsType<NoContentResult>(result);
+            _mockEmailService.Verify(e => e.TrySendOrganisationInvitationEmailAsync(It.IsAny<Invitation>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Once);
+        }
+
+        [Fact]
         public async Task SendInvitationEmail_Negative_InvitationNotFound_ReturnsNotFound()
         {
             // Arrange
@@ -428,6 +462,42 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             var badRequest = Assert.IsType<BadRequestObjectResult>(result);
             Assert.Equal(400, badRequest.StatusCode);
             _mockInvitationService.Verify(s => s.UpdateAsync(It.IsAny<string>(), It.IsAny<Invitation>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task AcceptInvitation_Ok()
+        {
+            var request = new InvitedUserRequest();
+            _mockInvitationService.Setup(s => s.AcceptAsync(It.IsAny<InvitedUserRequest>()))
+                .ReturnsAsync(new AcceptInvitationResult("test", false, false));
+
+            var controller = CreateController();
+            var result = await controller.AcceptInvitation(request);
+            Assert.IsType<OkObjectResult>(result);
+        }
+
+        [Fact]
+        public async Task AcceptInvitation_IsCreated()
+        {
+            var request = new InvitedUserRequest();
+            _mockInvitationService.Setup(s => s.AcceptAsync(It.IsAny<InvitedUserRequest>()))
+                .ReturnsAsync(new AcceptInvitationResult("test", true, false));
+
+            var controller = CreateController();
+            var result = await controller.AcceptInvitation(request);
+            Assert.IsType<ObjectResult>(result);
+        }
+
+        [Fact]
+        public async Task AcceptInvitation_IsNotFound()
+        {
+            var request = new InvitedUserRequest();
+            _mockInvitationService.Setup(s => s.AcceptAsync(It.IsAny<InvitedUserRequest>()))
+                .ReturnsAsync(new AcceptInvitationResult("test", false, true));
+
+            var controller = CreateController();
+            var result = await controller.AcceptInvitation(request);
+            Assert.IsType<NotFoundResult>(result);
         }
     }
 }

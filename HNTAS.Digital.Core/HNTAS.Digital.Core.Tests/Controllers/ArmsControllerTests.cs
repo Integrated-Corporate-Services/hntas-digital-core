@@ -32,7 +32,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
         private readonly Mock<IKpiRuleValidator> _mockKpiRuleValidator;
         private readonly Mock<IMapper> _mockMapper;
         private readonly Mock<ICarbonCalculatorService> _mockCarbonCalculatorService;
-        private readonly Mock<ISubmissionCarbonCalculator> _mockSubmissionCarbonCalculator;
+        private readonly Mock<ISubmissionCCService> _mockSubmissionCarbonCalculator;
         private readonly Mock<ICarbonCalculatorRuleValidation> _mockCarbonCalculatorRuleValidation;
         private readonly Mock<IOptions<ArmsSettings>> _mockArmsSettings;
         private readonly ArmsController _sut;
@@ -47,7 +47,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             _mockKpiRuleValidator = new Mock<IKpiRuleValidator>();
             _mockMapper = new Mock<IMapper>();
             _mockCarbonCalculatorService = new Mock<ICarbonCalculatorService>();
-            _mockSubmissionCarbonCalculator = new Mock<ISubmissionCarbonCalculator>();
+            _mockSubmissionCarbonCalculator = new Mock<ISubmissionCCService>();
             _mockCarbonCalculatorRuleValidation = new Mock<ICarbonCalculatorRuleValidation>();
             _mockArmsSettings = new Mock<IOptions<ArmsSettings>>();
 

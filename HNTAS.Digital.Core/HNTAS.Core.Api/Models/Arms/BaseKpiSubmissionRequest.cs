@@ -14,5 +14,9 @@ namespace HNTAS.Core.Api.Models.Arms
         [JsonPropertyOrder(2)]
         [JsonPropertyName("consumer_connection_aggregated_kpis")]
         public Dictionary<string, KpiValueAggregatedRequest>? ConsumerConnectionAggregatedKpis { get; set; }
+
+        [JsonPropertyOrder(4)]
+        [JsonPropertyName("elements")]
+        public List<NetworkElementRequest> Elements { get; set; } = new();
     }
 }

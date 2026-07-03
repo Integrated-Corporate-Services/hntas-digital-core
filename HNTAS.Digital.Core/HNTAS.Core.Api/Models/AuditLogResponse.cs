@@ -15,6 +15,7 @@ namespace HNTAS.Core.Api.Models
         public string? HnId { get; set; }
     }
 
+    [ExcludeFromCodeCoverage]
     public class AuditLog
     {
         public string EntryType { get; set; }

@@ -8,10 +8,6 @@ namespace HNTAS.Core.Api.Models.Arms.V2
     [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
     public class KpiSubmissionRequestV2 : BaseKpiSubmissionRequest
     {
-        [JsonPropertyOrder(4)]
-        [JsonPropertyName("elements")]
-        public List<NetworkElementRequest> Elements { get; set; } = new();
-
         /// <summary>
         /// Dedicated block for Carbon Calculator fields on EnergyCentre types.
         /// Organised into sectioned blocks (e.g., "metadata", "energy_totals") where 

@@ -6,7 +6,6 @@ using HNTAS.Core.Api.Models.Assessor;
 using Microsoft.Extensions.Options;
 using MongoDB.Bson;
 using MongoDB.Driver;
-using System.Runtime;
 using System.Text.RegularExpressions;
 
 namespace HNTAS.Core.Api.Services
@@ -54,15 +53,7 @@ namespace HNTAS.Core.Api.Services
             catch (Exception ex)
             {
                 throw;
-            }            
+            }
         }
-
-        //public async Task CreateAssessorAsync(Assessor assessor)
-        //{
-        //    await _assessorCollection.InsertOneAsync(assessor);
-        //}
-
-
-
     }
 }

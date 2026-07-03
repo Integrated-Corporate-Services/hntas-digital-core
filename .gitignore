@@ -406,3 +406,4 @@ FodyWeavers.xsd
 *.sln.iml
 /HNTAS.Digital.Core/HNTAS.Core.Api/aws-logger-errors.txt
 /HNTAS.Digital.Core/cloc.exe.exe
+/HNTAS.Digital.Core/HNTAS.Digital.Core.Tests/coveragereport

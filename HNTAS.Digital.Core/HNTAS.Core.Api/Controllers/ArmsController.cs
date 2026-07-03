@@ -32,7 +32,7 @@ namespace HNTAS.Core.Api.Controllers
         private readonly IMapper _mapper;
         private readonly ArmsSettings _armsSettings;
         private readonly ICarbonCalculatorService _CCService;
-        private readonly ISubmissionCarbonCalculator _submissionCarbonCalculator;
+        private readonly ISubmissionCCService _submissionCarbonCalculator;
         private readonly ICarbonCalculatorRuleValidation _carbonCalculatorRuleValidation;
 
         public ArmsController(IArmsKpiService kpiService,
@@ -44,7 +44,7 @@ namespace HNTAS.Core.Api.Controllers
             IHeatNetworkValidator networkValidator,
             IKpiRuleValidator kpiRuleValidator,
             ICarbonCalculatorService CCService,
-            ISubmissionCarbonCalculator submissionCarbonCalculator,
+            ISubmissionCCService submissionCarbonCalculator,
             ICarbonCalculatorRuleValidation carbonCalculatorRuleValidation)
         {
             _kpiService = kpiService;

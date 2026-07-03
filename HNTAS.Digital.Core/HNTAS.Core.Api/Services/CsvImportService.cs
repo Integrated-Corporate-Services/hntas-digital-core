@@ -1,43 +1,38 @@
-﻿using HNTAS.Core.Api.Controllers;
-using HNTAS.Core.Api.Data.Models;
+﻿using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Interfaces;
+using HNTAS.Core.Api.Models;
 using MongoDB.Driver;
 using System.Text;
 
 namespace HNTAS.Core.Api.Services
 {
-    public interface ICsvImportService
-    {
-        Task<ImportResult> ImportFromCsvAsync(string fileContent, CancellationToken ct = default);
-    }
-
     public class CsvImportService : ICsvImportService
     {
         private readonly IOrganisationService _organisationService;
         private readonly IUserService _userService;
-        private readonly IHeatNetworkService _heatNetworkService;        
+        private readonly IHeatNetworkService _heatNetworkService;
         private readonly ILogger<CsvImportService> _logger;
 
         public CsvImportService(
             IOrganisationService organisationService,
             IUserService userService,
-            IHeatNetworkService heatNetworkService,            
+            IHeatNetworkService heatNetworkService,
             ILogger<CsvImportService> logger)
         {
             _organisationService = organisationService;
             _userService = userService;
-            _heatNetworkService = heatNetworkService;            
+            _heatNetworkService = heatNetworkService;
             _logger = logger;
-        }        
+        }
 
         public async Task<ImportResult> ImportFromCsvAsync(string fileContent, CancellationToken ct = default)
         {
-            var stream = new MemoryStream(Encoding.UTF8.GetBytes(fileContent));            
+            var stream = new MemoryStream(Encoding.UTF8.GetBytes(fileContent));
             stream.Position = 0;
 
-            var result = new ImportResult();            
+            var result = new ImportResult();
 
-            var csvParser = new CsvParser();            
+            var csvParser = new CsvParser();
 
             if (!csvParser.TryParseHeaders(stream, out var headerIndex, out var error))
             {
@@ -153,7 +148,7 @@ namespace HNTAS.Core.Api.Services
         }
 
         private async Task ProcessNetworkCreatonThroughOrgOrUserExistance(
-            CsvRow row,            
+            CsvRow row,
             ImportResult result,
             List<OfgemDataModelPostImport> ofgemDataModelPostImportList,
             CancellationToken ct)
@@ -178,13 +173,13 @@ namespace HNTAS.Core.Api.Services
                 }
                 else
                 {
-                    await ProcessNetworkCreationThroughUserExistance(row, result, ofgemDataModelPostImportList, ct);                    
+                    await ProcessNetworkCreationThroughUserExistance(row, result, ofgemDataModelPostImportList, ct);
                 }
             }
             else
             {
                 await ProcessNetworkCreationThroughUserExistance(row, result, ofgemDataModelPostImportList, ct);
-            }           
+            }
         }
 
         private async Task ProcessNetworkCreationThroughUserExistance(CsvRow row,
@@ -229,7 +224,7 @@ namespace HNTAS.Core.Api.Services
             }
         }
         private async Task ProcessHeatNetworkAsync(
-            CsvRow row,            
+            CsvRow row,
             ImportResult result,
             List<OfgemDataModelPostImport> ofgemDataModelPostImportList,
             string userId,
@@ -244,7 +239,7 @@ namespace HNTAS.Core.Api.Services
                 _logger.LogInformation("HeatNetwork {HnId} already exists.", row.HnId);
                 return;
             }
-            
+
             await CreateHeatNetwork(row, hntasOrgId, userId);
             await _organisationService.UpdateAsync(hntasOrgId, row.HnId);
             await _userService.UpdateUserNetwork(userId, row.HnId);
@@ -312,6 +307,11 @@ namespace HNTAS.Core.Api.Services
             return string.IsNullOrWhiteSpace(value)
                 ? null
                 : decimal.Parse(value, System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        Task<ImportResult> ICsvImportService.ImportFromCsvAsync(string fileContent, CancellationToken ct)
+        {
+            throw new NotImplementedException();
         }
     }
 

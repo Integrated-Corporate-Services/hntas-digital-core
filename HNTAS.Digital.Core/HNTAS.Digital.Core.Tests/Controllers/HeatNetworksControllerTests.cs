@@ -519,7 +519,14 @@ namespace HNTAS.Digital.Core.Tests.Controllers
 
             var result = await _controller.GetHeatNetworksByUserId("user1");
 
-            Assert.IsType<NotFoundObjectResult>(result.Result);
+            _mockLogger.Verify(
+                x => x.Log(
+                    LogLevel.Information,
+                    It.IsAny<EventId>(),
+                    It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("No heat networks found for the provided ID")),
+                    null,
+                    It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+                Times.Once);
         }
 
         [Fact]

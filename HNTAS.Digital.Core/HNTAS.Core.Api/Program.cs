@@ -54,6 +54,7 @@ builder.Services.AddSingleton<ISoaService, SoaService>();
 builder.Services.AddSingleton<IGovUkNotifyService, GovUkNotifyService>();
 builder.Services.AddSingleton<IHeatNetworkService, HeatNetworkService>();
 builder.Services.AddSingleton<IEmailService, EmailService>();
+builder.Services.AddScoped<IFeedbackService, FeedbackService>();
 builder.Services.AddSingleton<ICountryAndTerritoryService, CountryAndTerritoryService>();
 builder.Services.AddSingleton<IAssessorService, AssessorService>();
 builder.Services.AddSingleton<IAuditService, AuditService>();

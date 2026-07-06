@@ -1,8 +1,10 @@
-﻿using MongoDB.Bson.Serialization.Attributes;
-using HNTAS.Core.Api.Data.Models;
+﻿using HNTAS.Core.Api.Data.Models;
+using MongoDB.Bson.Serialization.Attributes;
+using System.Diagnostics.CodeAnalysis;
 
 namespace HNTAS.Core.Api.Models
 {
+    [ExcludeFromCodeCoverage]
     public class HeatNetworkUserResponse
     {
         [BsonElement("hnId")]

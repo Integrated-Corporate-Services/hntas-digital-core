@@ -1,5 +1,5 @@
-﻿using HNTAS.Core.Api.Models;
-using HNTAS.Core.Api.Services;
+﻿using HNTAS.Core.Api.Interfaces;
+using HNTAS.Core.Api.Models;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HNTAS.Core.Api.Controllers
@@ -18,7 +18,7 @@ namespace HNTAS.Core.Api.Controllers
         [HttpPost("run")]
         public async Task<ActionResult<CarbonCalculatorResponse>> RunAsync(CarbonCalculatorRequest request, CancellationToken ct = default)
         {
-            var result = await _service.RunAsync(request , ct);
+            var result = await _service.RunAsync(request, ct);
             if (result is null)
                 return Problem("Calculation failed or API token missing.");
 

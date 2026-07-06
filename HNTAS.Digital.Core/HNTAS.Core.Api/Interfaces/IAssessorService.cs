@@ -6,6 +6,6 @@ namespace HNTAS.Core.Api.Interfaces
     public interface IAssessorService
     {
         Task<List<AssessorSearchResult>> GetAssessorSuggestionsAsync(string searchTerm);
-        Task CreateAssessorAsync(Assessor assessor);
+        //Task CreateAssessorAsync(Assessor assessor);
     }
 }

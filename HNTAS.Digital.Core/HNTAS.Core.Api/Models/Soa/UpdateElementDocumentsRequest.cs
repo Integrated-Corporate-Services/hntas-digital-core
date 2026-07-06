@@ -1,8 +1,10 @@
 ﻿using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Enums;
+using System.Diagnostics.CodeAnalysis;
 
 namespace HNTAS.Core.Api.Models.Soa
 {
+    [ExcludeFromCodeCoverage]
     public class UpdateElementDocumentsRequest
     {
         public string HnId { get; set; } = null!;

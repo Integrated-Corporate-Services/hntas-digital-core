@@ -1,5 +1,8 @@
-﻿namespace HNTAS.Core.Api.Models.Arms.Dashboard
+﻿using System.Diagnostics.CodeAnalysis;
+
+namespace HNTAS.Core.Api.Models.Arms.Dashboard
 {
+    [ExcludeFromCodeCoverage]
     public class HeatNetworkDetailsResponse
     {
         public string HnId { get; set; } = string.Empty;
@@ -21,13 +24,14 @@
         public int TotalElements { get; set; }
     }
 
-
+    [ExcludeFromCodeCoverage]
     public class CarbonInputUiDisplay
     {
         public string Label { get; set; } = null!;
         public double Value { get; set; }
     }
 
+    [ExcludeFromCodeCoverage]
     public class AggregatedKpi
     {
         public string KpiName { get; set; } = string.Empty;
@@ -35,7 +39,7 @@
         public string Status { get; set; } = string.Empty;
     }
 
-
+    [ExcludeFromCodeCoverage]
     public class ElementGroupDto
     {
         public string ElementId { get; set; } = string.Empty;
@@ -43,7 +47,7 @@
         public List<KpiDetailDto> Kpis { get; set; } = new();
     }
 
-
+    [ExcludeFromCodeCoverage]
     public class KpiDetailDto
     {
         public string KpiName { get; set; } = string.Empty; // The Dictionary Key

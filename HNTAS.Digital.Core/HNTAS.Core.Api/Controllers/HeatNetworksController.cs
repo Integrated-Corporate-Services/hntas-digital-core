@@ -166,12 +166,13 @@ namespace HNTAS.Core.Api.Controllers
 
                     if (heatNetwork == null)
                     {
-                        _logger.LogInformation("No heat networks found for the provided ID: {HeatNetworkId}", StringFormatter.Sanitize(hnMapping.HnId));
-                        return NotFound("No heat network found for the given ID.");
+                        _logger.LogInformation("No heat networks found for the provided ID: {HeatNetworkId}", StringFormatter.Sanitize(hnMapping.HnId));                        
                     }
-
-                    var heatNetworkResponse = _mapper.Map<HeatNetworkResponse>(heatNetwork);
-                    heatNetworks.Add(heatNetworkResponse);
+                    else
+                    {
+                        var heatNetworkResponse = _mapper.Map<HeatNetworkResponse>(heatNetwork);
+                        heatNetworks.Add(heatNetworkResponse);
+                    } 
                 }
                 return heatNetworks;
             }

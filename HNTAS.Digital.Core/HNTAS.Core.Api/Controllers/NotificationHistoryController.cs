@@ -51,7 +51,7 @@ namespace HNTAS.Core.Api.Controllers
             {
                 _logger.LogError(ex, "Failed to retrieve Notification History for User ID: {userID}",
                 StringFormatter.Sanitize(request.UserId!));
-                throw;
+                return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while retrieving Notification History.");
             }
         }
 
@@ -72,7 +72,7 @@ namespace HNTAS.Core.Api.Controllers
             {
                 _logger.LogError(ex, "Failed to retrieve Unread Notification Count for User ID: {userID}",
                 StringFormatter.Sanitize(userId));
-                throw;
+                return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while retrieving Unread Notification Count.");
             }
             
         }

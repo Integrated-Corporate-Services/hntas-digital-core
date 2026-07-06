@@ -1,5 +1,8 @@
-﻿namespace HNTAS.Core.Api.Models.AssignedAssessor
+﻿using System.Diagnostics.CodeAnalysis;
+
+namespace HNTAS.Core.Api.Models.AssignedAssessor
 {
+    [ExcludeFromCodeCoverage]
     public class AssignedAssessorRequest
     {
         public string? SortBy { get; set; }

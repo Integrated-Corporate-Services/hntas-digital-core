@@ -16,8 +16,7 @@ namespace HNTAS.Core.Api.Services
     public class InvitationService : IInvitationService
     {
         private readonly IMongoCollection<Invitation> _invitationsCollection;
-        private readonly ILogger<InvitationService> _logger;
-        private readonly IMongoClient _mongoClient;
+        private readonly ILogger<InvitationService> _logger;        
         private readonly IUserService _userService;
         private readonly IHeatNetworkService _heatNetworkService;
         private readonly IAuditService _auditService;
@@ -26,8 +25,7 @@ namespace HNTAS.Core.Api.Services
         public InvitationService(
         IMongoDatabase mongoDatabase,
         IOptions<AWSDocDbSettings> dbSettings,
-        ILogger<InvitationService> logger,
-        IMongoClient mongoClient,
+        ILogger<InvitationService> logger,        
         IUserService userService,
         IHeatNetworkService heatNetworkService,
         IAuditService auditService,
@@ -35,8 +33,7 @@ namespace HNTAS.Core.Api.Services
         {
             _logger = logger;
             _invitationsCollection = mongoDatabase.GetCollection<Invitation>(dbSettings.Value.InvitationsCollectionName);
-            _logger.LogInformation("UserService initialized via Dependency Injection.");
-            _mongoClient = mongoClient;
+            _logger.LogInformation("UserService initialized via Dependency Injection.");            
             _userService = userService;
             _heatNetworkService = heatNetworkService;
             _auditService = auditService;
@@ -64,8 +61,8 @@ namespace HNTAS.Core.Api.Services
             await _invitationsCollection.ReplaceOneAsync(invitation => invitation.Id == id, updatedInvitation);
 
         // Remove an invitation by ID
-        public async Task RemoveAsync(string id) =>
-            await _invitationsCollection.DeleteOneAsync(invitation => invitation.Id == id);
+        //public async Task RemoveAsync(string id) =>
+        //    await _invitationsCollection.DeleteOneAsync(invitation => invitation.Id == id);
 
         public async Task<Invitation> GetByEmailAsync(string invitedEmail, string hnId) =>
           await _invitationsCollection

@@ -3,9 +3,11 @@ using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Models.Users;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
+using System.Diagnostics.CodeAnalysis;
 
 namespace HNTAS.Core.Api.Models
 {
+    [ExcludeFromCodeCoverage]
     public class UserDetailsResult
     {
         public string Id { get; set; }
@@ -67,6 +69,7 @@ namespace HNTAS.Core.Api.Models
         public List<string>? ContributingOrganisations { get; set; }
     }
 
+    [ExcludeFromCodeCoverage]
     public class HnRoleMappingsUserResult
     {
         [BsonElement("heatNetwork")]

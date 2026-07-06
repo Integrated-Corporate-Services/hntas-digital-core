@@ -1,8 +1,10 @@
 ﻿using HNTAS.Core.Api.Models.NotificationHistory;
 using HNTAS.Core.Api.Models.Soa;
+using System.Diagnostics.CodeAnalysis;
 
 namespace HNTAS.Core.Api.Models.HeatNetwork
 {
+    [ExcludeFromCodeCoverage]
     public class ExistingNetworkResponse
     {
         public List<HeatNetworkResponse> Items { get; set; } = new();

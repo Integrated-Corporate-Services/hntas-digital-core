@@ -11,7 +11,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 
-var builder = WebApplication.CreateBuilder(args);
+    var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 
@@ -97,12 +97,24 @@ builder.Services.AddSingleton<IMongoDatabase>(sp =>
 });
 
 
+builder.Services.AddSingleton<INotificationClientWrapper>(sp =>
+{
+    var apiKey = Environment.GetEnvironmentVariable("GOV_NOTIFY_API_KEY");
+
+    if (string.IsNullOrEmpty(apiKey))
+        throw new InvalidOperationException("GOV_NOTIFY_API_KEY is not configured.");
+
+    return new NotificationClientService(apiKey);
+});
+
+
+
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<ICarbonCalculatorService, CarbonCalculatorService>();
 builder.Services.AddScoped<ICsvImportService, CsvImportService>();
 
 builder.Services.AddScoped<IHNDataImportExportService, HNDataImportExportService>();
-builder.Services.AddScoped<ISubmissionCarbonCalculator, SubmissionCarbonCalculator>();
+builder.Services.AddScoped<ISubmissionCCService, SubmissionCCService>();
 builder.Services.AddScoped<ICarbonCalculatorRuleValidation, CarbonCalculatorRuleValidation>();
 
 // Register FluentValidation validators

@@ -2,7 +2,9 @@
 {
     using MongoDB.Bson.Serialization.Attributes;
     using System.ComponentModel.DataAnnotations;
+    using System.Diagnostics.CodeAnalysis;
 
+    [ExcludeFromCodeCoverage]
     public class RegisteredAddress
     {
         [Required(ErrorMessage = "Address Line 1 is required.")]

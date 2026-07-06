@@ -195,6 +195,84 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             Assert.Equal("An unexpected error occurred while updating the heat network ID.", actionResult.Value);
         }
 
+        [Fact]
+        public async Task UpdateHeatNetworkId_ReturnsNotFound_WhenOrganisationDoesNotExist()
+        {
+            // Arrange
+            _mockOrgService
+                .Setup(s => s.GetByOrgIdAsync(It.IsAny<string>()))
+                .ReturnsAsync((Organisation)null);
+
+            // Act
+            var result = await _controller.UpdateHeatNetworkId("ORG1", "user1", "hn1");
+
+            // Assert
+            Assert.IsType<NotFoundResult>(result);
+        }
+
+        [Fact]
+        public async Task UpdateHeatNetworkId_AddsHeatNetworkId_WhenNotAlreadyPresent()
+        {
+            // Arrange
+            var organisation = new Organisation
+            {
+                Id = "ORG_INTERNAL_ID",
+                HnIds = new List<string>()
+            };
+
+            _mockOrgService
+                .Setup(s => s.GetByOrgIdAsync(It.IsAny<string>()))
+                .ReturnsAsync(organisation);
+
+            _mockOrgService
+                .Setup(s => s.UpdateAsync(
+                    organisation.Id,
+                    It.IsAny<Organisation>()))
+                .Returns(Task.CompletedTask);
+
+            // Act
+            var result = await _controller.UpdateHeatNetworkId("ORG1", "user1", "hn1");
+
+            // Assert
+            Assert.IsType<NoContentResult>(result);
+
+            Assert.Contains("hn1", organisation.HnIds);
+            Assert.Equal("user1", organisation.LastModifiedBy);
+            Assert.True(organisation.LastModifiedAt <= DateTime.UtcNow);
+
+            _mockOrgService.Verify(s =>
+                s.UpdateAsync(
+                    organisation.Id,
+                    It.IsAny<Organisation>()),
+                Times.Once);
+        }
+
+        [Fact]
+        public async Task UpdateHeatNetworkId_DoesNotUpdate_WhenHeatNetworkIdAlreadyExists()
+        {
+            // Arrange
+            var organisation = new Organisation
+            {
+                Id = "ORG_INTERNAL_ID",
+                HnIds = new List<string> { "hn1" }
+            };
+
+            _mockOrgService
+                .Setup(s => s.GetByOrgIdAsync(It.IsAny<string>()))
+                .ReturnsAsync(organisation);
+
+            // Act
+            var result = await _controller.UpdateHeatNetworkId("ORG1", "user1", "hn1");
+
+            // Assert
+            Assert.IsType<NoContentResult>(result);
+
+            _mockOrgService.Verify(s =>
+                s.UpdateAsync(It.IsAny<string>(), It.IsAny<Organisation>()),
+                Times.Never);
+        }
+
+
         #endregion
 
         #region GetByOrgIdOrName Tests

@@ -1,5 +1,8 @@
-﻿namespace HNTAS.Core.Api.Models
+﻿using System.Diagnostics.CodeAnalysis;
+
+namespace HNTAS.Core.Api.Models
 {
+    [ExcludeFromCodeCoverage]
     public sealed record AcceptInvitationResult(string UserId, bool IsCreated, bool IsNotFound)
     {
         public static AcceptInvitationResult Created(string id) => new(id, true, false);

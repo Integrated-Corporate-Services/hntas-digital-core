@@ -1,5 +1,8 @@
-﻿namespace HNTAS.Core.Api.Models
+﻿using System.Diagnostics.CodeAnalysis;
+
+namespace HNTAS.Core.Api.Models
 {
+    [ExcludeFromCodeCoverage]
     public class KpiSubmissionApiError
     {
         public string Code { get; set; }

@@ -68,17 +68,17 @@ namespace HNTAS.Core.Api.Services
             }
         }
 
-        public async Task<List<AuditEntry<T>>> GetHistoryAsync<T>(string entityId)
-        {
-            var collectionName = $"Audit_{typeof(T).Name}s";
-            var collection = _mongoDatabase.GetCollection<AuditEntry<T>>(collectionName);
+        //public async Task<List<AuditEntry<T>>> GetHistoryAsync<T>(string entityId)
+        //{
+        //    var collectionName = $"Audit_{typeof(T).Name}s";
+        //    var collection = _mongoDatabase.GetCollection<AuditEntry<T>>(collectionName);
 
-            // Return history sorted by newest first
-            return await collection
-                .Find(x => x.EntityId == entityId)
-                .SortByDescending(x => x.Timestamp)
-                .ToListAsync();
-        }
+        //    // Return history sorted by newest first
+        //    return await collection
+        //        .Find(x => x.EntityId == entityId)
+        //        .SortByDescending(x => x.Timestamp)
+        //        .ToListAsync();
+        //}
 
 
         public async Task<AuditLogResponse> GetAuditHistoryAsync<T>(AuditLogRequest auditLogRequest)

@@ -1,10 +1,12 @@
 ﻿
 using HNTAS.Core.Api.Data.Models.Arms.Configuration;
 using MongoDB.Driver;
+using System.Diagnostics.CodeAnalysis;
 using ElementType = HNTAS.Core.Api.Enums.HeatNetworkElementType;
 
 namespace HNTAS.Core.Api.DataMigrations
 {
+    [ExcludeFromCodeCoverage]
     public class KpiSeedData : IDataMigration
     {
         private readonly IMongoCollection<KpiConfiguration> _configCollection;

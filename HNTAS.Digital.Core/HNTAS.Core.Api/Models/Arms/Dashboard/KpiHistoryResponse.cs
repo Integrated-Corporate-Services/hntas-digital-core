@@ -1,5 +1,8 @@
-﻿namespace HNTAS.Core.Api.Models.Arms.Dashboard
+﻿using System.Diagnostics.CodeAnalysis;
+
+namespace HNTAS.Core.Api.Models.Arms.Dashboard
 {
+    [ExcludeFromCodeCoverage]
     public class KpiHistoryResponse
     {
         public DateTime Timestamp { get; set; }

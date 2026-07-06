@@ -1,15 +1,13 @@
-﻿using System.Text.Json;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace HNTAS.Core.Api.Models.Arms.V2
 {
+    [ExcludeFromCodeCoverage]
     [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
     public class KpiSubmissionRequestV2 : BaseKpiSubmissionRequest
     {
-        [JsonPropertyOrder(4)]
-        [JsonPropertyName("elements")]
-        public List<NetworkElementRequest> Elements { get; set; } = new();
-
         /// <summary>
         /// Dedicated block for Carbon Calculator fields on EnergyCentre types.
         /// Organised into sectioned blocks (e.g., "metadata", "energy_totals") where 
@@ -20,6 +18,7 @@ namespace HNTAS.Core.Api.Models.Arms.V2
         public Dictionary<string, Dictionary<string, CCKpiValueRequest>>? CarbonInputsV2 { get; set; }
     }
 
+    [ExcludeFromCodeCoverage]
     [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
     public class CCKpiValueRequest
     {

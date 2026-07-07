@@ -378,7 +378,10 @@ namespace HNTAS.Core.Api.Services
         {
             try
             {
-                var filter = Builders<HeatNetwork>.Filter.Eq(nh => nh.CreatedBy, existingNetworkRequest.UserId);
+                var filter = Builders<HeatNetwork>.Filter.And(
+                    Builders<HeatNetwork>.Filter.Eq(nh => nh.CreatedBy, existingNetworkRequest.UserId),
+                    Builders<HeatNetwork>.Filter.Eq(nh => nh.RegistrationSource, RegistrationSource.OFGEM)
+                );
 
                 var totalCount = await _hnCollection.CountDocumentsAsync(filter);
 

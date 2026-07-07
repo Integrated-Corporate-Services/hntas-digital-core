@@ -306,12 +306,7 @@ namespace HNTAS.Core.Api.Services
             return string.IsNullOrWhiteSpace(value)
                 ? null
                 : decimal.Parse(value, System.Globalization.CultureInfo.InvariantCulture);
-        }
-
-        Task<ImportResult> ICsvImportService.ImportFromCsvAsync(string fileContent, CancellationToken ct)
-        {
-            throw new NotImplementedException();
-        }
+        }        
     }
 
     // Supporting classes

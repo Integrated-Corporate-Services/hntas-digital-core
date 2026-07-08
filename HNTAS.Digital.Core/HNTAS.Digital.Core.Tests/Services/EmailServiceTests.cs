@@ -6,11 +6,6 @@ using HNTAS.Core.Api.Services;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace HNTAS.Digital.Core.Tests.Services
 {
@@ -35,8 +30,14 @@ namespace HNTAS.Digital.Core.Tests.Services
             };
             var hntasServiceSettings = new HntasServiceSettings
             {
-                BaseUrl = "https://example.com"
+                InvitationPath = "/invitation"
             };
+
+
+            Environment.SetEnvironmentVariable(
+                    "WEB_BASE_URL",
+                    "https://example.com");
+
             _mockNotificationSettingsOptions.Setup(s => s.Value).Returns(notificationSettings);
             _mockHntasServiceSettingsOptions.Setup(s => s.Value).Returns(hntasServiceSettings);
             _sut = new EmailService(
@@ -468,7 +469,7 @@ namespace HNTAS.Digital.Core.Tests.Services
             var email = "test@gmail.com";
             var hnName = "test";
             var hnId = "test";
-            
+
 
             _mockGovUkNotifyService.Setup(s => s.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Dictionary<string, dynamic>>(), It.IsAny<string>()))
                 .Returns(Task.FromResult(true));

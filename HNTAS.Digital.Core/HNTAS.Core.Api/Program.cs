@@ -189,14 +189,6 @@ builder.Services.UseJsonPropertyNames();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi("HNTAS.Core.Api");
 
-Console.WriteLine("***********************************");
-Console.WriteLine("Environment: " + builder.Environment.EnvironmentName);
-
-string? regEnabled = Environment.GetEnvironmentVariable("IS_REGISTRATION_ENABLED");
-
-Console.WriteLine($"--- Startup Debug ---");
-Console.WriteLine($"Raw Env Var 'IS_REGISTRATION_ENABLED': {regEnabled ?? "NOT FOUND"}");
-Console.WriteLine($"---------------------");
 
 var app = builder.Build();
 

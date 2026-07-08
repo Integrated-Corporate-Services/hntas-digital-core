@@ -40,6 +40,7 @@ namespace HNTAS.Core.Api.Data.Models
 
         [BsonElement("email")]
         public string Email { get; set; } = null!;
+
         [BsonElement("assessment")]
         public string Assessment { get; set; } = null!;
 

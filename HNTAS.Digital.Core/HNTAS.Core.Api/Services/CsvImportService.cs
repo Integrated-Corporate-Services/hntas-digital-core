@@ -239,6 +239,7 @@ namespace HNTAS.Core.Api.Services
                 _logger.LogInformation("HeatNetwork {HnId} already exists.", row.HnId);
                 return;
             }
+
             await CreateHeatNetwork(row, hntasOrgId, userId);
             await _organisationService.UpdateAsync(hntasOrgId, row.HnId);
             await _userService.UpdateUserNetwork(userId, row.HnId);

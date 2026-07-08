@@ -460,12 +460,20 @@ public class UsersController : ControllerBase
                 CreatedAt = DateTime.UtcNow,
             };
 
-            // check if existing user is Network Manager, if yes then get the invitor's id to RP user id in the org
-            if (existingUser.Roles.Any() && existingUser.Roles.Contains(UserRole.NetworkManager))
+            
+            if (existingUser.Roles.Any())
             {
-                var invitaions = await _invitationService.GetByInvitedEmailAsync(existingUser.EmailId);
-                if (invitaions != null)
-                    newOrganisation.RpUserId = invitaions.InviterUserId;
+                // check if existing user is Network Manager, if yes then get the invitor's id to RP user id in the org
+                if (existingUser.Roles.Contains(UserRole.NetworkManager))
+                {
+                    var invitaions = await _invitationService.GetByInvitedEmailAsync(existingUser.EmailId);
+                    if (invitaions != null)
+                        newOrganisation.RpUserId = invitaions.InviterUserId;
+                }
+                else if (existingUser.Roles.Contains(UserRole.ResponsiblePerson))
+                {
+                    newOrganisation.RpUserId = existingUser.Id;
+                }                
             }
 
             await _organisationService.CreateAsync(newOrganisation);

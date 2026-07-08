@@ -129,7 +129,7 @@ namespace HNTAS.Core.Api.Services
             var missingFields = new List<string>();
 
             if (string.IsNullOrWhiteSpace(row.EmailId)) missingFields.Add("EmailId");
-            if (string.IsNullOrWhiteSpace(row.OneLoginId)) missingFields.Add("OneLoginId");
+            if (string.IsNullOrWhiteSpace(row.HnName)) missingFields.Add("HnName");
             if (string.IsNullOrWhiteSpace(row.HnId)) missingFields.Add("HnId");
 
             var hasOrgIdentifier = !string.IsNullOrWhiteSpace(row.CompaniesHouseNo);

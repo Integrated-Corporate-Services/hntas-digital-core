@@ -11,7 +11,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 
-    var builder = WebApplication.CreateBuilder(args);
+var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 
@@ -65,6 +65,7 @@ builder.Services.AddScoped<IHeatNetworkValidator, HeatNetworkValidator>();
 builder.Services.AddScoped<IKpiSubmissionAuditService, KpiSubmissionAuditService>();
 builder.Services.AddScoped<IUserStatsService, UserStatsService>();
 builder.Services.AddScoped<ISuperUserService, SuperUserService>();
+builder.Services.AddScoped<IArmsPowerBiService, ArmsPowerBiService>();
 
 //Data Migrations
 builder.Services.AddScoped<IDataMigration, SeedCountriesAndTerritories>();

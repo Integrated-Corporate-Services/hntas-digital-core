@@ -1,8 +1,10 @@
-﻿using HNTAS.Core.Api.Data.Models.Arms.Configuration;
+﻿using HNTAS.Core.Api.Configuration;
+using HNTAS.Core.Api.Data.Models.Arms.Configuration;
 using HNTAS.Core.Api.Data.Models.Arms.Submission;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Services;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 using Moq;
 
@@ -15,6 +17,7 @@ namespace HNTAS.Digital.Core.Tests.Services
         private readonly Mock<IMongoCollection<KpiConfiguration>> _mockConfigCollection;
         private readonly Mock<IKpiSubmissionAuditService> _mockAuditService;
         private readonly Mock<ILogger<ArmsKpiService>> _mockLogger;
+        private readonly Mock<IOptions<AWSDocDbSettings>> _mockDbSettings;
 
         public ArmsKpiServiceTests()
         {
@@ -23,20 +26,29 @@ namespace HNTAS.Digital.Core.Tests.Services
             _mockConfigCollection = new Mock<IMongoCollection<KpiConfiguration>>();
             _mockAuditService = new Mock<IKpiSubmissionAuditService>();
             _mockLogger = new Mock<ILogger<ArmsKpiService>>();
+            _mockDbSettings = new Mock<IOptions<AWSDocDbSettings>>();
+
+            var settings = new AWSDocDbSettings
+            {
+                KPI_DataCollectionName = "KPI_Data",
+                KPI_ConfigurationsCollectionName = "KPI_Configurations",
+            };
+
+            _mockDbSettings.Setup(s => s.Value).Returns(settings);
 
             // Setup the mock database to return the correct mock collections by name
             _mockMongoDatabase
-                .Setup(db => db.GetCollection<KpiSubmission>("KPI_Data", It.IsAny<MongoCollectionSettings>()))
+                .Setup(db => db.GetCollection<KpiSubmission>(settings.KPI_DataCollectionName, It.IsAny<MongoCollectionSettings>()))
                 .Returns(_mockKpiCollection.Object);
 
             _mockMongoDatabase
-                .Setup(db => db.GetCollection<KpiConfiguration>("KPI_Configurations", It.IsAny<MongoCollectionSettings>()))
+                .Setup(db => db.GetCollection<KpiConfiguration>(settings.KPI_ConfigurationsCollectionName, It.IsAny<MongoCollectionSettings>()))
                 .Returns(_mockConfigCollection.Object);
         }
 
         private ArmsKpiService CreateService()
         {
-            return new ArmsKpiService(_mockLogger.Object, _mockMongoDatabase.Object, _mockAuditService.Object);
+            return new ArmsKpiService(_mockLogger.Object, _mockMongoDatabase.Object, _mockAuditService.Object, _mockDbSettings.Object);
         }
 
         [Fact]

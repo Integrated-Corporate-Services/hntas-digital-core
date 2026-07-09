@@ -433,8 +433,8 @@ namespace HNTAS.Digital.Core.Tests.Controllers
                     Assert.NotNull(updated.RejectedAt);
                 });
 
-            _mockUserService.Setup(u => u.GetByIdAsync(It.IsAny<string>())).ReturnsAsync(new User { Id = "test", EmailId = "test", Roles = new List<UserRole> { UserRole.NetworkManager} });
-            _mockInvitationService.Setup(i => i.GetByInvitedEmailAsync(It.IsAny<string>())).ReturnsAsync(new Invitation() { InviterUserId = "test"});
+            _mockUserService.Setup(u => u.GetByIdAsync(It.IsAny<string>())).ReturnsAsync(new User { Id = "test", EmailId = "test", Roles = new List<UserRole> { UserRole.NetworkManager } });
+            _mockInvitationService.Setup(i => i.GetByInvitedEmailAsync(It.IsAny<string>())).ReturnsAsync(new Invitation() { InviterUserId = "test" });
             var controller = CreateController();
 
             // Act
@@ -513,7 +513,6 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             var request = new InvitedUserRequest
             {
                 InvitationId = "invite-123",
-                InvitedEmail = "invite@invited.com",
                 OneLoginId = "onelogin-123"
             };
 
@@ -537,7 +536,6 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             var request = new InvitedUserRequest
             {
                 InvitationId = "invite-123",
-                InvitedEmail = "invite@invited.com",
                 OneLoginId = "onelogin-123"
             };
 
@@ -563,7 +561,6 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             var request = new InvitedUserRequest
             {
                 InvitationId = "invite-123",
-                InvitedEmail = "invite@invited.com",
                 OneLoginId = "onelogin-123"
             };
 

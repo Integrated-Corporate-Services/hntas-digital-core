@@ -1,5 +1,8 @@
-﻿namespace HNTAS.Core.Api.Data.Models
+﻿using System.Diagnostics.CodeAnalysis;
+
+namespace HNTAS.Core.Api.Data.Models
 {
+    [ExcludeFromCodeCoverage]
     public class Feedback
     {
         public string? SatisfactionLevel { get; set; }

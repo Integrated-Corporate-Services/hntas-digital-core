@@ -7,7 +7,6 @@ using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
 using HNTAS.Core.Api.Models.HeatNetwork;
-using HNTAS.Core.Api.Models.NetworkDetails;
 using HNTAS.Core.Api.Models.Soa;
 using Microsoft.AspNetCore.Mvc;
 using System.Net.Mime;
@@ -92,7 +91,7 @@ namespace HNTAS.Core.Api.Controllers
 
                 if (heatNetworks == null || !heatNetworks.Any())
                 {
-                    _logger.LogInformation("No heat networks found for the provided IDs: {HeatNetworkIds}", string.Join(", ", hnIds?.Select(x => x).ToArray()!));
+                    _logger.LogInformation("No heat networks found for the provided IDs: {HeatNetworkIds}", string.Join(", ", hnIds?.Select(x => x.ToSafeLog()).ToArray()!));
                     return NotFound("No heat networks found for the given IDs.");
                 }
 
@@ -166,13 +165,13 @@ namespace HNTAS.Core.Api.Controllers
 
                     if (heatNetwork == null)
                     {
-                        _logger.LogInformation("No heat networks found for the provided ID: {HeatNetworkId}", StringFormatter.Sanitize(hnMapping.HnId));                        
+                        _logger.LogInformation("No heat networks found for the provided ID: {HeatNetworkId}", StringFormatter.Sanitize(hnMapping.HnId));
                     }
                     else
                     {
                         var heatNetworkResponse = _mapper.Map<HeatNetworkResponse>(heatNetwork);
                         heatNetworks.Add(heatNetworkResponse);
-                    } 
+                    }
                 }
                 return heatNetworks;
             }
@@ -364,7 +363,7 @@ namespace HNTAS.Core.Api.Controllers
                 _logger.LogError(ex, "An error occurred while updating NetworkElements for HnId: {HnId}", StringFormatter.Sanitize(hnId));
                 return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while updating the heat network.");
             }
-        }        
+        }
 
         private async Task NotificationHistoryForAddingHeatNetwork(HeatNetwork heatNetwork, UserDetailsResult user)
         {

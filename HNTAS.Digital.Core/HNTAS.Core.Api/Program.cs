@@ -11,7 +11,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 
-    var builder = WebApplication.CreateBuilder(args);
+var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 
@@ -65,6 +65,7 @@ builder.Services.AddScoped<IHeatNetworkValidator, HeatNetworkValidator>();
 builder.Services.AddScoped<IKpiSubmissionAuditService, KpiSubmissionAuditService>();
 builder.Services.AddScoped<IUserStatsService, UserStatsService>();
 builder.Services.AddScoped<ISuperUserService, SuperUserService>();
+builder.Services.AddScoped<IArmsPowerBiService, ArmsPowerBiService>();
 
 //Data Migrations
 builder.Services.AddScoped<IDataMigration, SeedCountriesAndTerritories>();
@@ -188,14 +189,6 @@ builder.Services.UseJsonPropertyNames();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi("HNTAS.Core.Api");
 
-Console.WriteLine("***********************************");
-Console.WriteLine("Environment: " + builder.Environment.EnvironmentName);
-
-string? regEnabled = Environment.GetEnvironmentVariable("IS_REGISTRATION_ENABLED");
-
-Console.WriteLine($"--- Startup Debug ---");
-Console.WriteLine($"Raw Env Var 'IS_REGISTRATION_ENABLED': {regEnabled ?? "NOT FOUND"}");
-Console.WriteLine($"---------------------");
 
 var app = builder.Build();
 

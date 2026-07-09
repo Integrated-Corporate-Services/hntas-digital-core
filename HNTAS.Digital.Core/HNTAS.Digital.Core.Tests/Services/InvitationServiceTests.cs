@@ -263,7 +263,6 @@ namespace HNTAS.Digital.Core.Tests.Services
             var request = new InvitedUserRequest
             {
                 InvitationId = "test",
-                InvitedEmail = "test@gmail.com",
                 OneLoginId = "test"
             };
 
@@ -288,7 +287,6 @@ namespace HNTAS.Digital.Core.Tests.Services
             var request = new InvitedUserRequest
             {
                 InvitationId = "test",
-                InvitedEmail = "test@gmail.com",
                 OneLoginId = "test"
             };
 

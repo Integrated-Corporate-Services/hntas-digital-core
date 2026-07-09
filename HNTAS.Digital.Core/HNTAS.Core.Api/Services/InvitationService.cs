@@ -9,14 +9,13 @@ using Microsoft.Extensions.Options;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using System.Data;
-using System.Linq;
 
 namespace HNTAS.Core.Api.Services
 {
     public class InvitationService : IInvitationService
     {
         private readonly IMongoCollection<Invitation> _invitationsCollection;
-        private readonly ILogger<InvitationService> _logger;        
+        private readonly ILogger<InvitationService> _logger;
         private readonly IUserService _userService;
         private readonly IHeatNetworkService _heatNetworkService;
         private readonly IAuditService _auditService;
@@ -25,7 +24,7 @@ namespace HNTAS.Core.Api.Services
         public InvitationService(
         IMongoDatabase mongoDatabase,
         IOptions<AWSDocDbSettings> dbSettings,
-        ILogger<InvitationService> logger,        
+        ILogger<InvitationService> logger,
         IUserService userService,
         IHeatNetworkService heatNetworkService,
         IAuditService auditService,
@@ -33,7 +32,7 @@ namespace HNTAS.Core.Api.Services
         {
             _logger = logger;
             _invitationsCollection = mongoDatabase.GetCollection<Invitation>(dbSettings.Value.InvitationsCollectionName);
-            _logger.LogInformation("UserService initialized via Dependency Injection.");            
+            _logger.LogInformation("UserService initialized via Dependency Injection.");
             _userService = userService;
             _heatNetworkService = heatNetworkService;
             _auditService = auditService;
@@ -78,7 +77,7 @@ namespace HNTAS.Core.Api.Services
                 .Find(invitation =>
                     invitedEmails.Contains(invitation.InvitedEmail) &&
                     invitation.InvitedHnId == hnId &&
-                    invitation.Status == Enums.InvitationStatus.Accepted)                
+                    invitation.Status == Enums.InvitationStatus.Accepted)
                 .ToListAsync();
 
         public async Task<List<ManagedUserResponse>> GetInvitedUsersAsRegisteredAsync(string inviterUserId)
@@ -182,7 +181,7 @@ namespace HNTAS.Core.Api.Services
             // update invitation after user is successfully created
             await UpdateAsync(invitation.Id, invitation);
             return AcceptInvitationResult.Created(newUser.Id!);
-        }        
+        }
 
         public async Task<User> CreateUser(
         InvitedUserRequest request,
@@ -209,7 +208,7 @@ namespace HNTAS.Core.Api.Services
             await _userService.UpdateAsync(user.Id!, user);
 
             await PostActions(invitation, user, heatNetwork);
-        }     
+        }
 
         public async void AddHnMapping(User user, Invitation invitation)
         {
@@ -218,7 +217,7 @@ namespace HNTAS.Core.Api.Services
             if (invitation.InvitedRoles.Contains(ContributorRole.NetworkManager))
             {
                 var inviterRpDetails = await _userService.GetByIdAsync(invitation.InviterUserId);
-                foreach(var hnRoleMapping in inviterRpDetails.HnRoleMappings) 
+                foreach (var hnRoleMapping in inviterRpDetails.HnRoleMappings)
                 {
                     var existing = user.HnRoleMappings.FirstOrDefault(x => x.HnId == hnRoleMapping.HnId && x.Role == ContributorRole.NetworkManager);
                     if (existing == null)
@@ -228,11 +227,11 @@ namespace HNTAS.Core.Api.Services
                             HnId = hnRoleMapping.HnId,
                             Role = ContributorRole.NetworkManager
                         });
-                    }                        
+                    }
                 }
             }// If accepted as anything else - then only add that one hn to that one role, if it doesn't already exist
             else
-            {                
+            {
                 if (invitation.InvitedHnId == null)
                     return;
 
@@ -296,7 +295,7 @@ namespace HNTAS.Core.Api.Services
             var user = new User
             {
                 OneLoginId = request.OneLoginId,
-                EmailId = request.InvitedEmail,
+                EmailId = invitation.InvitedEmail,
                 FirstName = invitation.FirstName,
                 LastName = invitation.LastName,
                 JobTitle = null,
@@ -340,7 +339,7 @@ namespace HNTAS.Core.Api.Services
             return networkManagerInvitations;
         }
 
-        public  static readonly Dictionary<ContributorRole, UserRole> RoleMapping =
+        public static readonly Dictionary<ContributorRole, UserRole> RoleMapping =
         new Dictionary<ContributorRole, UserRole>
         {
             { ContributorRole.DesignatedDutyHolder, UserRole.DesignatedDutyHolder },
@@ -506,6 +505,6 @@ namespace HNTAS.Core.Api.Services
                 }
             }
 
-        }               
+        }
     }
 }

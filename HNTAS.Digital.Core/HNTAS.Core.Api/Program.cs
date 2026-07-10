@@ -114,7 +114,6 @@ builder.Services.AddHttpClient();
 builder.Services.AddScoped<ICarbonCalculatorService, CarbonCalculatorService>();
 builder.Services.AddScoped<ICsvImportService, CsvImportService>();
 
-builder.Services.AddScoped<IHNDataImportExportService, HNDataImportExportService>();
 builder.Services.AddScoped<ISubmissionCCService, SubmissionCCService>();
 builder.Services.AddScoped<ICarbonCalculatorRuleValidation, CarbonCalculatorRuleValidation>();
 

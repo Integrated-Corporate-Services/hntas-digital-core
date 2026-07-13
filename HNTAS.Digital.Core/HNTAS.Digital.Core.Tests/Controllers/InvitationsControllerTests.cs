@@ -5,6 +5,7 @@ using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
 using HNTAS.Core.Api.Models.Users;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -148,6 +149,163 @@ namespace HNTAS.Digital.Core.Tests.Controllers
         }
 
         [Fact]
+        public async Task AddUserInvitation_NetworkNotFound()
+        {
+            // Arrange
+            var inviterId = "inviter-123";
+            var existingUser = new User { Id = inviterId, EmailId = "inviter@example.com" };
+            _mockUserService.Setup(u => u.GetByIdAsync(inviterId)).ReturnsAsync(existingUser);
+
+            var request = new AddInvitationRequest
+            {
+                EmailAddress = "newuser@example.com",
+                FirstName = "New",
+                LastName = "User",
+                HnId = "HN100001",
+                OrgId = null,
+                ContributorRoles = new List<ContributorRole> { ContributorRole.Certifier },
+                RolesToReplace = new List<ContributorRole>()
+            };
+
+            // Capture the invitation and set Id in CreateAsync callback
+            _mockInvitationService
+                .Setup(i => i.CreateAsync(It.IsAny<Invitation>()))
+                .Returns<Invitation>(inv =>
+                {
+                    inv.Id = "new-invite-id";
+                    return Task.CompletedTask;
+                });
+
+            _mockHnService.Setup(h => h.GetByHnIdAsync(It.IsAny<string>())).ReturnsAsync((HeatNetwork)null!);
+
+            var controller = CreateController();
+
+            // Act
+            var result = await controller.AddUserInvitation(inviterId, request);
+
+            // Assert
+            Assert.IsType<NotFoundObjectResult>(result);
+
+        }
+
+        [Fact]
+        public async Task AddUserInvitation_UserNotFound()
+        {
+            // Arrange
+            var inviterId = "inviter-123";
+            var existingUser = new User { Id = inviterId, EmailId = "inviter@example.com" };
+            _mockUserService.Setup(u => u.GetByIdAsync(inviterId)).ReturnsAsync(existingUser);
+
+            var request = new AddInvitationRequest
+            {
+                EmailAddress = "newuser@example.com",
+                FirstName = "New",
+                LastName = "User",
+                HnId = null,
+                OrgId = null,
+                ContributorRoles = new List<ContributorRole> { ContributorRole.Certifier },
+                RolesToReplace = new List<ContributorRole>()
+            };
+
+            // Capture the invitation and set Id in CreateAsync callback
+            _mockInvitationService
+                .Setup(i => i.CreateAsync(It.IsAny<Invitation>()))
+                .Returns<Invitation>(inv =>
+                {
+                    inv.Id = "new-invite-id";
+                    return Task.CompletedTask;
+                });
+
+            _mockUserService.Setup(h => h.GetByIdAsync(It.IsAny<string>())).ReturnsAsync((User)null!);
+
+            var controller = CreateController();
+
+            // Act
+            var result = await controller.AddUserInvitation(inviterId, request);
+
+            // Assert
+            Assert.IsType<NotFoundResult>(result);
+
+        }
+
+        [Fact]
+        public async Task AddUserInvitation_ThrowException()
+        {
+            // Arrange
+            var inviterId = "inviter-123";
+            var existingUser = new User { Id = inviterId, EmailId = "inviter@example.com" };
+            _mockUserService.Setup(u => u.GetByIdAsync(inviterId)).Throws(new Exception());
+
+            var request = new AddInvitationRequest
+            {
+                EmailAddress = "newuser@example.com",
+                FirstName = "New",
+                LastName = "User",
+                HnId = null,
+                OrgId = null,
+                ContributorRoles = new List<ContributorRole> { ContributorRole.Certifier },
+                RolesToReplace = new List<ContributorRole>()
+            };
+
+            var controller = CreateController();
+
+            // Act
+            var result = await controller.AddUserInvitation(inviterId, request);
+
+            // Assert
+            var res = Assert.IsType<ObjectResult>(result);
+            Assert.Equal(StatusCodes.Status500InternalServerError, res.StatusCode);
+
+        }
+
+        [Theory]
+        [InlineData(UserRole.ResponsiblePerson, ContributorRole.NetworkManager)]
+        [InlineData(UserRole.ResponsiblePerson, ContributorRole.DesignatedDutyHolder)]
+        [InlineData(UserRole.ResponsiblePerson, ContributorRole.Contributor)]
+        [InlineData(UserRole.NetworkManager, ContributorRole.DesignatedDutyHolder)]
+        [InlineData(UserRole.NetworkManager, ContributorRole.Contributor)]
+        [InlineData(UserRole.DesignatedDutyHolder, ContributorRole.Contributor)]
+        public async Task AddUserInvitation_UpdateUser(UserRole invitorRole, ContributorRole invitedRole)
+        {
+            // Arrange
+            var inviterId = "inviter-123";
+            var existingUser = new User { Id = inviterId, EmailId = "inviter@example.com" };
+            _mockUserService.Setup(u => u.GetByIdAsync(inviterId)).ReturnsAsync(existingUser);
+
+            var request = new AddInvitationRequest
+            {
+                EmailAddress = "newuser@example.com",
+                FirstName = "New",
+                LastName = "User",
+                HnId = null,
+                OrgId = null,
+                ContributorRoles = new List<ContributorRole> { invitedRole },
+                RolesToReplace = new List<ContributorRole> { ContributorRole.Contributor },
+                ReplacedUserId = "nonexistent-user"
+            };
+
+            // Capture the invitation and set Id in CreateAsync callback
+            _mockInvitationService
+                .Setup(i => i.CreateAsync(It.IsAny<Invitation>()))
+                .Returns<Invitation>(inv =>
+                {
+                    inv.Id = "new-invite-id";
+                    return Task.CompletedTask;
+                });
+
+            _mockUserService.Setup(h => h.GetByIdAsync(It.IsAny<string>())).ReturnsAsync(new User { Id = "test", HnRoleMappings = new List<HnRoleMapping> { new HnRoleMapping { HnId = "HN100001", Role = ContributorRole.NetworkManager } }, Roles = new List<UserRole> { invitorRole } });
+            _mockUserService.Setup(u => u.UpdateAsync(It.IsAny<string>(), It.IsAny<User>())).Returns(Task.CompletedTask);
+            _mockEmailService.Setup(e => e.TrySendHNDiscontinedEmailAsync(It.IsAny<User>(), It.IsAny<string>(), It.IsAny<ContributorRole>())).Returns(Task.CompletedTask);
+            var controller = CreateController();
+
+            // Act
+            var result = await controller.AddUserInvitation(inviterId, request);
+
+            // Assert
+            Assert.IsType<ObjectResult>(result);
+        }
+
+        [Fact]
         public async Task AddUserInvitation_Negative_InvalidModel_ReturnsValidationProblem()
         {
             // Arrange
@@ -200,6 +358,40 @@ namespace HNTAS.Digital.Core.Tests.Controllers
         }
 
         [Fact]
+        public async Task SendInvitationEmail_Positive_HeatNetworkInvitation_OrgNotNull_EmailSentAndNoContentReturned()
+        {
+            // Arrange
+            var invitationId = "invite-1";
+            var invitation = new Invitation
+            {
+                Id = invitationId,
+                InvitedHnId = null,
+                Status = InvitationStatus.Invited,
+                InvitedEmail = "invitee@hn.com",
+                InvitedOrgId = "ORG-123"
+            };
+
+            var request = new SendInvitationEmailRequest { Token = "token-123" };
+
+            _mockInvitationService.Setup(s => s.GetByIdAsync(invitationId)).ReturnsAsync(invitation);
+            _mockHnService.Setup(h => h.GetByHnIdAsync(invitation.InvitedHnId)).ReturnsAsync(new HeatNetwork { Name = "Test HN", HnId = invitation.InvitedHnId });
+
+            _mockUserService.Setup(u => u.GetByIdAsync(It.IsAny<string>())).ReturnsAsync(new User { Id = "test", EmailId = "test" });
+            _mockMapper.Setup(m => m.Map<UserResponse>(It.IsAny<User>())).Returns(new UserResponse() { FullName = "test" });
+            _mockOrganisationService.Setup(o => o.GetByOrgIdAsync(It.IsAny<string>())).ReturnsAsync(new Organisation { Name = "Test Org", OrgId = "ORG-1" });
+            _mockEmailService.Setup(e => e.TrySendOrganisationInvitationEmailAsync(It.IsAny<Invitation>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>())).Returns(Task.CompletedTask);
+
+            var controller = CreateController();
+
+            // Act
+            var result = await controller.SendInvitationEmail(invitationId, request);
+
+            // Assert
+            Assert.IsType<NoContentResult>(result);
+            _mockEmailService.Verify(e => e.TrySendOrganisationInvitationEmailAsync(It.IsAny<Invitation>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Once);
+        }
+
+        [Fact]
         public async Task SendInvitationEmail_Negative_InvitationNotFound_ReturnsNotFound()
         {
             // Arrange
@@ -217,15 +409,19 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             _mockEmailService.Verify(e => e.TrySendHeatNetworkInvitationEmailAsync(It.IsAny<Invitation>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
         }
 
-        [Fact]
-        public async Task RejectInvitation_Positive_PendingInvitation_UpdatesAndReturnsNoContent()
+        [Theory]
+        [InlineData(ContributorRole.DesignatedDutyHolder)]
+        [InlineData(ContributorRole.Contributor)]
+        [InlineData(ContributorRole.NetworkManager)]
+        public async Task RejectInvitation_Positive_PendingInvitation_UpdatesAndReturnsNoContent(ContributorRole invitedRole)
         {
             // Arrange
             var invitationId = "to-reject";
             var invitation = new Invitation
             {
                 Id = invitationId,
-                Status = InvitationStatus.Invited
+                Status = InvitationStatus.Invited,
+                InvitedRoles = new List<ContributorRole> { invitedRole }
             };
 
             _mockInvitationService.Setup(s => s.GetByIdAsync(invitationId)).ReturnsAsync(invitation);
@@ -237,6 +433,8 @@ namespace HNTAS.Digital.Core.Tests.Controllers
                     Assert.NotNull(updated.RejectedAt);
                 });
 
+            _mockUserService.Setup(u => u.GetByIdAsync(It.IsAny<string>())).ReturnsAsync(new User { Id = "test", EmailId = "test", Roles = new List<UserRole> { UserRole.NetworkManager } });
+            _mockInvitationService.Setup(i => i.GetByInvitedEmailAsync(It.IsAny<string>())).ReturnsAsync(new Invitation() { InviterUserId = "test" });
             var controller = CreateController();
 
             // Act
@@ -271,5 +469,114 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             Assert.Equal(400, badRequest.StatusCode);
             _mockInvitationService.Verify(s => s.UpdateAsync(It.IsAny<string>(), It.IsAny<Invitation>()), Times.Never);
         }
+
+        [Fact]
+        public async Task AcceptInvitation_Ok()
+        {
+            var request = new InvitedUserRequest();
+            _mockInvitationService.Setup(s => s.AcceptAsync(It.IsAny<InvitedUserRequest>()))
+                .ReturnsAsync(new AcceptInvitationResult("test", false, false));
+
+            var controller = CreateController();
+            var result = await controller.AcceptInvitation(request);
+            Assert.IsType<OkObjectResult>(result);
+        }
+
+        [Fact]
+        public async Task AcceptInvitation_IsCreated()
+        {
+            var request = new InvitedUserRequest();
+            _mockInvitationService.Setup(s => s.AcceptAsync(It.IsAny<InvitedUserRequest>()))
+                .ReturnsAsync(new AcceptInvitationResult("test", true, false));
+
+            var controller = CreateController();
+            var result = await controller.AcceptInvitation(request);
+            Assert.IsType<ObjectResult>(result);
+        }
+
+        [Fact]
+        public async Task AcceptInvitation_IsNotFound()
+        {
+            var request = new InvitedUserRequest();
+            _mockInvitationService.Setup(s => s.AcceptAsync(It.IsAny<InvitedUserRequest>()))
+                .ReturnsAsync(new AcceptInvitationResult("test", false, true));
+
+            var controller = CreateController();
+            var result = await controller.AcceptInvitation(request);
+            Assert.IsType<NotFoundResult>(result);
+        }
+
+        [Fact]
+        public async Task AcceptInvitation_ReturnsNotFound_WhenInvitationNotFound()
+        {
+            // Arrange
+            var request = new InvitedUserRequest
+            {
+                InvitationId = "invite-123",
+                OneLoginId = "onelogin-123"
+            };
+
+            _mockInvitationService
+                .Setup(s => s.AcceptAsync(It.IsAny<InvitedUserRequest>()))
+                .ReturnsAsync(AcceptInvitationResult.NotFound());
+
+            var controller = CreateController();
+
+            // Act
+            var result = await controller.AcceptInvitation(request);
+
+            // Assert
+            Assert.IsType<NotFoundResult>(result);
+        }
+
+        [Fact]
+        public async Task AcceptInvitation_ReturnsCreated_WhenUserIsCreated()
+        {
+            // Arrange
+            var request = new InvitedUserRequest
+            {
+                InvitationId = "invite-123",
+                OneLoginId = "onelogin-123"
+            };
+
+            _mockInvitationService
+                .Setup(s => s.AcceptAsync(It.IsAny<InvitedUserRequest>()))
+                .ReturnsAsync(AcceptInvitationResult.Created("user-001"));
+
+            var controller = CreateController();
+
+            // Act
+            var result = await controller.AcceptInvitation(request);
+
+            // Assert
+            var objectResult = Assert.IsType<ObjectResult>(result);
+            Assert.Equal(StatusCodes.Status201Created, objectResult.StatusCode);
+            Assert.Equal("user-001", objectResult.Value);
+        }
+
+        [Fact]
+        public async Task AcceptInvitation_ReturnsOk_WhenUserAlreadyExists()
+        {
+            // Arrange
+            var request = new InvitedUserRequest
+            {
+                InvitationId = "invite-123",
+                OneLoginId = "onelogin-123"
+            };
+
+            _mockInvitationService
+                .Setup(s => s.AcceptAsync(It.IsAny<InvitedUserRequest>()))
+                .ReturnsAsync(AcceptInvitationResult.Updated("user-001"));
+
+            var controller = CreateController();
+
+            // Act
+            var result = await controller.AcceptInvitation(request);
+
+            // Assert
+            var okResult = Assert.IsType<OkObjectResult>(result);
+            Assert.Equal("user-001", okResult.Value);
+        }
+
     }
 }

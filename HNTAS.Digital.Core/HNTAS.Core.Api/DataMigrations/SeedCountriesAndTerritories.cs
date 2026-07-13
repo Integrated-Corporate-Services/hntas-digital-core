@@ -2,9 +2,11 @@
 using HNTAS.Core.Api.Data.Models;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
+using System.Diagnostics.CodeAnalysis;
 
 namespace HNTAS.Core.Api.DataMigrations
 {
+    [ExcludeFromCodeCoverage]
     public class SeedCountriesAndTerritories : IDataMigration
     {
         private readonly AWSDocDbSettings _awsDocDbSettings;

@@ -3,9 +3,12 @@ using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Interfaces;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
+using System.Diagnostics.CodeAnalysis;
 
 namespace HNTAS.Core.Api.Services
 {
+    [ExcludeFromCodeCoverage]
+    //Temporary service to check if a user is a super user. This will be removed once we have a proper user management system in place.
     public class SuperUserService : ISuperUserService
     {
         private readonly ILogger<SuperUserService> _logger;

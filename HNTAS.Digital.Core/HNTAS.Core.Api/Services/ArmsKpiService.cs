@@ -1,6 +1,8 @@
-﻿using HNTAS.Core.Api.Data.Models.Arms.Configuration;
+﻿using HNTAS.Core.Api.Configuration;
+using HNTAS.Core.Api.Data.Models.Arms.Configuration;
 using HNTAS.Core.Api.Data.Models.Arms.Submission;
 using HNTAS.Core.Api.Interfaces;
+using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 
 namespace HNTAS.Core.Api.Services
@@ -12,11 +14,11 @@ namespace HNTAS.Core.Api.Services
         private readonly IKpiSubmissionAuditService _auditService;
         private readonly ILogger<ArmsKpiService> _logger;
 
-        public ArmsKpiService(ILogger<ArmsKpiService> logger, IMongoDatabase mongoDatabase, IKpiSubmissionAuditService auditService)
+        public ArmsKpiService(ILogger<ArmsKpiService> logger, IMongoDatabase mongoDatabase, IKpiSubmissionAuditService auditService, IOptions<AWSDocDbSettings> dbSettings)
         {
             _logger = logger;
-            _kpiCollection = mongoDatabase.GetCollection<KpiSubmission>("KPI_Data");
-            _configCollection = mongoDatabase.GetCollection<KpiConfiguration>("KPI_Configurations");
+            _kpiCollection = mongoDatabase.GetCollection<KpiSubmission>(dbSettings.Value.KPI_DataCollectionName);
+            _configCollection = mongoDatabase.GetCollection<KpiConfiguration>(dbSettings.Value.KPI_ConfigurationsCollectionName);
             _logger.LogInformation("ArmsKpiService initialized via Dependency Injection.");
             _auditService = auditService;
         }
@@ -54,6 +56,23 @@ namespace HNTAS.Core.Api.Services
             return await _kpiCollection
                 .Find(s => s.Id == submissionId)
                 .FirstOrDefaultAsync();
+        }
+
+        public async Task<List<KpiSubmission>> GetSubmissionsForYearAsync(string networkId, int year)
+        {
+            var filterBuilder = Builders<KpiSubmission>.Filter;
+
+            // 1. Filter by the specific heat network ID
+            var filter = filterBuilder.Eq(x => x.MetaData.NetworkId, networkId);
+
+            // 2. Filter by the calendar year using a Regex match (e.g., "^2026-")
+            // This matches any period starting with the year format like "2026-01", "2026-02", etc.
+            filter &= filterBuilder.Regex(x => x.MetaData.PeriodStart, $"^{year}-");
+
+            // 3. Return full documents so CarbonInputsV2 payload data is populated for calculations
+            return await _kpiCollection
+                .Find(filter)
+                .ToListAsync();
         }
 
         public async Task<string> CreateOrUpdateSubmissionAsync(KpiSubmission submission)
@@ -138,5 +157,8 @@ namespace HNTAS.Core.Api.Services
 
             _logger.LogInformation("KPI Configuration processed for NetworkId: {NetworkId}", configuration.NetworkId);
         }
+
+
+
     }
 }

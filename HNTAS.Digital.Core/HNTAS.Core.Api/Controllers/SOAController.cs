@@ -1,14 +1,11 @@
-﻿using HNTAS.Core.Api.Constants;
-using HNTAS.Core.Api.Data.Models;
+﻿using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Enums;
+using HNTAS.Core.Api.Extensions;
 using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
 using HNTAS.Core.Api.Models.Soa;
-using HNTAS.Core.Api.Services;
 using Microsoft.AspNetCore.Mvc;
-using System;
-using System.ComponentModel.DataAnnotations;
 
 namespace HNTAS.Core.Api.Controllers
 {
@@ -34,300 +31,6 @@ namespace HNTAS.Core.Api.Controllers
             _auditService = auditService;
             _notificationHistoryService = notificationHistoryService;
             _invitationService = invitationService;
-        }
-
-
-        [HttpGet("heat-network/{hnId}")]
-        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(Soa))]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<Soa>> GetByHeatNetworkIdAsync(string hnId)
-        {
-            _logger.LogInformation("Retrieving SOA project for Heat Network ID: {HnId}", hnId);
-
-            var project = await _soaService.GetByHeatNetworkIdAsync(hnId);
-
-            if (project is null)
-            {
-                _logger.LogWarning("SOA project not found for Heat Network ID: {HnId}", hnId);
-                return NotFound();
-            }
-
-            _logger.LogInformation("SOA project retrieved successfully for Heat Network ID: {HnId}", hnId);
-            return Ok(project);
-        }
-
-
-        [HttpPost("create")]
-        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(Soa))]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> CreateProject([FromQuery] string hnId, [FromQuery] string createdBy)
-        {
-            if (string.IsNullOrWhiteSpace(hnId))
-            {
-                _logger.LogWarning("Create request rejected: missing Heat Network ID.");
-                return BadRequest("Heat Network ID is required.");
-            }
-
-            if (string.IsNullOrWhiteSpace(createdBy))
-            {
-                _logger.LogWarning("Create request rejected: missing CreatedBy.");
-                return BadRequest("CreatedBy is required.");
-            }
-
-            _logger.LogInformation("Initiating SOA creation for Heat Network ID: {HnId} by user: {CreatedBy}", hnId, createdBy);
-
-            var soa = await _soaService.CreateAsync(hnId, createdBy);
-
-            if (soa is null)
-            {
-                _logger.LogWarning("SOA creation failed for Heat Network ID: {HnId}", hnId);
-                return BadRequest("Unable to create SOA data.");
-            }
-
-            _logger.LogInformation("SOA data successfully created for Heat Network ID: {HnId}", hnId);
-            return Ok(soa);
-        }
-
-
-
-
-        [HttpPatch("connections")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> UpdateConnections([FromBody] UpdateConnectionsRequest request)
-        {
-            _logger.LogInformation("Updating connection types for Heat Network ID: {HnId} by {UpdatedBy}", request.HnId, request.UpdatedBy);
-
-            if (string.IsNullOrEmpty(request.HnId))
-            {
-                _logger.LogWarning("Heat Network ID is missing in connection update.");
-                return BadRequest("Heat Network ID is required.");
-            }
-
-            if (string.IsNullOrEmpty(request.UpdatedBy))
-            {
-                _logger.LogWarning("UpdatedBy is missing in connection update.");
-                return BadRequest("UpdatedBy is required.");
-            }
-
-            var project = await _soaService.GetByHeatNetworkIdAsync(request.HnId);
-            if (project == null)
-            {
-                _logger.LogWarning("SOA project not found for connection update: {HnId}", request.HnId);
-                return NotFound();
-            }
-
-            await _soaService.UpdateConnectionTypesAsync(request.HnId, request.UpdatedBy, request.ConnectionTypes);
-            _logger.LogInformation("Connection types updated for Heat Network ID: {HnId}", request.HnId);
-
-            return Ok();
-        }
-
-
-        [HttpPatch("network-type")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> UpdateNetworkType([FromQuery] string hnId, [FromQuery] string updatedBy, [FromBody] NetworkTypeSelection networkTypeSelection)
-        {
-            _logger.LogInformation("Updating network type for Heat Network ID: {hnId} by {UpdatedBy}", hnId, updatedBy);
-
-            if (string.IsNullOrEmpty(hnId))
-            {
-                _logger.LogWarning("Heat Network ID is missing in network type update.");
-                return BadRequest("Heat Network ID is required.");
-            }
-
-            if (string.IsNullOrEmpty(updatedBy))
-            {
-                _logger.LogWarning("UpdatedBy is missing in network type update.");
-                return BadRequest("UpdatedBy is required.");
-            }
-
-            var project = await _soaService.GetByHeatNetworkIdAsync(hnId);
-            if (project == null)
-            {
-                _logger.LogWarning("SOA project not found for network type update: {hnId}", hnId);
-                return NotFound();
-            }
-
-            await _soaService.UpdateNetworkTypeAsync(hnId, updatedBy, networkTypeSelection);
-            _logger.LogInformation("Network type updated for Heat Network ID: {hnId}", hnId);
-
-            return Ok();
-        }
-
-        [HttpPatch("network-elements")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> UpdateNetworkElements([FromQuery] string hnId, [FromQuery] string updatedBy, [FromBody] List<HeatNetworkElement> networkElements)
-        {
-            _logger.LogInformation("Updating network type for Heat Network ID: {hnId} by {UpdatedBy}", hnId, updatedBy);
-
-            if (string.IsNullOrEmpty(hnId))
-            {
-                _logger.LogWarning("Heat Network ID is missing in network type update.");
-                return BadRequest("Heat Network ID is required.");
-            }
-
-            if (string.IsNullOrEmpty(updatedBy))
-            {
-                _logger.LogWarning("UpdatedBy is missing in network type update.");
-                return BadRequest("UpdatedBy is required.");
-            }
-
-            var project = await _soaService.GetByHeatNetworkIdAsync(hnId);
-            if (project == null)
-            {
-                _logger.LogWarning("SOA project not found for network type update: {hnId}", hnId);
-                return NotFound();
-            }
-
-            await _soaService.UpdateHeatNetworkElementsAsync(hnId, networkElements, updatedBy);
-            _logger.LogInformation("Network type updated for Heat Network ID: {hnId}", hnId);
-
-            return Ok();
-        }
-
-        [HttpPatch("element-locations")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> SaveElementLocations([FromBody] UpdateElementLocationsRequest request)
-        {
-            if (!ModelState.IsValid)
-            {
-                _logger.LogWarning("Invalid SaveLocations request: {@Errors}", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage));
-                return BadRequest(ModelState);
-            }
-
-            _logger.LogInformation("Saving locations for element type: {ElementType} in HN ID: {HnId} by {UpdatedBy}. Location count: {LocationCount}",
-                request.ElementType, request.HnId, request.UpdatedBy, request.Locations?.Count ?? 0);
-
-            var project = await _soaService.GetByHeatNetworkIdAsync(request.HnId);
-            if (project == null)
-            {
-                _logger.LogWarning("SOA project not found for location save: {HnId}", request.HnId);
-                return NotFound();
-            }
-
-            try
-            {
-                await _soaService.UpdateElementLocationsAsync(request.HnId, request.ElementType, request.Locations, request.UpdatedBy);
-                _logger.LogInformation("Locations updated successfully for element type: {ElementType} in HN ID: {HnId} by {UpdatedBy}",
-                    request.ElementType, request.HnId, request.UpdatedBy);
-                return Ok();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to update locations for element type: {ElementType} in HN ID: {HnId} by {UpdatedBy}",
-                    request.ElementType, request.HnId, request.UpdatedBy);
-                throw;
-            }
-        }
-
-        [HttpPatch("element-documents")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> SaveElementDocuments([FromBody] UpdateElementDocumentsRequest request)
-        {
-            if (!ModelState.IsValid)
-            {
-                _logger.LogWarning("Invalid SaveDocuments request: {@Errors}", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage));
-                return BadRequest(ModelState);
-            }
-
-            _logger.LogInformation("Saving documents for element type: {ElementType} in HN ID: {HnId} by {UpdatedBy}. Document count: {DocumentCount}",
-                request.ElementType, request.HnId, request.UpdatedBy, request.Documents?.Count ?? 0);
-
-            var project = await _soaService.GetByHeatNetworkIdAsync(request.HnId);
-            if (project == null)
-            {
-                _logger.LogWarning("SOA project not found for document save: {HnId}", request.HnId);
-                return NotFound();
-            }
-
-            try
-            {
-                await _soaService.UpdateElementDocumentsAsync(request.HnId, request.ElementType, request.Documents, request.UpdatedBy);
-                _logger.LogInformation("Documents updated successfully for element type: {ElementType} in HN ID: {HnId} by {UpdatedBy}",
-                    request.ElementType, request.HnId, request.UpdatedBy);
-                return Ok();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to update documents for element type: {ElementType} in HN ID: {HnId} by {UpdatedBy}",
-                    request.ElementType, request.HnId, request.UpdatedBy);
-                throw;
-            }
-        }
-
-
-        [HttpPatch("document-update")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> SaveDocument([FromBody] UpdateDocumentRequest request)
-        {
-            if (!ModelState.IsValid)
-            {
-                _logger.LogWarning("Invalid SaveDocument request: {@Errors}",
-                    ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage));
-                return BadRequest(ModelState);
-            }
-
-            _logger.LogInformation("Saving {DocumentType} document for HN ID: {HnId}, Phase: {Phase}, Stage: {Stage}, UploadedBy: {UploadedBy}",
-                request.DocumentType, request.HnId, request.Phase, request.Stage, request.UploadedBy);
-
-            var project = await _soaService.GetByHeatNetworkIdAsync(request.HnId);
-            if (project == null)
-            {
-                _logger.LogWarning("SOA not found for {DocumentType} document save: {HnId}", request.DocumentType, request.HnId);
-                return NotFound();
-            }
-
-            var document = new Document
-            {
-                FileName = request.FileName,
-                S3Key = request.S3Key,
-                Phase = request.Phase,
-                Stage = request.Stage,
-                UploadedAt = DateTime.UtcNow,
-                UploadedBy = request.UploadedBy
-            };
-
-            try
-            {
-                switch (request.DocumentType)
-                {
-                    case DocumentType.Assessment:
-                        await _soaService.UpdateAssessmentDocumentAsync(request.HnId, document);
-                        break;
-                    case DocumentType.Assessor:
-                        await _soaService.UpdateAssessorDocumentAsync(request.HnId, document);
-                        break;
-                    case DocumentType.Certifier:
-                        await _soaService.UpdateCertifierDocumentAsync(request.HnId, document);
-                        break;                     
-                    default:
-                        _logger.LogWarning("Unsupported document type: {DocumentType}", request.DocumentType);
-                        return BadRequest($"Unsupported document type: {request.DocumentType}");
-                }
-
-                _logger.LogInformation("{DocumentType} document saved successfully for HN ID: {HnId}, Phase: {Phase}, Stage: {Stage}, UploadedBy: {UploadedBy}",
-                    request.DocumentType, request.HnId, request.Phase, request.Stage, request.UploadedBy);
-
-                return Ok();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to save {DocumentType} document for HN ID: {HnId}, Phase: {Phase}, Stage: {Stage}, UploadedBy: {UploadedBy}",
-                    request.DocumentType, request.HnId, request.Phase, request.Stage, request.UploadedBy);
-                throw;
-            }
         }        
 
         [HttpPatch("update-soa-status")]
@@ -377,7 +80,7 @@ namespace HNTAS.Core.Api.Controllers
                         stage: request.Stage.ToString()
                     );
                 }
-                    
+
 
                 return Ok();
             }
@@ -432,43 +135,9 @@ namespace HNTAS.Core.Api.Controllers
             {
                 _logger.LogError(ex, "Failed to save Assessor Assigned for HN ID: {HnId}, UpdatedBy: {UpdatedBy}",
                 StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(request.UpdatedBy));
-                throw;
+                return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while assigning assessor to the network.");
             }
-        }
-
-        [HttpDelete("{hnId}")]
-        [ProducesResponseType(StatusCodes.Status204NoContent)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> DeleteSoaProject(string hnId)
-        {
-            if (string.IsNullOrWhiteSpace(hnId))
-            {
-                _logger.LogWarning("Delete request received with empty HN ID.");
-                return BadRequest("Heat Network ID is required.");
-            }
-
-            _logger.LogInformation("Attempting to delete SOA project for HN ID: {HnId}", hnId);
-
-            var project = await _soaService.GetByHeatNetworkIdAsync(hnId);
-            if (project == null)
-            {
-                _logger.LogWarning("SOA project not found for deletion: {HnId}", hnId);
-                return NotFound();
-            }
-
-            try
-            {
-                await _soaService.DeleteByHeatNetworkIdAsync(hnId);
-                _logger.LogInformation("SOA project deleted successfully for HN ID: {HnId}", hnId);
-                return NoContent();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to delete SOA project for HN ID: {HnId}", hnId);
-                throw;
-            }
-        }
+        }        
 
 
         [HttpPut("update-soa-status")]
@@ -476,7 +145,7 @@ namespace HNTAS.Core.Api.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> UpdateSoaStatus([FromBody] UpdateSoaStatusRequest request)
         {
-            _logger.LogInformation("Updating SOA status to {Status} for HN ID: {HnId} by {UpdatedBy}", request.Status, request.HnId, request.UpdatedBy);
+            _logger.LogInformation("Updating SOA status to {Status} for HN ID: {HnId} by {UpdatedBy}", request.Status, request.HnId.ToSafeLog(), request.UpdatedBy.ToSafeLog());
 
             if (string.IsNullOrWhiteSpace(request.HnId))
                 return BadRequest("Heat Network ID is required.");
@@ -495,7 +164,7 @@ namespace HNTAS.Core.Api.Controllers
 
             if (soa == null)
             {
-                _logger.LogWarning("No SOA found to update for HN ID: {HnId}", request.HnId);
+                _logger.LogWarning("No SOA found to update for HN ID: {HnId}", request.HnId.ToSafeLog());
                 return BadRequest("SOA not found.");
             }
 
@@ -503,132 +172,19 @@ namespace HNTAS.Core.Api.Controllers
             var assessor = users.FirstOrDefault();
             if (assessor == null)
             {
-                _logger.LogWarning("No assessor found for HN ID: {HnId}", request.HnId);
+                _logger.LogWarning("No assessor found for HN ID: {HnId}", request.HnId.ToSafeLog());
                 return NotFound();
             }
-
-            //if (request.Status == SoaStatus.Submitted)
-            //{
-                //send email
-                await _emailService.TrySendAssessorEmailAsync(
-                         emailAddress: assessor.EmailId,
-                         hnName: request.HnName,
-                         hnId: request.HnId,
-                         contributorName: user?.FullName
-                     );
-            //}
+            
+            await _emailService.TrySendAssessorEmailAsync(
+                     emailAddress: assessor.EmailId,
+                     hnName: request.HnName,
+                     hnId: request.HnId,
+                     contributorName: user?.FullName
+                 );            
 
             return NoContent();
-        }
-
-
-        /// <summary>
-        /// Sends an assessment result email to all assessors linked to the specified heat network.
-        /// </summary>
-        /// <param name="hnName">Heat network name.</param>
-        /// <param name="hnId">Heat network ID.</param>
-        /// <param name="assessmentResult">The result of the assessment (e.g., Pass, Fail).</param>
-        /// <returns>204 No Content if successful; 400 for invalid input; 500 for unexpected errors.</returns>
-        [HttpPost("send-assessor-assessment-email")]
-        [ProducesResponseType(StatusCodes.Status204NoContent)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> SendAssessorAssessmentEmail(
-            [FromQuery][Required] string hnName,
-            [FromQuery][Required] string hnId,
-            [FromQuery][Required] string assessmentResult)
-        {
-            if (!ModelState.IsValid)
-            {
-                _logger.LogWarning("Invalid assessor assessment email request: hnName={HnName}, hnId={HnId}, result={Result}", hnName, hnId, assessmentResult);
-                return BadRequest(ModelState);
-            }
-
-            try
-            {
-                var rpUser = await _userService.GetResponsiblePersonByHnIdAsync(hnId);
-                var contributorUsers = await _userService.GetContributorsByHnIdAsync(hnId);
-
-                var contributorEmails = contributorUsers
-                .Where(c => c.HnRoleMappings.Any(m => m.HnId == hnId && (m.Role != ContributorRole.Assessor && m.Role != ContributorRole.Certifier))).Select(c => c.EmailId)
-                .Distinct()
-                .ToList();
-
-                if (!contributorEmails.Any())
-                {
-                    _logger.LogWarning("No assessors found for HN ID: {HnId}", hnId);
-                    return NotFound();
-                }
-
-                foreach (var email in contributorEmails)
-                {
-                    await _emailService.TrySendAssessorAssessmentEmailAsync(email, hnName, hnId, assessmentResult);
-                }
-
-                return NoContent();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error sending assessment result email for HN ID: {HnId}", hnId);
-                return StatusCode(StatusCodes.Status500InternalServerError);
-            }
-        }
-
-
-
-        /// <summary>
-        /// Sends a certification complete email to the specified recipient.
-        /// </summary>
-        /// <param name="hnName">Heat network name.</param>
-        /// <param name="hnId">Heat network ID.</param>
-        /// <returns>204 No Content if successful; 400 for invalid input; 500 for unexpected errors.</returns>
-        [HttpPost("send-certification-complete-email")]
-        [ProducesResponseType(StatusCodes.Status204NoContent)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> SendCertificationCompleteEmail(
-            [FromQuery][Required] string hnName,
-            [FromQuery][Required] string hnId)
-        {
-            if (!ModelState.IsValid)
-            {
-                _logger.LogWarning("Invalid certification complete email request: hnName={HnName}, hnId={HnId}", hnName, hnId);
-                return BadRequest(ModelState);
-            }
-
-            try
-            {
-                List<string> emailRecipients = new List<string>();
-                var rpUser = await _userService.GetResponsiblePersonByHnIdAsync(hnId);
-                var contributorUsers = await _userService.GetContributorsByHnIdAsync(hnId);
-
-                contributorUsers = contributorUsers
-                    .Where(c => c.HnRoleMappings.Any(m => m.HnId == hnId && (m.Role != ContributorRole.Assessor && m.Role != ContributorRole.Certifier))).ToList();
-
-                if (rpUser != null)
-                {
-                    emailRecipients.Add(rpUser.EmailId);
-                }
-                if (contributorUsers != null && contributorUsers.Count > 0)
-                {
-                    emailRecipients.AddRange(contributorUsers.Select(c => c.EmailId));
-                }
-
-                foreach (var email in emailRecipients.Distinct())
-                {
-                    await _emailService.TrySendCertificationCompleteEmailAsync(email, hnName, hnId);
-                    _logger.LogInformation("Certification complete email sent to {EmailAddress} for HN ID: {HnId}", email, hnId);
-                }
-
-
-                return NoContent();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error sending certification complete email to {hnName}", hnName);
-                return StatusCode(StatusCodes.Status500InternalServerError);
-            }
-        }
+        }        
 
         private async Task NotificationHistoryForAssigningAssessor(ElementSoaAssignAssessorRequest request, HeatNetwork heatNetwork)
         {
@@ -670,10 +226,10 @@ namespace HNTAS.Core.Api.Controllers
                 var assessor = assessorDetails.FirstOrDefault();
                 description = $"{assessor?.AssessorFirstName} {assessor?.AssessorLastName} Assigned to {heatNetwork.HnId}-{heatNetwork.Name}";
             }
-            
+
             var eligibleRoles = new List<string> { ContributorRole.ResponsiblePerson.ToString()
                 , ContributorRole.NetworkManager.ToString(),
-                ContributorRole.DesignatedDutyHolder.ToString(),                
+                ContributorRole.DesignatedDutyHolder.ToString(),
                 ContributorRole.Contributor.ToString()};
             var notificationHistory = new NotificationHistory
             {
@@ -688,7 +244,7 @@ namespace HNTAS.Core.Api.Controllers
                 EligibleRoles = eligibleRoles,
                 Stage = request.SoaStage
             };
-            
+
             await _notificationHistoryService.CreateAsync(notificationHistory);
         }
     }

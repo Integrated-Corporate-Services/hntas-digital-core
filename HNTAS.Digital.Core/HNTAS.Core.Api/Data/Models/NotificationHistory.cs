@@ -4,10 +4,12 @@ using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using System.ComponentModel;
 using System.ComponentModel.Design;
+using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Contracts;
 
 namespace HNTAS.Core.Api.Data.Models
 {
+    [ExcludeFromCodeCoverage]
     public class NotificationHistory
     {
         [BsonId]
@@ -41,8 +43,9 @@ namespace HNTAS.Core.Api.Data.Models
         public SoaStage? Stage { get; set; }
         [BsonElement("createdBy")]
         public string? CreatedBy { get; set; }
-    }    
+    }
 
+    [ExcludeFromCodeCoverage]
     public static class NotificationHistoryActions
     {        
         public const string NetworkManagers = "Network managers";
@@ -50,6 +53,7 @@ namespace HNTAS.Core.Api.Data.Models
         public const string HeatNetworkDetails = "Heat network details";
     }
 
+    [ExcludeFromCodeCoverage]
     public static class NotificationHistorySubjects
     {               
         public const string NetworkManagerInvited = "Network manager invited";

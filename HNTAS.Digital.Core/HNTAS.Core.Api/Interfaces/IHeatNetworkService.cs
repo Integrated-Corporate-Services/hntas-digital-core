@@ -1,6 +1,8 @@
 ﻿using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Data.Models.External;
+using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Models.AssignedAssessor;
+using HNTAS.Core.Api.Models.HeatNetwork;
 
 namespace HNTAS.Core.Api.Interfaces
 {
@@ -18,9 +20,12 @@ namespace HNTAS.Core.Api.Interfaces
         Task<HeatNetworkExternalResponse> GetDetailsByHnIdAsync(string hnId);
         Task<List<HeatNetworkExternalResponse>> GetDetailsAsync();
         Task<List<HeatNetworkExternalResponse>> GetDetailsByDateRangeAsync(DateTime fromDate, DateTime toDate);
-        Task UpdateMeteringAndMonitoringStrategyAsync(string hnId, NetworkDetailsDocument document);
-        Task UpdateAssessmentPlanAsync(string hnId, NetworkDetailsDocument document);
-        Task UpdateDesignConstructionLogAsync(string hnId, NetworkDetailsDocument document);
+        //Task UpdateMeteringAndMonitoringStrategyAsync(string hnId, NetworkDetailsDocument document);
+        //Task UpdateAssessmentPlanAsync(string hnId, NetworkDetailsDocument document);
+        //Task UpdateDesignConstructionLogAsync(string hnId, NetworkDetailsDocument document);
         Task<AssignedAssessorResponse> GetAssignedAssessors(AssignedAssessorRequest request);
+        Task<List<HeatNetwork>> GetByOfgemEmailIdAsync(string ofgemEmailId);
+        Task<HeatNetwork> GetByHnIdAndRegistrationSourceAsync(string hnId, RegistrationSource registrationSource);
+        Task<ExistingNetworkResponse> GetExistingNetworks(ExistingNetworkRequest existingNetworkRequest);
     }
 }

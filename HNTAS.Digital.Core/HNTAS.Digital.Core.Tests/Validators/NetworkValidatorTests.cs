@@ -130,6 +130,35 @@ namespace HNTAS.Digital.Core.Tests.Validators
             Assert.Null(error.ElementId);
         }
 
+
+        [Fact]
+        public async Task ValidateAsync_ShouldReturn404_WhenNetworkNotRegistered()
+        {
+            // Arrange
+            var networkId = "NET-NOT-FOUND";
+
+            _mockService
+                .Setup(x => x.GetByHnIdAsync(networkId))
+                .ReturnsAsync((HeatNetwork)null); // KEY
+
+            // Act
+            var result = await _validator.ValidateAsync(
+                networkId,
+                new List<NetworkElementRequest>() // elements not used here
+            );
+
+            // Assert
+            Assert.False(result.IsValid);
+            Assert.Equal(404, result.StatusCode);
+            Assert.Equal("Validation Failed", result.Message);
+            Assert.Contains("not registered", result.Detail);
+
+            var error = Assert.Single(result.Errors);
+            Assert.Equal("NETWORK_NOT_REGISTERED", error.Code);
+            Assert.Null(error.ElementId);
+        }
+
+
         private HeatNetwork GetMockNetwork(string hnid)
         {
             return new HeatNetwork

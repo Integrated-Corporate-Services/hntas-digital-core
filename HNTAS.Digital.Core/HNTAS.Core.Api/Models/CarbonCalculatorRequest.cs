@@ -1,7 +1,9 @@
-﻿using System.Text.Json.Serialization;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Text.Json.Serialization;
 
 namespace HNTAS.Core.Api.Models
 {
+    [ExcludeFromCodeCoverage]
     public class CarbonCalculatorRequest
     {
         [JsonPropertyName("background")]
@@ -11,6 +13,7 @@ namespace HNTAS.Core.Api.Models
         public Energy Energy { get; set; } = new();
     }
 
+    [ExcludeFromCodeCoverage]
     public class Background
     {
         [JsonPropertyName("dateWorkbookCompleted")] public string? DateWorkbookCompleted { get; set; }
@@ -32,6 +35,7 @@ namespace HNTAS.Core.Api.Models
         [JsonPropertyName("commissioningDate")] public string? CommissioningDate { get; set; }
     }
 
+    [ExcludeFromCodeCoverage]
     public class Energy
     {
         [JsonPropertyName("yearCount")] public int? YearCount { get; set; }
@@ -59,6 +63,7 @@ namespace HNTAS.Core.Api.Models
         [JsonPropertyName("eppSleevingPCentNotes")] public string? EppSleevingPCentNotes { get; set; }
     }
 
+    [ExcludeFromCodeCoverage]
     public class ChpInput
     {
         [JsonPropertyName("chpFuelTypeInput")] public int? ChpFuelTypeInput { get; set; }
@@ -84,6 +89,7 @@ namespace HNTAS.Core.Api.Models
         [JsonPropertyName("chpMaxElectricityOutput")] public int? ChpMaxElectricityOutput { get; set; }
     }
 
+    [ExcludeFromCodeCoverage]
     public class HeatPumpInput
     {
         [JsonPropertyName("hpmTypeFuelUsedInput")] public int? HpmTypeFuelUsedInput { get; set; }
@@ -103,6 +109,7 @@ namespace HNTAS.Core.Api.Models
         [JsonPropertyName("hpmMaxHeatOutput")] public int? HpmMaxHeatOutput { get; set; }
     }
 
+    [ExcludeFromCodeCoverage]
     public sealed class RecoveredInput
     {
         [JsonPropertyName("hrwHeatRecoverySourceInput")] public int? HrwHeatRecoverySourceInput { get; set; }
@@ -119,6 +126,7 @@ namespace HNTAS.Core.Api.Models
         [JsonPropertyName("hrwMaxHeatOutput")] public int? HrwMaxHeatOutput { get; set; }
     }
 
+    [ExcludeFromCodeCoverage]
     public sealed class BoilerInput
     {
         [JsonPropertyName("blrTypeFuelUsedInput")] public int? BlrTypeFuelUsedInput { get; set; }

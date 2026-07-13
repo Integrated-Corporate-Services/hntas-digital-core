@@ -1,9 +1,11 @@
 ﻿using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Enums;
 using System.ComponentModel.DataAnnotations;
+using System.Diagnostics.CodeAnalysis;
 
 namespace HNTAS.Core.Api.Models.Users
 {
+    [ExcludeFromCodeCoverage]
     public class OrganisationRequest
     {
         [Required(ErrorMessage = "Organisation Name is required.")]

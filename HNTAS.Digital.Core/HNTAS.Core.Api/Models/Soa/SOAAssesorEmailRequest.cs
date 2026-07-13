@@ -1,5 +1,8 @@
-﻿namespace HNTAS.Core.Api.Models.Soa
+﻿using System.Diagnostics.CodeAnalysis;
+
+namespace HNTAS.Core.Api.Models.Soa
 {
+    [ExcludeFromCodeCoverage]
     public class SOAAssesorEmailRequest
     {
         public string HnId { get; set; } = null!;

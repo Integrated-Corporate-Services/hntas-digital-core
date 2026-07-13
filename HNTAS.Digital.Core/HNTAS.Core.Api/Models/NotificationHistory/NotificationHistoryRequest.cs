@@ -1,5 +1,8 @@
-﻿namespace HNTAS.Core.Api.Models.NotificationHistory
+﻿using System.Diagnostics.CodeAnalysis;
+
+namespace HNTAS.Core.Api.Models.NotificationHistory
 {
+    [ExcludeFromCodeCoverage]
     public class NotificationHistoryRequest
     {
         public string? UserId { get; set; }

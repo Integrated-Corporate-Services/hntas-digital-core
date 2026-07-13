@@ -1,10 +1,12 @@
 ﻿using HNTAS.Core.Api.Enums;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
 
 namespace HNTAS.Core.Api.Data.Models.Arms.Submission
 {
+    [ExcludeFromCodeCoverage]
     [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
     public class NetworkElement
     {
@@ -20,5 +22,6 @@ namespace HNTAS.Core.Api.Data.Models.Arms.Submission
         [JsonPropertyName("kpis")]
         [BsonElement("kpis")]
         public Dictionary<string, KpiValue> Kpis { get; set; } = new();
+
     }
 }

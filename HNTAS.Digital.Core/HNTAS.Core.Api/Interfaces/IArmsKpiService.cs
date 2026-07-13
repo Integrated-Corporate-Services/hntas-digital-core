@@ -9,6 +9,8 @@ namespace HNTAS.Core.Api.Interfaces
 
         Task<KpiSubmission?> GetSubmissionByIdAsync(string submissionId);
 
+        Task<List<KpiSubmission>> GetSubmissionsForYearAsync(string networkId, int year);
+
         Task<string> CreateOrUpdateSubmissionAsync(KpiSubmission submission);
 
         Task<KpiConfiguration?> GetConfigurationAsync(string networkId);

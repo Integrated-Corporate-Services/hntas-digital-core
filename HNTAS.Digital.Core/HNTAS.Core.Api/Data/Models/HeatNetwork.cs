@@ -1,9 +1,11 @@
 ﻿using HNTAS.Core.Api.Enums;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
+using System.Diagnostics.CodeAnalysis;
 
 namespace HNTAS.Core.Api.Data.Models
 {
+    [ExcludeFromCodeCoverage]
     public class HeatNetwork
     {
         [BsonId]
@@ -31,7 +33,7 @@ namespace HNTAS.Core.Api.Data.Models
         public ECDetails? ECDetails { get; set; }
 
         [BsonElement("pathway")]
-        public string Pathway { get; set; }
+        public string? Pathway { get; set; }
 
         [BsonElement("registrationSource")]
         [BsonRepresentation(BsonType.String)]
@@ -44,6 +46,10 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonElement("hasOwnEnergyCenter")]
         [BsonRepresentation(BsonType.String)]
         public bool HasOwnEnergyCenter { get; set; }
+
+        [BsonElement("ecSuppliesOneCommunalBuilding")]
+        [BsonRepresentation(BsonType.String)]
+        public bool EcSuppliesOneCommunalBuilding { get; set; }
 
         [BsonElement("heatNetworkConnections")]
         public HeatNetworkConnections? HeatNetworkConnections { get; set; }
@@ -62,7 +68,12 @@ namespace HNTAS.Core.Api.Data.Models
 
         [BsonElement("designConstructionLog")]
         public DesignConstructionLog? DesignConstructionLog { get; set; }
-
+        [BsonElement("ofgemUserEmailId")]
+        public string? OfgemUserEmailId { get; set; }
+        [BsonElement("ofgemImportedDate")]
+        [BsonRepresentation(BsonType.DateTime)]
+        [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
+        public DateTime? OfgemImportedDate { get; set; }
         [BsonElement("createdBy")]
         public string CreatedBy { get; set; }
 
@@ -72,6 +83,6 @@ namespace HNTAS.Core.Api.Data.Models
         public DateTime CreatedAt { get; set; }
 
         [BsonElement("phase")]
-        public string Phase { get; set; }
+        public string? Phase { get; set; }
     }    
 }

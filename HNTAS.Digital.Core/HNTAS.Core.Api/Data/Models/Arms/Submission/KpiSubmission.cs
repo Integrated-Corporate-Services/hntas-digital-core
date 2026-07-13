@@ -1,9 +1,11 @@
 ﻿using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
 
 namespace HNTAS.Core.Api.Data.Models.Arms.Submission
 {
+    [ExcludeFromCodeCoverage]
     public class KpiSubmission
     {
         [BsonId]
@@ -18,6 +20,14 @@ namespace HNTAS.Core.Api.Data.Models.Arms.Submission
         [BsonElement("consumerConnectionAggregatedKpis")]
         [JsonPropertyName("consumer_connection_aggregated_kpis")]
         public Dictionary<string, KpiValueAggregated>? ConsumerConnectionAggregatedKpis { get; set; }
+
+        [JsonPropertyName("carbon_calculator_inputs")]
+        [BsonElement("carbonCalculatorInputs")]
+        public Dictionary<string, Dictionary<string, CCKpiValue>>? CarbonCalculatorInputs { get; set; }
+
+        [JsonPropertyName("carbon_calculator_response")]
+        [BsonElement("carbonCalculatorResponse")]
+        public CarbonCalculatorResponse? CarbonCalculatorResponse { get; set; }
 
         [JsonPropertyName("elements")]
         [BsonElement("elements")]
@@ -35,5 +45,20 @@ namespace HNTAS.Core.Api.Data.Models.Arms.Submission
         [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
         [BsonIgnoreIfNull]
         public DateTime? UpdatedAt { get; set; }
+    }
+
+    public class CCKpiValue
+    {
+        [JsonPropertyName("value")]
+        [BsonElement("value")]
+        public BsonValue Value { get; set; } = BsonNull.Value;
+
+        [JsonPropertyName("is_imputed")]
+        [BsonElement("isImputed")]
+        public bool IsImputed { get; set; } = false;
+
+        [BsonElement("imputationDetails")]
+        [JsonPropertyName("imputation_details")]
+        public string? ImputationDetails { get; set; }
     }
 }

@@ -2,17 +2,14 @@
 using HNTAS.Core.Api.Constants;
 using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Enums;
+using HNTAS.Core.Api.Extensions;
 using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
-using HNTAS.Core.Api.Models.NetworkDetails;
+using HNTAS.Core.Api.Models.HeatNetwork;
 using HNTAS.Core.Api.Models.Soa;
-using HNTAS.Core.Api.Models.Users;
-using HNTAS.Core.Api.Services;
 using Microsoft.AspNetCore.Mvc;
-using System;
 using System.Net.Mime;
-using System.Xml.Linq;
 
 namespace HNTAS.Core.Api.Controllers
 {
@@ -24,7 +21,7 @@ namespace HNTAS.Core.Api.Controllers
         private readonly ILogger<HeatNetworksController> _logger;
         private readonly ICounterService _counterService;
         private readonly IMapper _mapper;
-        private readonly IAuditService _auditService;        
+        private readonly IAuditService _auditService;
         private readonly IUserService _userService;
         private readonly IEmailService _emailService;
         private readonly IInvitationService _invitationService;
@@ -94,7 +91,7 @@ namespace HNTAS.Core.Api.Controllers
 
                 if (heatNetworks == null || !heatNetworks.Any())
                 {
-                    _logger.LogInformation("No heat networks found for the provided IDs: {HeatNetworkIds}", string.Join(", ", hnIds));
+                    _logger.LogInformation("No heat networks found for the provided IDs: {HeatNetworkIds}", string.Join(", ", hnIds?.Select(x => x.ToSafeLog()).ToArray()!));
                     return NotFound("No heat networks found for the given IDs.");
                 }
 
@@ -104,7 +101,7 @@ namespace HNTAS.Core.Api.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An error occurred while retrieving heat networks for IDs: {HeatNetworkIds}", string.Join(", ", hnIds));
+                _logger.LogError(ex, "An error occurred while retrieving heat networks for IDs: {HeatNetworkIds}", string.Join(", ", hnIds.Select(x => x.ToSafeLog()).ToArray()));
                 return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while retrieving heat networks.");
             }
         }
@@ -151,7 +148,7 @@ namespace HNTAS.Core.Api.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<List<HeatNetworkResponse>>> GetHeatNetworksByUserId(string userId) 
+        public async Task<ActionResult<List<HeatNetworkResponse>>> GetHeatNetworksByUserId(string userId, RegistrationSource registrationSource = RegistrationSource.HNTAS)
         {
             if (string.IsNullOrEmpty(userId))
             {
@@ -162,24 +159,56 @@ namespace HNTAS.Core.Api.Controllers
             {
                 var userDetails = await _userService.GetByIdAsync(userId);
                 var heatNetworks = new List<HeatNetworkResponse>();
-                foreach(var hnMapping in userDetails.HnRoleMappings)
+                foreach (var hnMapping in userDetails.HnRoleMappings)
                 {
-                    var heatNetwork = await _hnService.GetByHnIdAsync(hnMapping.HnId);
+                    var heatNetwork = await _hnService.GetByHnIdAndRegistrationSourceAsync(hnMapping.HnId, registrationSource);
 
                     if (heatNetwork == null)
                     {
                         _logger.LogInformation("No heat networks found for the provided ID: {HeatNetworkId}", StringFormatter.Sanitize(hnMapping.HnId));
-                        return NotFound("No heat network found for the given ID.");
                     }
-
-                    var heatNetworkResponse = _mapper.Map<HeatNetworkResponse>(heatNetwork);
-                    heatNetworks.Add(heatNetworkResponse);
+                    else
+                    {
+                        var heatNetworkResponse = _mapper.Map<HeatNetworkResponse>(heatNetwork);
+                        heatNetworks.Add(heatNetworkResponse);
+                    }
                 }
                 return heatNetworks;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "An error occurred while retrieving heat networks for ID: {UserId}", StringFormatter.Sanitize(userId));
+                return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while retrieving the heat networks.");
+            }
+        }
+
+        [HttpGet("existing-network-by-userId")]
+        [Consumes(MediaTypeNames.Application.Json)]
+        [ProducesResponseType(typeof(ExistingNetworkResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<ExistingNetworkResponse>> GetExistingNetworksByUserId(ExistingNetworkRequest request)
+        {
+            if (string.IsNullOrEmpty(request.UserId))
+            {
+                _logger.LogWarning("GetExistingNetworksByUserId called with empty user Id");
+                return BadRequest("Please provide a valid user Id.");
+            }
+            try
+            {
+                var existingNetworks = await _hnService.GetExistingNetworks(request);
+                if (existingNetworks is null)
+                {
+                    _logger.LogWarning("Existing network records are not found");
+                    return NotFound();
+                }
+
+                return Ok(existingNetworks);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while retrieving existing networks");
                 return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while retrieving the heat networks.");
             }
         }
@@ -195,24 +224,27 @@ namespace HNTAS.Core.Api.Controllers
         {
             try
             {
+                // Create new heat network
                 if (String.IsNullOrWhiteSpace(heatNetworkDetails.HnId))
                 {
                     var sequenceID = await _counterService.GetNextSequenceValue("heatNetworkId_sequence");
                     var heatNetworkId = $"HN{sequenceID:D7}";
                     heatNetworkDetails.HnId = heatNetworkId;
                     heatNetworkDetails.UHnId = sequenceID.ToString();
-                    _logger.LogInformation("Generated new heat network ID: {HeatNetworkId}", heatNetworkDetails.HnId);
+                    _logger.LogInformation("Generated new heat network ID: {HeatNetworkId}", heatNetworkDetails.HnId.ToSafeLog());
                 }
                 UserDetailsResult user = await _userService.GetUserWithDetailsAsync(heatNetworkDetails.CreatedBy);
                 await _hnService.CreateAsync(heatNetworkDetails, true);
-                _logger.LogInformation("New heat network initially registered: {HNID} (DB Id: {Id})", heatNetworkDetails.HnId, heatNetworkDetails.Id);
-                
+                _logger.LogInformation("New heat network initially registered: {HNID} (DB Id: {Id})", heatNetworkDetails.HnId.ToSafeLog(), heatNetworkDetails.Id.ToSafeLog());
+
+
                 ContributorRole role = user.Roles[0] switch
                 {
                     UserRole.ResponsiblePerson => ContributorRole.ResponsiblePerson,
                     UserRole.NetworkManager => ContributorRole.NetworkManager
                 };
-                
+
+                // Add Hn Mapping to the user
                 User userWithUpdatedHnRoleMapping = await _userService.GetByIdAsync(heatNetworkDetails.CreatedBy);
                 userWithUpdatedHnRoleMapping.HnRoleMappings.Add(new HnRoleMapping { HnId = heatNetworkDetails.HnId, Role = role });
                 await _userService.UpdateAsync(heatNetworkDetails.CreatedBy, userWithUpdatedHnRoleMapping);
@@ -220,24 +252,21 @@ namespace HNTAS.Core.Api.Controllers
                 if (role == ContributorRole.ResponsiblePerson)
                 {
                     //find the network managers
-                    var invitations = await _invitationService.GetInvitedUsersAsRegisteredAsync(user.Id);
-                    var invitedEmails = invitations.Select(i => i.EmailId).Distinct().ToList();
-                    var invitedUsersDetail = await _userService.GetUsersByInvitedEmailsWithDetailsAsync(invitedEmails);
-                    var registeredUsers = _mapper.Map<List<ManagedUserResponse>>(invitedUsersDetail);
-                    var networkManagers = registeredUsers
-                        .Where(ru => ru.Roles != null &&
-                                     ru.Roles.Any(r => string.Equals(r, UserRole.NetworkManager.ToString(), StringComparison.OrdinalIgnoreCase)))
-                        .Select(ru => ru.Id)
-                        .ToList();
+                    var allNetworkManagers = await _invitationService.GetNetworkManagersByInviterUserId(heatNetworkDetails.CreatedBy);
+                    var acceptedNetworkManagers = allNetworkManagers.Where(nm => nm.Status == InvitationStatus.Accepted).ToList();
+
                     // All networks managers reporting to the rp can access all heat networks the rp adds
-                    foreach(var nmId in networkManagers)
+                    foreach (var nm in acceptedNetworkManagers)
                     {
-                        User nmWithUpdatedHnRoleMapping = await _userService.GetByIdAsync(nmId);
-                        nmWithUpdatedHnRoleMapping.HnRoleMappings.Add(new HnRoleMapping { HnId = heatNetworkDetails.HnId, Role = ContributorRole.NetworkManager });
-                        await _userService.UpdateAsync(nmId, nmWithUpdatedHnRoleMapping);
+                        if (nm.Status == InvitationStatus.Accepted)
+                        {
+                            User nmWithUpdatedHnRoleMapping = await _userService.GetByEmailAsync(nm.InvitedEmail);
+                            nmWithUpdatedHnRoleMapping.HnRoleMappings.Add(new HnRoleMapping { HnId = heatNetworkDetails.HnId, Role = ContributorRole.NetworkManager });
+                            await _userService.UpdateAsync(nmWithUpdatedHnRoleMapping.Id, nmWithUpdatedHnRoleMapping);
+                        }
                     }
                 }
-                if(role == ContributorRole.NetworkManager)
+                if (role == ContributorRole.NetworkManager)
                 {
                     // The Rp of the organisation that the networks are added to should be able to view them too, irrespective of who added them
                     var orgDetails = await _organisationService.GetByOrgIdAsync(heatNetworkDetails.OrgId);
@@ -298,14 +327,14 @@ namespace HNTAS.Core.Api.Controllers
                     _logger.LogInformation("No heat network found for HnId: {HnId}", StringFormatter.Sanitize(hnId));
                     return NotFound($"No heat network found for HnId '{hnId}'.");
                 }
-                
+
                 var existingHeatNetworkSnapshot = System.Text.Json.JsonSerializer.Deserialize<HeatNetwork>(
                     System.Text.Json.JsonSerializer.Serialize(existingHeatNetwork)
                 )!;
 
                 var requestWithInstances = GenerateElementsInstances(request);
                 existingHeatNetwork.NetworkElements = requestWithInstances;
-                
+
                 await _hnService.UpdateAsync(hnId, existingHeatNetwork);
 
                 // Only log an audit event if NetworkElements were previously null, to capture the addition of elements rather than updates to existing elements
@@ -323,8 +352,8 @@ namespace HNTAS.Core.Api.Controllers
                         phase: existingHeatNetwork.Phase,
                         stage: HeatNetworkHelper.GetStageFromPhase(existingHeatNetwork.Phase)
                         );
-                }                    
-                
+                }
+
                 _logger.LogInformation("Updated NetworkElements for HnId: {HnId}", StringFormatter.Sanitize(hnId));
                 var response = CreatedAtAction(nameof(UpdateNetworkElements), new { id = existingHeatNetwork.Id }, existingHeatNetwork);
                 return Ok(response);
@@ -333,63 +362,6 @@ namespace HNTAS.Core.Api.Controllers
             {
                 _logger.LogError(ex, "An error occurred while updating NetworkElements for HnId: {HnId}", StringFormatter.Sanitize(hnId));
                 return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while updating the heat network.");
-            }
-        }
-
-        [HttpPatch("network-details-document-update")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> SaveDocument([FromBody] NetworkDetailsUploadDocumentRequest request)
-        {
-            if (!ModelState.IsValid)
-            {
-                _logger.LogWarning("Invalid SaveDocument request: {@Errors}",
-                    ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage));
-                return BadRequest(ModelState);
-            }
-
-            _logger.LogInformation("Saving {DocumentType} document for HN ID: {HnId}, UploadedBy: {UploadedBy}",
-                request.DocumentType, request.HnId, request.UploadedBy);
-
-            
-
-            var document = new NetworkDetailsDocument
-            {
-                FileName = request.FileName,
-                S3Key = request.S3Key,                
-                UploadedAt = DateTime.UtcNow,
-                UploadedBy = request.UploadedBy
-            };
-
-            try
-            {
-                switch (request.DocumentType)
-                {                    
-                    case DocumentType.MeteringAndMonitoringStrategy:
-                        await _hnService.UpdateMeteringAndMonitoringStrategyAsync(request.HnId, document);
-                        break;
-                    case DocumentType.AssessmentPlan:
-                        await _hnService.UpdateAssessmentPlanAsync(request.HnId, document);
-                        break;
-                    case DocumentType.DesignConstructionLog:
-                        await _hnService.UpdateDesignConstructionLogAsync(request.HnId, document);
-                        break;
-                    default:
-                        _logger.LogWarning("Unsupported document type: {DocumentType}", request.DocumentType);
-                        return BadRequest($"Unsupported document type: {request.DocumentType}");
-                }
-
-                _logger.LogInformation("{DocumentType} document saved successfully for HN ID: {HnId}, UploadedBy: {UploadedBy}",
-                    request.DocumentType, request.HnId, request.UploadedBy);
-
-                return Ok();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to save {DocumentType} document for HN ID: {HnId}, UploadedBy: {UploadedBy}",
-                    request.DocumentType, request.HnId, request.UploadedBy);
-                throw;
             }
         }
 
@@ -402,7 +374,7 @@ namespace HNTAS.Core.Api.Controllers
             var notificationType = NotificationHistoryType.NA;
             var subject = NotificationHistorySubjects.NewBuildNetworkRegistered;
             if (userRole == UserRole.ResponsiblePerson)
-            {                
+            {
                 eligibleRoles.Add(UserRole.ResponsiblePerson.ToString());
                 notificationType = NotificationHistoryType.RpRegistersHeatNetwork;
             }
@@ -427,7 +399,7 @@ namespace HNTAS.Core.Api.Controllers
                 HeatNetworkId = heatNetwork.HnId,
                 CreatedBy = user.Id
             };
-    
+
             await _notificationHistoryService.CreateAsync(notificationHistory);
         }
 
@@ -439,7 +411,7 @@ namespace HNTAS.Core.Api.Controllers
             var index = 1;
             foreach (var element in elementGroups!)
             {
-                
+
                 if (element.Count == 1)
                 {
                     var ele = new Element();
@@ -450,9 +422,9 @@ namespace HNTAS.Core.Api.Controllers
                     index++;
                     continue;
                 }
-                instanceCounter = 1;                
+                instanceCounter = 1;
                 for (int i = 0; i < element.Count; i++)
-                {                    
+                {
                     elementInstances.Add(
                         new Element
                         {

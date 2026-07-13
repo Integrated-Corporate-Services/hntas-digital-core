@@ -1,8 +1,10 @@
 ﻿using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Enums;
+using System.Diagnostics.CodeAnalysis;
 
 namespace HNTAS.Core.Api.Models
 {
+    [ExcludeFromCodeCoverage]
     public class UserDetailsResponse
     {
         public string Id { get; set; } = null!;
@@ -24,6 +26,7 @@ namespace HNTAS.Core.Api.Models
 
     }
 
+    [ExcludeFromCodeCoverage]
     public class OrganisationResponse
     {
         public string OrgId { get; set; } = null!;

@@ -1,8 +1,10 @@
 ﻿using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Helpers;
+using System.Diagnostics.CodeAnalysis;
 
 namespace HNTAS.Core.Api.Models
 {
+    [ExcludeFromCodeCoverage]
     public class InvitedUserResponse
     {
         public string Id { get; set; }

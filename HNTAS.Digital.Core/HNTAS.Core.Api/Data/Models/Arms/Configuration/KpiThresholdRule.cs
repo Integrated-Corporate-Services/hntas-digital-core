@@ -1,8 +1,10 @@
 ﻿using MongoDB.Bson.Serialization.Attributes;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
 
 namespace HNTAS.Core.Api.Data.Models.Arms.Configuration
 {
+    [ExcludeFromCodeCoverage]
     public class KpiThresholdRule
     {
         [JsonPropertyName("type")]

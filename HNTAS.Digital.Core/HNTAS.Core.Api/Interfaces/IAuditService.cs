@@ -32,7 +32,7 @@ namespace HNTAS.Core.Api.Interfaces
         /// <summary>
         /// Retrieves the history for a specific entity from its dedicated audit collection.
         /// </summary>
-        Task<List<AuditEntry<T>>> GetHistoryAsync<T>(string entityId);
+        //Task<List<AuditEntry<T>>> GetHistoryAsync<T>(string entityId);
 
 
         Task<AuditLogResponse> GetAuditHistoryAsync<T>(AuditLogRequest auditLogRequest);

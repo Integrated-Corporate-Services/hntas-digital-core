@@ -1,5 +1,8 @@
-﻿namespace HNTAS.Core.Api.Models.Arms.Dashboard
+﻿using System.Diagnostics.CodeAnalysis;
+
+namespace HNTAS.Core.Api.Models.Arms.Dashboard
 {
+    [ExcludeFromCodeCoverage]
     public class HeatNetworkDashboardRow
     {
         public string HnId { get; set; } = string.Empty;

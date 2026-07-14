@@ -1,50 +1,38 @@
-﻿using HNTAS.Core.Api.Controllers;
-using HNTAS.Core.Api.Data.Models;
+﻿using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Interfaces;
+using HNTAS.Core.Api.Models;
 using MongoDB.Driver;
 using System.Text;
 
 namespace HNTAS.Core.Api.Services
 {
-    public interface ICsvImportService
-    {
-        Task<ImportResult> ImportFromCsvAsync(IFormFile file, CancellationToken ct = default);
-    }
-
     public class CsvImportService : ICsvImportService
     {
         private readonly IOrganisationService _organisationService;
         private readonly IUserService _userService;
         private readonly IHeatNetworkService _heatNetworkService;
-        private readonly ICounterService _orgCounterService;
         private readonly ILogger<CsvImportService> _logger;
 
         public CsvImportService(
             IOrganisationService organisationService,
             IUserService userService,
             IHeatNetworkService heatNetworkService,
-            ICounterService orgCounterService,
             ILogger<CsvImportService> logger)
         {
             _organisationService = organisationService;
             _userService = userService;
             _heatNetworkService = heatNetworkService;
-            _orgCounterService = orgCounterService;
             _logger = logger;
         }
 
-        public async Task<ImportResult> ImportFromCsvAsync(IFormFile file, CancellationToken ct = default)
+        public async Task<ImportResult> ImportFromCsvAsync(string fileContent, CancellationToken ct = default)
         {
+            var stream = new MemoryStream(Encoding.UTF8.GetBytes(fileContent));
+            stream.Position = 0;
+
             var result = new ImportResult();
 
-            if (file == null || file.Length == 0)
-            {
-                result.Errors.Add("No file provided or file is empty.");
-                return result;
-            }
-
             var csvParser = new CsvParser();
-            using var stream = file.OpenReadStream();
 
             if (!csvParser.TryParseHeaders(stream, out var headerIndex, out var error))
             {
@@ -81,7 +69,7 @@ namespace HNTAS.Core.Api.Services
                     result.Errors.Add($"Line {lineNumber}: {ex.Message}");
                 }
             }
-            
+
             var dataForExistingOrgOrUser = ofgemDataModelPostImportList
                 .Where(x => x.IsUserOrOrganisationExist)
                 .GroupBy(x => x.UserEmailId)
@@ -107,7 +95,7 @@ namespace HNTAS.Core.Api.Services
             result.DataForExistingOrgOrUser = dataForExistingOrgOrUser;
             result.DataForNewOrgOrUser = dataForNewOrgOrUser;
 
-            return result;            
+            return result;
         }
 
         private CsvRow ParseCsvRow(string line, Dictionary<string, int> headerIndex)
@@ -141,7 +129,7 @@ namespace HNTAS.Core.Api.Services
             var missingFields = new List<string>();
 
             if (string.IsNullOrWhiteSpace(row.EmailId)) missingFields.Add("EmailId");
-            if (string.IsNullOrWhiteSpace(row.OneLoginId)) missingFields.Add("OneLoginId");
+            if (string.IsNullOrWhiteSpace(row.HnName)) missingFields.Add("HnName");
             if (string.IsNullOrWhiteSpace(row.HnId)) missingFields.Add("HnId");
 
             var hasOrgIdentifier = !string.IsNullOrWhiteSpace(row.CompaniesHouseNo);
@@ -160,7 +148,7 @@ namespace HNTAS.Core.Api.Services
         }
 
         private async Task ProcessNetworkCreatonThroughOrgOrUserExistance(
-            CsvRow row,            
+            CsvRow row,
             ImportResult result,
             List<OfgemDataModelPostImport> ofgemDataModelPostImportList,
             CancellationToken ct)
@@ -185,13 +173,13 @@ namespace HNTAS.Core.Api.Services
                 }
                 else
                 {
-                    await ProcessNetworkCreationThroughUserExistance(row, result, ofgemDataModelPostImportList, ct);                    
+                    await ProcessNetworkCreationThroughUserExistance(row, result, ofgemDataModelPostImportList, ct);
                 }
             }
             else
             {
                 await ProcessNetworkCreationThroughUserExistance(row, result, ofgemDataModelPostImportList, ct);
-            }           
+            }
         }
 
         private async Task ProcessNetworkCreationThroughUserExistance(CsvRow row,
@@ -231,11 +219,12 @@ namespace HNTAS.Core.Api.Services
 
                 ofgemDataModelPostImportList.Add(ofgemDataModelPostImport);
 
-                await CreateHeatNetwork(row, null, null);                
+                await CreateHeatNetwork(row, null, null);
+                result.HeatNetworksInserted++;
             }
         }
         private async Task ProcessHeatNetworkAsync(
-            CsvRow row,            
+            CsvRow row,
             ImportResult result,
             List<OfgemDataModelPostImport> ofgemDataModelPostImportList,
             string userId,
@@ -250,7 +239,7 @@ namespace HNTAS.Core.Api.Services
                 _logger.LogInformation("HeatNetwork {HnId} already exists.", row.HnId);
                 return;
             }
-            
+
             await CreateHeatNetwork(row, hntasOrgId, userId);
             await _organisationService.UpdateAsync(hntasOrgId, row.HnId);
             await _userService.UpdateUserNetwork(userId, row.HnId);
@@ -318,7 +307,7 @@ namespace HNTAS.Core.Api.Services
             return string.IsNullOrWhiteSpace(value)
                 ? null
                 : decimal.Parse(value, System.Globalization.CultureInfo.InvariantCulture);
-        }
+        }        
     }
 
     // Supporting classes

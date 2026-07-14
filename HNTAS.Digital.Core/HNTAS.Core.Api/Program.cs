@@ -54,6 +54,7 @@ builder.Services.AddSingleton<ISoaService, SoaService>();
 builder.Services.AddSingleton<IGovUkNotifyService, GovUkNotifyService>();
 builder.Services.AddSingleton<IHeatNetworkService, HeatNetworkService>();
 builder.Services.AddSingleton<IEmailService, EmailService>();
+builder.Services.AddScoped<IFeedbackService, FeedbackService>();
 builder.Services.AddSingleton<ICountryAndTerritoryService, CountryAndTerritoryService>();
 builder.Services.AddSingleton<IAssessorService, AssessorService>();
 builder.Services.AddSingleton<IAuditService, AuditService>();
@@ -63,6 +64,8 @@ builder.Services.AddScoped<IKpiRuleValidator, KpiRuleValidator>();
 builder.Services.AddScoped<IHeatNetworkValidator, HeatNetworkValidator>();
 builder.Services.AddScoped<IKpiSubmissionAuditService, KpiSubmissionAuditService>();
 builder.Services.AddScoped<IUserStatsService, UserStatsService>();
+builder.Services.AddScoped<ISuperUserService, SuperUserService>();
+builder.Services.AddScoped<IArmsPowerBiService, ArmsPowerBiService>();
 
 //Data Migrations
 builder.Services.AddScoped<IDataMigration, SeedCountriesAndTerritories>();
@@ -95,12 +98,23 @@ builder.Services.AddSingleton<IMongoDatabase>(sp =>
 });
 
 
+builder.Services.AddSingleton<INotificationClientWrapper>(sp =>
+{
+    var apiKey = Environment.GetEnvironmentVariable("GOV_NOTIFY_API_KEY");
+
+    if (string.IsNullOrEmpty(apiKey))
+        throw new InvalidOperationException("GOV_NOTIFY_API_KEY is not configured.");
+
+    return new NotificationClientService(apiKey);
+});
+
+
+
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<ICarbonCalculatorService, CarbonCalculatorService>();
 builder.Services.AddScoped<ICsvImportService, CsvImportService>();
 
-builder.Services.AddScoped<IHNDataImportExportService, HNDataImportExportService>();
-builder.Services.AddScoped<ISubmissionCarbonCalculator, SubmissionCarbonCalculator>();
+builder.Services.AddScoped<ISubmissionCCService, SubmissionCCService>();
 builder.Services.AddScoped<ICarbonCalculatorRuleValidation, CarbonCalculatorRuleValidation>();
 
 // Register FluentValidation validators
@@ -174,14 +188,6 @@ builder.Services.UseJsonPropertyNames();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi("HNTAS.Core.Api");
 
-Console.WriteLine("***********************************");
-Console.WriteLine("Environment: " + builder.Environment.EnvironmentName);
-
-string? regEnabled = Environment.GetEnvironmentVariable("IS_REGISTRATION_ENABLED");
-
-Console.WriteLine($"--- Startup Debug ---");
-Console.WriteLine($"Raw Env Var 'IS_REGISTRATION_ENABLED': {regEnabled ?? "NOT FOUND"}");
-Console.WriteLine($"---------------------");
 
 var app = builder.Build();
 

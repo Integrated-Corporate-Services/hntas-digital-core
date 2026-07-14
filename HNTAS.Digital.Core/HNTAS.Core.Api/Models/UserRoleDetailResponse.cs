@@ -1,5 +1,8 @@
-﻿namespace HNTAS.Core.Api.Models
+﻿using System.Diagnostics.CodeAnalysis;
+
+namespace HNTAS.Core.Api.Models
 {
+    [ExcludeFromCodeCoverage]
     public class UserRoleDetailResponse
     {
         public string FullName { get; set; } = null!;

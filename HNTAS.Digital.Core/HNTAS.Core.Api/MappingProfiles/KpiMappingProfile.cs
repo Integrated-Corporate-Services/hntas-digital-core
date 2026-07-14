@@ -5,10 +5,12 @@ using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Models.Arms;
 using HNTAS.Core.Api.Models.Arms.V2;
 using MongoDB.Bson;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 
 namespace HNTAS.Core.Api.MappingProfiles
 {
+    [ExcludeFromCodeCoverage]
     public class KpiMappingProfile : Profile
     {
         public KpiMappingProfile()

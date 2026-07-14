@@ -13,7 +13,7 @@ namespace HNTAS.Core.Api.Interfaces
         Task<List<Invitation>> GetByInviterUserIdAsync(string inviterUserId);
         Task CreateAsync(Invitation newInvitation);
         Task UpdateAsync(string id, Invitation updatedInvitation);
-        Task RemoveAsync(string id);
+        //Task RemoveAsync(string id);
         Task<List<ManagedUserResponse>> GetInvitedUsersAsRegisteredAsync(string inviterUserId);
         Task<List<Invitation>> GetNetworkManagersByInviterUserId(string userId);
         Task<AcceptInvitationResult> AcceptAsync(InvitedUserRequest request);

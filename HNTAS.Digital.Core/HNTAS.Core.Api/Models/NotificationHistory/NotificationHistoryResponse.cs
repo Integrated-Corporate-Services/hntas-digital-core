@@ -1,7 +1,9 @@
 ﻿using HNTAS.Core.Api.Enums;
+using System.Diagnostics.CodeAnalysis;
 
 namespace HNTAS.Core.Api.Models.NotificationHistory
 {
+    [ExcludeFromCodeCoverage]
     public class NotificationHistoryResponse
     {
         public List<NotificationHistoryData> Items { get; set; } = new();

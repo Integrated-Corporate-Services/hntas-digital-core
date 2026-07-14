@@ -14,6 +14,7 @@ namespace HNTAS.Core.Api.Services
         private readonly IGovUkNotifyService _govUkNotifyService;
         private readonly NotificationSettings _notificationSettings;
         private readonly HntasServiceSettings _hntasServiceSettings;
+        private readonly string _webBaseUrl;
 
         public EmailService(
             ILogger<EmailService> logger,
@@ -25,6 +26,7 @@ namespace HNTAS.Core.Api.Services
             _govUkNotifyService = govUkNotifyService;
             _notificationSettings = options?.Value;
             _hntasServiceSettings = hntasServiceOptions?.Value;
+            _webBaseUrl = Environment.GetEnvironmentVariable("WEB_BASE_URL") ?? throw new InvalidOperationException("Web API URL is not configured. Set WEB_BASE_URL environment variable ");
         }
 
         private static string MaskEmail(string email)
@@ -125,7 +127,7 @@ namespace HNTAS.Core.Api.Services
                 return;
             }
 
-            var fullUrl = $"{_hntasServiceSettings.BaseUrl.TrimEnd('/')}{_hntasServiceSettings.InvitationPath}?token={token}";
+            var fullUrl = $"{_webBaseUrl.TrimEnd('/')}{_hntasServiceSettings.InvitationPath}?token={token}";
 
             var emailSent = await _govUkNotifyService.SendEmailAsync(
                 invitation.InvitedEmail,
@@ -151,7 +153,7 @@ namespace HNTAS.Core.Api.Services
                 return;
             }
 
-            var fullUrl = $"{_hntasServiceSettings.BaseUrl.TrimEnd('/')}{_hntasServiceSettings.InvitationPath}?token={token}";
+            var fullUrl = $"{_webBaseUrl.TrimEnd('/')}{_hntasServiceSettings.InvitationPath}?token={token}";
 
             var emailSent = await _govUkNotifyService.SendEmailAsync(
                 invitation.InvitedEmail,
@@ -239,7 +241,7 @@ namespace HNTAS.Core.Api.Services
                 ? string.Join(Environment.NewLine, hnIds.Select(i => $"* {i}"))
                 : (hnIds != null && hnIds.Count == 1 ? hnIds[0] : "N/A");
 
-            var startUrl = _hntasServiceSettings.BaseUrl;
+            var startUrl = _webBaseUrl;
             var emailSent = await _govUkNotifyService.SendEmailAsync(
            ofgemData.UserEmailId,
            _notificationSettings.OfgemDataForExistingOrgOrRpTemplateId,
@@ -259,7 +261,7 @@ namespace HNTAS.Core.Api.Services
                 ? string.Join(Environment.NewLine, hnIds.Select(i => $"* {i}"))
                 : (hnIds != null && hnIds.Count == 1 ? hnIds[0] : "N/A");
 
-            var startUrl = _hntasServiceSettings.BaseUrl;
+            var startUrl = _webBaseUrl;
             var emailSent = await _govUkNotifyService.SendEmailAsync(
            ofgemData.UserEmailId,
            _notificationSettings.OfgemDataForNewRpTemplateId,

@@ -6,9 +6,11 @@ using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Models;
 using HNTAS.Core.Api.Models.Soa;
 using HNTAS.Core.Api.Models.Users;
+using System.Diagnostics.CodeAnalysis;
 
 namespace HNTAS.Core.Api.MappingProfiles
 {
+    [ExcludeFromCodeCoverage]
     public class UserMappingProfile : Profile
     {
         public UserMappingProfile()

@@ -1,9 +1,11 @@
 ﻿using HNTAS.Core.Api.Data.Models.Arms.Configuration;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace HNTAS.Core.Api.Models.Arms.V2
 {
+    [ExcludeFromCodeCoverage]
     public class KpiConfigRequestV2
     {
         [JsonPropertyName("network_id")]
@@ -17,6 +19,7 @@ namespace HNTAS.Core.Api.Models.Arms.V2
         public CarbonCalculatorConfigRequest? CarbonCalculator { get; set; } = new();
     }
 
+    [ExcludeFromCodeCoverage]
     public class CarbonCalculatorConfigRequest
     {
         // Maps EC-DATA keys (e.g., EC-DATA-53) to their schema validation/threshold parameters
@@ -28,6 +31,7 @@ namespace HNTAS.Core.Api.Models.Arms.V2
         public Dictionary<string, ConfigDefault>? Defaults { get; set; } = [];
     }
 
+    [ExcludeFromCodeCoverage]
     public class ConfigDefault
     {
         [JsonPropertyName("value")]

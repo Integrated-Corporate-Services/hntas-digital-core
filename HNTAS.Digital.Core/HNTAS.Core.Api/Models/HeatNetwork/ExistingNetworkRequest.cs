@@ -1,5 +1,8 @@
-﻿namespace HNTAS.Core.Api.Models.HeatNetwork
+﻿using System.Diagnostics.CodeAnalysis;
+
+namespace HNTAS.Core.Api.Models.HeatNetwork
 {
+    [ExcludeFromCodeCoverage]
     public class ExistingNetworkRequest
     {
         public string? UserId { get; set; }

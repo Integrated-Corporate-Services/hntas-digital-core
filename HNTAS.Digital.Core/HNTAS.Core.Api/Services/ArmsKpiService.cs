@@ -1,6 +1,8 @@
-﻿using HNTAS.Core.Api.Data.Models.Arms.Configuration;
+﻿using HNTAS.Core.Api.Configuration;
+using HNTAS.Core.Api.Data.Models.Arms.Configuration;
 using HNTAS.Core.Api.Data.Models.Arms.Submission;
 using HNTAS.Core.Api.Interfaces;
+using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 
 namespace HNTAS.Core.Api.Services
@@ -12,11 +14,11 @@ namespace HNTAS.Core.Api.Services
         private readonly IKpiSubmissionAuditService _auditService;
         private readonly ILogger<ArmsKpiService> _logger;
 
-        public ArmsKpiService(ILogger<ArmsKpiService> logger, IMongoDatabase mongoDatabase, IKpiSubmissionAuditService auditService)
+        public ArmsKpiService(ILogger<ArmsKpiService> logger, IMongoDatabase mongoDatabase, IKpiSubmissionAuditService auditService, IOptions<AWSDocDbSettings> dbSettings)
         {
             _logger = logger;
-            _kpiCollection = mongoDatabase.GetCollection<KpiSubmission>("KPI_Data");
-            _configCollection = mongoDatabase.GetCollection<KpiConfiguration>("KPI_Configurations");
+            _kpiCollection = mongoDatabase.GetCollection<KpiSubmission>(dbSettings.Value.KPI_DataCollectionName);
+            _configCollection = mongoDatabase.GetCollection<KpiConfiguration>(dbSettings.Value.KPI_ConfigurationsCollectionName);
             _logger.LogInformation("ArmsKpiService initialized via Dependency Injection.");
             _auditService = auditService;
         }
@@ -155,5 +157,8 @@ namespace HNTAS.Core.Api.Services
 
             _logger.LogInformation("KPI Configuration processed for NetworkId: {NetworkId}", configuration.NetworkId);
         }
+
+
+
     }
 }

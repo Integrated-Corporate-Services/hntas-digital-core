@@ -1,9 +1,11 @@
 ﻿using HNTAS.Core.Api.Enums;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
+using System.Diagnostics.CodeAnalysis;
 
 namespace HNTAS.Core.Api.Data.Models
 {
+    [ExcludeFromCodeCoverage]
     public class HeatNetwork
     {
         [BsonId]
@@ -44,6 +46,10 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonElement("hasOwnEnergyCenter")]
         [BsonRepresentation(BsonType.String)]
         public bool HasOwnEnergyCenter { get; set; }
+
+        [BsonElement("ecSuppliesOneCommunalBuilding")]
+        [BsonRepresentation(BsonType.String)]
+        public bool EcSuppliesOneCommunalBuilding { get; set; }
 
         [BsonElement("heatNetworkConnections")]
         public HeatNetworkConnections? HeatNetworkConnections { get; set; }

@@ -2,8 +2,10 @@ using AutoMapper;
 using HNTAS.Core.Api.Controllers;
 using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Data.Models.External;
+using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
+using HNTAS.Core.Api.Models.HeatNetwork;
 using HNTAS.Core.Api.Models.Soa;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -32,7 +34,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             _mockCounterService = new Mock<ICounterService>();
             _mockMapper = new Mock<IMapper>();
             _mockLogger = new Mock<ILogger<HeatNetworksController>>();
-            _mockAuditService = new Mock<IAuditService>();            
+            _mockAuditService = new Mock<IAuditService>();
             _mockUserService = new Mock<IUserService>();
             _mockEmailService = new Mock<IEmailService>();
             _mockInvitationService = new Mock<IInvitationService>();
@@ -149,6 +151,47 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             Assert.NotNull(badRequest.Value);
         }
 
+        [Fact]
+        public async Task GetHeatNetworksByHnIds_NetworkNotFound()
+        {
+            // Arrange
+            var hnIdsString = "HN0000001,HN0000002";
+            var ids = hnIdsString.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList();
+
+            var responseList = new List<HeatNetworkResponse> { SampleHeatNetworkResponse("1", "HN0000001") };
+
+            _mockHnService.Setup(s => s.GetByHnIdsAsync(It.Is<List<string>>(l => l.SequenceEqual(ids))))
+                          .ReturnsAsync((List<HeatNetwork>)null!);
+
+
+            // Act
+            var result = await _controller.GetHeatNetworksByHnIds(hnIdsString);
+
+            // Assert
+            Assert.IsType<NotFoundObjectResult>(result.Result);
+        }
+
+        [Fact]
+        public async Task GetHeatNetworksByHnIds_ThrowException()
+        {
+            // Arrange
+            var hnIdsString = "HN0000001,HN0000002";
+            var ids = hnIdsString.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList();
+
+            var responseList = new List<HeatNetworkResponse> { SampleHeatNetworkResponse("1", "HN0000001") };
+
+            _mockHnService.Setup(s => s.GetByHnIdsAsync(It.Is<List<string>>(l => l.SequenceEqual(ids))))
+                          .Throws(new Exception());
+
+
+            // Act
+            var result = await _controller.GetHeatNetworksByHnIds(hnIdsString);
+
+            // Assert
+            var res = Assert.IsType<ObjectResult>(result.Result);
+            Assert.Equal(StatusCodes.Status500InternalServerError, res.StatusCode);
+        }
+
         // 3) GetHeatNetworkByHnId - Positive
         [Fact]
         public async Task GetHeatNetworkByHnId_WithValidId_ReturnsOk()
@@ -182,22 +225,115 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             Assert.NotNull(badRequest.Value);
         }
 
+        [Fact]
+        public async Task GetHeatNetworkByHnId_NetworkNotFound()
+        {
+            // Arrange
+            var hnId = "HN0000001";
+
+            _mockHnService.Setup(s => s.GetByHnIdAsync(hnId)).ReturnsAsync((HeatNetwork)null!);
+
+            // Act
+            var result = await _controller.GetHeatNetworkByHnId(hnId);
+
+            // Assert
+            Assert.IsType<NotFoundObjectResult>(result.Result);
+
+        }
+
+        [Fact]
+        public async Task GetHeatNetworkByHnId_ThrowException()
+        {
+            // Arrange
+            var hnId = "HN0000001";
+            var domain = SampleHeatNetwork("1", hnId);
+
+
+            _mockHnService.Setup(s => s.GetByHnIdAsync(hnId)).Throws(new Exception());
+
+
+            // Act
+            var result = await _controller.GetHeatNetworkByHnId(hnId);
+
+            // Assert
+            var res = Assert.IsType<ObjectResult>(result.Result);
+            Assert.Equal(StatusCodes.Status500InternalServerError, res.StatusCode);
+
+        }
+
         // 4) AddHeatNetwork - Positive (generates HnId and creates)
-        [Fact(Skip = "TODO: To be fixed")]
-        public async Task AddHeatNetwork_WithoutHnId_GeneratesHnIdAndReturnsCreated()
+        [Fact]
+        public async Task AddHeatNetwork_WithoutHnId_Rp_GeneratesHnIdAndReturnsCreated()
         {
             // Arrange
             var input = SampleHeatNetwork("1", hnId: null); // no HnId set
-            _mockCounterService.Setup(c => c.GetNextSequenceValue("heatNetworkId_sequence")).ReturnsAsync(1L);
+            _mockCounterService.Setup(c => c.GetNextSequenceValue(It.IsAny<string>())).ReturnsAsync(20);
             _mockHnService.Setup(s => s.CreateAsync(It.IsAny<HeatNetwork>(), It.IsAny<bool>())).Returns(Task.CompletedTask);
-            _mockUserService.Setup(s => s.GetUserWithDetailsAsync("tester")).ReturnsAsync(new UserDetailsResult
+            _mockUserService.Setup(s => s.GetUserWithDetailsAsync(It.IsAny<string>())).ReturnsAsync(new UserDetailsResult
             {
                 Id = "tester",
-                EmailId = "user@example.com",                
+                EmailId = "user@example.com",
                 FirstName = "Test",
-                LastName = "User"
+                LastName = "User",
+                Roles = new List<UserRole> { UserRole.ResponsiblePerson },
             });
 
+            _mockUserService.Setup(s => s.GetByIdAsync(It.IsAny<string>())).ReturnsAsync(new User
+            {
+                Id = "tester",
+                EmailId = "test",
+                HnRoleMappings = new List<HnRoleMapping>
+                {
+                    new HnRoleMapping { HnId = "HN0000001", Role = ContributorRole.ResponsiblePerson }
+                }
+            });
+
+            //_mockUserService.Setup(s => s.UpdateAsync(It.IsAny<string>(), It.IsAny<User>())).Returns(Task.CompletedTask);
+            _mockInvitationService.Setup(i => i.GetNetworkManagersByInviterUserId(It.IsAny<string>())).ReturnsAsync(new List<Invitation>() { new Invitation { Status = InvitationStatus.Accepted, InvitedEmail = "test" } });
+            _mockUserService.Setup(u => u.GetByEmailAsync(It.IsAny<string>())).ReturnsAsync(new User { Id = "user1", EmailId = "test" });
+            _mockUserService.Setup(u => u.UpdateAsync(It.IsAny<string>(), It.IsAny<User>())).Returns(Task.CompletedTask);
+            _mockEmailService.Setup(e => e.TrySendHeatNetworkRegistrationEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>())).Returns(Task.CompletedTask);
+            // Act
+            var result = await _controller.AddHeatNetwork(input);
+
+            // Assert
+            var created = Assert.IsType<CreatedAtActionResult>(result.Result);
+            var returned = Assert.IsAssignableFrom<HeatNetwork>(created.Value);
+            Assert.NotNull(returned.HnId);
+            Assert.StartsWith("HN", returned.HnId);
+        }
+
+        [Fact]
+        public async Task AddHeatNetwork_WithoutHnId_NetworkManager_GeneratesHnIdAndReturnsCreated()
+        {
+            // Arrange
+            var input = SampleHeatNetwork("1", hnId: null); // no HnId set
+            _mockCounterService.Setup(c => c.GetNextSequenceValue(It.IsAny<string>())).ReturnsAsync(20);
+            _mockHnService.Setup(s => s.CreateAsync(It.IsAny<HeatNetwork>(), It.IsAny<bool>())).Returns(Task.CompletedTask);
+            _mockUserService.Setup(s => s.GetUserWithDetailsAsync(It.IsAny<string>())).ReturnsAsync(new UserDetailsResult
+            {
+                Id = "tester",
+                EmailId = "user@example.com",
+                FirstName = "Test",
+                LastName = "User",
+                Roles = new List<UserRole> { UserRole.NetworkManager },
+            });
+
+            _mockUserService.Setup(s => s.GetByIdAsync(It.IsAny<string>())).ReturnsAsync(new User
+            {
+                Id = "tester",
+                EmailId = "test",
+                HnRoleMappings = new List<HnRoleMapping>
+                {
+                    new HnRoleMapping { HnId = "HN0000001", Role = ContributorRole.NetworkManager }
+                }
+            });
+
+            _mockInvitationService.Setup(i => i.GetByInvitedEmailAsync(It.IsAny<string>())).ReturnsAsync(new Invitation { Status = InvitationStatus.Accepted, InvitedEmail = "test", InviterUserId = "test" });
+            _mockUserService.Setup(s => s.UpdateAsync(It.IsAny<string>(), It.IsAny<User>())).Returns(Task.CompletedTask);
+            _mockInvitationService.Setup(i => i.GetNetworkManagersByInviterUserId(It.IsAny<string>())).ReturnsAsync(new List<Invitation>() { new Invitation { Status = InvitationStatus.Accepted, InvitedEmail = "test" } });
+            _mockOrganisationService.Setup(o => o.GetByOrgIdAsync(It.IsAny<string>())).ReturnsAsync(new Organisation { Id = "org1", Name = "Org 1", RpUserId = "rpid" });
+            _mockEmailService.Setup(e => e.TrySendHeatNetworkRegistrationEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>())).Returns(Task.CompletedTask);
             // Act
             var result = await _controller.AddHeatNetwork(input);
 
@@ -332,5 +468,284 @@ namespace HNTAS.Digital.Core.Tests.Controllers
 
         #endregion
 
+        [Fact]
+        public async Task GetHeatNetworksByUserId_ReturnsSuccess()
+        {
+            _mockUserService.Setup(s => s.GetByIdAsync(It.IsAny<string>())).ReturnsAsync(new User
+            {
+                Id = "user1",
+                EmailId = "test",
+                HnRoleMappings = new List<HnRoleMapping>
+                {
+                    new HnRoleMapping { HnId = "HN0000001", Role = ContributorRole.ResponsiblePerson }
+                }
+            });
+
+            _mockHnService.Setup(s => s.GetByHnIdAndRegistrationSourceAsync(It.IsAny<string>(), It.IsAny<RegistrationSource>())).ReturnsAsync(new HeatNetwork
+            {
+                Id = "1",
+                HnId = "HN0000001",
+                Name = "Network A",
+                Pathway = "Pathway X"
+            });
+
+            var result = await _controller.GetHeatNetworksByUserId("user1");
+
+            Assert.Equal(1, result.Value?.Count);
+        }
+
+        [Fact]
+        public async Task GetHeatNetworksByUserId_BadRequest()
+        {
+            var result = await _controller.GetHeatNetworksByUserId("");
+
+            Assert.IsType<BadRequestObjectResult>(result.Result);
+        }
+
+        [Fact]
+        public async Task GetHeatNetworksByUserId_NetworkNotFound()
+        {
+            _mockUserService.Setup(s => s.GetByIdAsync(It.IsAny<string>())).ReturnsAsync(new User
+            {
+                Id = "user1",
+                EmailId = "test",
+                HnRoleMappings = new List<HnRoleMapping>
+                {
+                    new HnRoleMapping { HnId = "HN0000001", Role = ContributorRole.ResponsiblePerson }
+                }
+            });
+
+            _mockHnService.Setup(s => s.GetByHnIdAndRegistrationSourceAsync(It.IsAny<string>(), It.IsAny<RegistrationSource>())).ReturnsAsync((HeatNetwork)null!);
+
+            var result = await _controller.GetHeatNetworksByUserId("user1");
+
+            _mockLogger.Verify(
+                x => x.Log(
+                    LogLevel.Information,
+                    It.IsAny<EventId>(),
+                    It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("No heat networks found for the provided ID")),
+                    null,
+                    It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+                Times.Once);
+        }
+
+        [Fact]
+        public async Task GetHeatNetworksByUserId_ThrowException()
+        {
+            _mockUserService.Setup(s => s.GetByIdAsync(It.IsAny<string>())).Throws(new Exception());
+
+            var result = await _controller.GetHeatNetworksByUserId("user1");
+
+            var res = Assert.IsType<ObjectResult>(result.Result);
+            Assert.Equal(StatusCodes.Status500InternalServerError, res.StatusCode);
+        }
+
+        [Fact]
+        public async Task GetExistingNetworksByUserId_ReturnsSuccess()
+        {
+
+            var req = new ExistingNetworkRequest
+            {
+                UserId = "user1"
+            };
+            _mockHnService.Setup(s => s.GetExistingNetworks(It.IsAny<ExistingNetworkRequest>())).ReturnsAsync(new ExistingNetworkResponse
+            {
+                UserId = "tewt"
+            });
+
+            var result = await _controller.GetExistingNetworksByUserId(req);
+
+            // Assert
+            Assert.IsType<OkObjectResult>(result.Result);
+        }
+
+        [Fact]
+        public async Task GetExistingNetworksByUserId_BadRequest()
+        {
+
+            var req = new ExistingNetworkRequest
+            {
+                UserId = ""
+            };
+
+            var result = await _controller.GetExistingNetworksByUserId(req);
+
+            // Assert
+            Assert.IsType<BadRequestObjectResult>(result.Result);
+        }
+
+        [Fact]
+        public async Task GetExistingNetworksByUserId_ThrowException()
+        {
+
+            var req = new ExistingNetworkRequest
+            {
+                UserId = "user1"
+            };
+            _mockHnService.Setup(s => s.GetExistingNetworks(It.IsAny<ExistingNetworkRequest>())).Throws(new Exception());
+
+            var result = await _controller.GetExistingNetworksByUserId(req);
+
+            // Assert
+            var res = Assert.IsType<ObjectResult>(result.Result);
+            Assert.Equal(StatusCodes.Status500InternalServerError, res.StatusCode);
+        }
+
+        [Fact]
+        public async Task GetExistingNetworksByUserId_NetworkNotFound()
+        {
+
+            var req = new ExistingNetworkRequest
+            {
+                UserId = "user1"
+            };
+            _mockHnService.Setup(s => s.GetExistingNetworks(It.IsAny<ExistingNetworkRequest>())).ReturnsAsync((ExistingNetworkResponse)null!);
+
+
+            var result = await _controller.GetExistingNetworksByUserId(req);
+
+            // Assert
+            Assert.IsType<NotFoundResult>(result.Result);
+        }
+
+        [Fact]
+        public async Task UpdateNetworkElements_SingleElement_ReturnsSuccess()
+        {
+            var request = new NetworkElements
+            {
+                CreatedAt = DateTime.Now,
+                CreatedBy = "tester",
+                Elements = new List<Element> { new Element { ElementId = "test", ElementType = ElementTypeInShort.DDN} },
+                ElementsGroup = new List<ElementGroup> { new ElementGroup { Count = 1, ElementType = ElementTypeInShort.DDN, ElementDisplayType = HeatNetworkElementType.DistrictDistribution } },
+                ElementSoaStatus = NetworkDetailsStatus.ReadyToStart,
+                UpdatedAt = DateTime.Now,
+                UpdatedBy = "tester",
+            };
+            var hnId = "HN0000001";
+            var domain = SampleHeatNetwork("1", hnId);
+            var response = SampleHeatNetworkResponse("1", hnId);
+
+            _mockHnService.Setup(s => s.GetByHnIdAsync(hnId)).ReturnsAsync(domain);
+            _mockHnService.Setup(s => s.UpdateAsync(It.IsAny<string>(), It.IsAny<HeatNetwork>())).Returns(Task.CompletedTask);
+            _mockAuditService.Setup(a => a.SaveAuditAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<HeatNetwork>(), It.IsAny<HeatNetwork>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>())).Returns(Task.CompletedTask);
+            var result = await _controller.UpdateNetworkElements(request, hnId);
+            // Assert
+            Assert.IsType<OkObjectResult>(result.Result);
+        }
+
+        [Fact]
+        public async Task UpdateNetworkElements_MultipleElements_ReturnsSuccess()
+        {
+            var request = new NetworkElements
+            {
+                CreatedAt = DateTime.Now,
+                CreatedBy = "tester",
+                Elements = new List<Element>
+                {
+                    new Element { ElementId = "test", ElementType = ElementTypeInShort.DDN },
+                    new Element { ElementId = "test", ElementType = ElementTypeInShort.SS },
+                    new Element { ElementId = "test", ElementType = ElementTypeInShort.EC },
+                    new Element { ElementId = "test", ElementType = ElementTypeInShort.CDN },
+                    new Element { ElementId = "test", ElementType = ElementTypeInShort.CC }
+                },
+                ElementsGroup = new List<ElementGroup>
+                {
+                    new ElementGroup { Count = 2, ElementType = ElementTypeInShort.DDN, ElementDisplayType = HeatNetworkElementType.DistrictDistribution },
+                    new ElementGroup { Count = 2, ElementType = ElementTypeInShort.CC, ElementDisplayType = HeatNetworkElementType.ConsumerConnection },
+                    new ElementGroup { Count = 2, ElementType = ElementTypeInShort.CDN, ElementDisplayType = HeatNetworkElementType.CommunalDistribution },
+                    new ElementGroup { Count = 2, ElementType = ElementTypeInShort.EC, ElementDisplayType = HeatNetworkElementType.EnergyCentre },
+                    new ElementGroup { Count = 2, ElementType = ElementTypeInShort.SS, ElementDisplayType = HeatNetworkElementType.Substation }
+                },
+                ElementSoaStatus = NetworkDetailsStatus.ReadyToStart,
+                UpdatedAt = DateTime.Now,
+                UpdatedBy = "tester",
+            };
+            var hnId = "HN0000001";
+            var domain = SampleHeatNetwork("1", hnId);
+            var response = SampleHeatNetworkResponse("1", hnId);
+
+            _mockHnService.Setup(s => s.GetByHnIdAsync(hnId)).ReturnsAsync(domain);
+            _mockHnService.Setup(s => s.UpdateAsync(It.IsAny<string>(), It.IsAny<HeatNetwork>())).Returns(Task.CompletedTask);
+            _mockAuditService.Setup(a => a.SaveAuditAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<HeatNetwork>(), It.IsAny<HeatNetwork>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>())).Returns(Task.CompletedTask);
+            var result = await _controller.UpdateNetworkElements(request, hnId);
+            // Assert
+            Assert.IsType<OkObjectResult>(result.Result);
+        }
+
+        [Fact]
+        public async Task UpdateNetworkElements_ThrowException()
+        {
+            var request = new NetworkElements
+            {
+                CreatedAt = DateTime.Now,
+                CreatedBy = "tester",
+                Elements = new List<Element> { new Element { ElementId = "test", ElementType = ElementTypeInShort.DDN } },
+                ElementsGroup = new List<ElementGroup> { new ElementGroup { Count = 1, ElementType = ElementTypeInShort.DDN, ElementDisplayType = HeatNetworkElementType.DistrictDistribution } },
+                ElementSoaStatus = NetworkDetailsStatus.ReadyToStart,
+                UpdatedAt = DateTime.Now,
+                UpdatedBy = "tester",
+            };
+            var hnId = "HN0000001";            
+
+            _mockHnService.Setup(s => s.GetByHnIdAsync(hnId)).Throws(new Exception());            
+            var result = await _controller.UpdateNetworkElements(request, hnId);
+            // Assert
+            var res = Assert.IsType<ObjectResult>(result.Result);
+            Assert.Equal(StatusCodes.Status500InternalServerError, res.StatusCode);
+        }
+
+        [Fact]
+        public async Task UpdateNetworkElements_NetworkId_BadRequest()
+        {
+            var request = new NetworkElements
+            {
+                CreatedAt = DateTime.Now,
+                CreatedBy = "tester",
+                Elements = new List<Element> { new Element { ElementId = "test", ElementType = ElementTypeInShort.DDN } },
+                ElementsGroup = new List<ElementGroup> { new ElementGroup { Count = 1, ElementType = ElementTypeInShort.DDN, ElementDisplayType = HeatNetworkElementType.DistrictDistribution } },
+                ElementSoaStatus = NetworkDetailsStatus.ReadyToStart,
+                UpdatedAt = DateTime.Now,
+                UpdatedBy = "tester",
+            };
+            var hnId = "";            
+
+            
+            var result = await _controller.UpdateNetworkElements(request, hnId);
+            // Assert
+            Assert.IsType<BadRequestObjectResult>(result.Result);            
+        }
+
+        [Fact]
+        public async Task UpdateNetworkElements_NoNetworkElement_BadRequest()
+        {
+            NetworkElements request = null;
+            var hnId = "HN100001";
+
+
+            var result = await _controller.UpdateNetworkElements(request, hnId);
+            // Assert
+            Assert.IsType<BadRequestObjectResult>(result.Result);
+        }
+
+        [Fact]
+        public async Task UpdateNetworkElements_NetworkNotFound()
+        {
+            var request = new NetworkElements
+            {
+                CreatedAt = DateTime.Now,
+                CreatedBy = "tester",
+                Elements = new List<Element> { new Element { ElementId = "test", ElementType = ElementTypeInShort.DDN } },
+                ElementsGroup = new List<ElementGroup> { new ElementGroup { Count = 1, ElementType = ElementTypeInShort.DDN, ElementDisplayType = HeatNetworkElementType.DistrictDistribution } },
+                ElementSoaStatus = NetworkDetailsStatus.ReadyToStart,
+                UpdatedAt = DateTime.Now,
+                UpdatedBy = "tester",
+            };
+            var hnId = "HN0000001";
+
+            _mockHnService.Setup(s => s.GetByHnIdAsync(hnId)).Returns(Task.FromResult((HeatNetwork)null!));
+            var result = await _controller.UpdateNetworkElements(request, hnId);
+            // Assert
+            Assert.IsType<NotFoundObjectResult>(result.Result);            
+        }
     }
 }

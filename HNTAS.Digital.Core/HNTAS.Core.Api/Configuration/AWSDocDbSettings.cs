@@ -14,5 +14,11 @@
         public string AssessorsCollectionName { get; set; } = null!;
         public string NotificationHistoryCollectionName { get; set; } = null!;
         public string UserStatsCollectionName { get; set; } = null!;
+
+        public string SuperUsersCollectionName { get; set; } = null!;
+
+        public string KPI_DataCollectionName { get; set; } = null!;
+
+        public string KPI_ConfigurationsCollectionName { get; set; } = null!;
     }
 }

@@ -1,10 +1,13 @@
 ﻿using AutoMapper;
+using HNTAS.Core.Api.Configuration;
 using HNTAS.Core.Api.Data.Models.Arms.Submission;
 using HNTAS.Core.Api.Extensions;
 using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
+using HNTAS.Core.Api.Models;
 using HNTAS.Core.Api.Models.Arms.Dashboard;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using MongoDB.Bson;
 
 namespace HNTAS.Core.Api.Controllers
@@ -18,18 +21,24 @@ namespace HNTAS.Core.Api.Controllers
         private readonly IArmsKpiService _armsKpiService;
         private readonly IKpiSubmissionAuditService _auditService;
         private readonly ILogger<ArmsDashboardController> _logger;
+        private readonly ISuperUserService _superUserService;
+        private readonly ArmsSettings _armsSettings;
         public ArmsDashboardController(IUserService userService,
             IHeatNetworkService networkService,
             IArmsKpiService armsKpiService,
             IMapper mapper,
             IKpiSubmissionAuditService auditService,
-            ILogger<ArmsDashboardController> logger)
+            ILogger<ArmsDashboardController> logger,
+            ISuperUserService superUserService,
+            IOptions<ArmsSettings> armsSettings)
         {
             _userService = userService;
             _networkService = networkService;
             _armsKpiService = armsKpiService;
             _auditService = auditService;
             _logger = logger;
+            _superUserService = superUserService;
+            _armsSettings = armsSettings.Value;
         }
 
         [HttpGet("get-kpi-networks-by-rp-user")]
@@ -49,17 +58,34 @@ namespace HNTAS.Core.Api.Controllers
             if (userDetails == null) return NotFound("User not found");
 
             bool isRpUser = userDetails.Roles?.Contains(HNTAS.Core.Api.Enums.UserRole.ResponsiblePerson) ?? false;
-            if (!isRpUser)
+            bool isSuperUser = _armsSettings.AllowSuperUserAccess && await _superUserService.IsSuperUserAsync(userDetails.EmailId);
+            bool isAuthorized = isRpUser || isSuperUser;
+
+            if (!isAuthorized)
             {
-                return BadRequest("Only Responsible Person users can access this endpoint");
+                return BadRequest("Only Responsible Person can access this endpoint");
             }
 
             // 2. Get the full list of Authorized Networks (The Master List)
-            var authorizedNetworks = UserNetworkHelper.GetAuthorizedNetworks(userDetails);
-            if (authorizedNetworks == null || !authorizedNetworks.Any())
+            var authorizedNetworks = new List<HeatNetworkUserResponse>();
+            if (isRpUser)
             {
-                return Ok(new HeatNetworkDashboardResponse());
+                authorizedNetworks = UserNetworkHelper.GetAuthorizedNetworks(userDetails);
+                if (authorizedNetworks == null || !authorizedNetworks.Any())
+                {
+                    return Ok(new HeatNetworkDashboardResponse());
+                }
             }
+            else if (isSuperUser)
+            {
+                var allNetworks = await _networkService.GetAsync();
+                authorizedNetworks = allNetworks.Select(n => new HeatNetworkUserResponse
+                {
+                    HnId = n.HnId,
+                    Name = n.Name
+                }).ToList();
+            }
+
 
             // 3. Prepare Period String
             // If month is null, periodStr becomes "2026", triggering the Regex search

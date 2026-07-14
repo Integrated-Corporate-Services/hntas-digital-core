@@ -1,8 +1,10 @@
 ﻿using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Models.NotificationHistory;
+using System.Diagnostics.CodeAnalysis;
 
 namespace HNTAS.Core.Api.Models.AssignedAssessor
 {
+    [ExcludeFromCodeCoverage]
     public class AssignedAssessorResponse
     {
         public List<AssignedAssessor> Items { get; set; } = new();
@@ -12,6 +14,7 @@ namespace HNTAS.Core.Api.Models.AssignedAssessor
         public int TotalPages { get; set; }
     }
 
+    [ExcludeFromCodeCoverage]
     public class AssignedAssessor
     {
         public string? Name { get; set; }

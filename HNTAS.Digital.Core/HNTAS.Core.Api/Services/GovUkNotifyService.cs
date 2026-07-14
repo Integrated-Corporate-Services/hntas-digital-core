@@ -37,11 +37,8 @@ namespace HNTAS.Core.Api.Services
             }
             if (string.IsNullOrEmpty(templateId))
             {
-                _logger.LogWarning("Attempted to send email with null or empty template ID to {EmailAddress}.", emailAddress);
                 throw new ArgumentException("Template ID cannot be null or empty.", nameof(templateId));
             }
-
-            _logger.LogInformation("Attempting to send email to {EmailAddress} using template {TemplateId}.", emailAddress, templateId);
 
             try
             {
@@ -51,20 +48,18 @@ namespace HNTAS.Core.Api.Services
                     personalisation: personalisation
                 );
 
-                _logger.LogInformation("Email sent successfully to {EmailAddress}. Notification ID: {NotificationId}. Reference: {Reference}",
-                    emailAddress, response.id, reference ?? "N/A");
                 return true;
             }
             catch (Notify.Exceptions.NotifyClientException ex)
             {
-                _logger.LogError(ex, "GOV.UK Notify client error sending email to {EmailAddress} using template {TemplateId}. Error: {ErrorMessage}",
-                    emailAddress, templateId, ex.Message);
+                _logger.LogError(ex, "GOV.UK Notify client error sending email to using template {TemplateId}. Error: {ErrorMessage}",
+                    templateId, ex.Message);
                 return false;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An unexpected error occurred while sending email to {EmailAddress} using template {TemplateId}. Error: {ErrorMessage}",
-                    emailAddress, templateId, ex.Message);
+                _logger.LogError(ex, "An unexpected error occurred while sending email using template {TemplateId}. Error: {ErrorMessage}",
+                    templateId, ex.Message);
                 return false;
             }
         }

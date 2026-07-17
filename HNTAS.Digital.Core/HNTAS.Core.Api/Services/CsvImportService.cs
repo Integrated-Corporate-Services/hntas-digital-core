@@ -267,6 +267,7 @@ namespace HNTAS.Core.Api.Services
                 UHnId = row.HnId.Replace("HN", ""),
                 OrgId = hntasOrgId,
                 Name = row.HnName,
+                Phase = "Operation",
                 Address = new RegisteredAddress
                 {
                     AddressLine1 = row.EcStreetAddress ?? string.Empty,

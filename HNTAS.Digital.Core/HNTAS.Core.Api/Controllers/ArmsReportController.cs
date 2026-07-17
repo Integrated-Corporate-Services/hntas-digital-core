@@ -32,7 +32,7 @@ namespace HNTAS.Core.Api.Controllers
 
                 if (data == null || !data.Any())
                 {
-                    _logger.LogWarning("No data returned from ArmsPowerBiService.");
+                    _logger.LogWarning("No data returned from GetPowerBiData.");
                     return Ok(new List<ArmsPowerBiReportResponse>());
                 }
 
@@ -75,6 +75,41 @@ namespace HNTAS.Core.Api.Controllers
             {
                 _logger.LogError(ex, "An unexpected error occurred while processing the ARMS Power BI requirement.");
                 return StatusCode(StatusCodes.Status500InternalServerError, "Error retrieving data for Power BI.");
+            }
+        }
+
+        [HttpGet("powerbi-user-data")]
+        [ProducesResponseType(typeof(IEnumerable<ArmsPowerBiUserReportResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> GetPowerBiUserData()
+        {
+            try
+            {
+                _logger.LogInformation("Starting retrieval of ARMS Power BI report user data.");
+
+                var data = await _armsPowerBiService.GetPowerBiUserDataAsync();
+
+                if (data == null || !data.Any())
+                {
+                    _logger.LogWarning("No data returned from GetPowerBiUserData.");
+                    return Ok(new List<ArmsPowerBiReportResponse>());
+                }
+
+                var response = data.Select(user => new ArmsPowerBiUserReportResponse
+                {
+                    UserId = user.UserId,
+                    OrgId = user.OrgId,
+                    HnId = user.HnId
+                }).ToList();
+
+                _logger.LogInformation("Successfully processed {Count} rows for Power BI extraction.", response.Count);
+
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An unexpected error occurred while processing the ARMS Power BI user requirement.");
+                return StatusCode(StatusCodes.Status500InternalServerError, "Error retrieving user data for Power BI.");
             }
         }
     }

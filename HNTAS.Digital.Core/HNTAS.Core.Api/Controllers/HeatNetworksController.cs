@@ -296,6 +296,61 @@ namespace HNTAS.Core.Api.Controllers
             }
         }
 
+        [HttpPut("register-ofgem-network")]
+        [Consumes(MediaTypeNames.Application.Json)]
+        [ProducesResponseType(typeof(HeatNetworkResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<HeatNetworkResponse>> RegisterOfgemNetwork([FromBody] HeatNetwork heatNetworkDetails)
+        {
+            try
+            {
+                if (String.IsNullOrWhiteSpace(heatNetworkDetails.HnId))
+                {
+                    return BadRequest("Invalid heat network details.");
+                }
+                await _hnService.UpdateAsync(heatNetworkDetails.HnId, heatNetworkDetails);
+                _logger.LogInformation("Heat network initially registered: {HNID} (DB Id: {Id})", heatNetworkDetails.HnId.ToSafeLog(), heatNetworkDetails.Id.ToSafeLog());
+                
+                UserDetailsResult user = await _userService.GetUserWithDetailsAsync(heatNetworkDetails.CreatedBy);
+                ContributorRole role = user.Roles[0] switch
+                {
+                    UserRole.ResponsiblePerson => ContributorRole.ResponsiblePerson,
+                    UserRole.NetworkManager => ContributorRole.NetworkManager
+                };
+
+                if (role == ContributorRole.ResponsiblePerson)
+                {
+                    //find the network managers
+                    var allNetworkManagers = await _invitationService.GetNetworkManagersByInviterUserId(heatNetworkDetails.CreatedBy);
+                    var acceptedNetworkManagers = allNetworkManagers.Where(nm => nm.Status == InvitationStatus.Accepted).ToList();
+
+                    // All networks managers reporting to the rp can access all heat networks the rp adds
+                    foreach (var nm in acceptedNetworkManagers)
+                    {
+                        if (nm.Status == InvitationStatus.Accepted)
+                        {
+                            User nmWithUpdatedHnRoleMapping = await _userService.GetByEmailAsync(nm.InvitedEmail);
+                            nmWithUpdatedHnRoleMapping.HnRoleMappings.Add(new HnRoleMapping { HnId = heatNetworkDetails.HnId, Role = ContributorRole.NetworkManager });
+                            await _userService.UpdateAsync(nmWithUpdatedHnRoleMapping.Id, nmWithUpdatedHnRoleMapping);
+                        }
+                    }
+                }
+                _logger.LogInformation("New heat network role mapping updated");
+
+                return Ok(heatNetworkDetails);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
+                {
+                    Status = StatusCodes.Status500InternalServerError,
+                    Title = "Internal Server Error",
+                    Detail = "An unexpected error occurred during ofgem network registration."
+                });
+            }
+        }
+
         /// <summary>
         /// Updates the NetworkElements for a given heat network identified by HnId.
         /// </summary>

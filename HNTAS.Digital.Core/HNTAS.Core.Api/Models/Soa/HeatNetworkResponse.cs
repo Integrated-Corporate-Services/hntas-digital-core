@@ -31,6 +31,7 @@ namespace HNTAS.Core.Api.Models.Soa
         public AssessmentPlanResponse? AssessmentPlan { get; set; }
         public DesignConstructionLogResponse? DesignConstructionLog { get; set; }
         public DateTime? OfgemImportedDate { get; set; }
+        public string? OfgemUserEmailId { get; set; }
 
     }
 

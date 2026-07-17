@@ -615,7 +615,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             {
                 CreatedAt = DateTime.Now,
                 CreatedBy = "tester",
-                Elements = new List<Element> { new Element { ElementId = "test", ElementType = ElementTypeInShort.DDN} },
+                Elements = new List<Element> { new Element { ElementId = "test", ElementType = ElementTypeInShort.DDN } },
                 ElementsGroup = new List<ElementGroup> { new ElementGroup { Count = 1, ElementType = ElementTypeInShort.DDN, ElementDisplayType = HeatNetworkElementType.DistrictDistribution } },
                 ElementSoaStatus = NetworkDetailsStatus.ReadyToStart,
                 UpdatedAt = DateTime.Now,
@@ -685,9 +685,9 @@ namespace HNTAS.Digital.Core.Tests.Controllers
                 UpdatedAt = DateTime.Now,
                 UpdatedBy = "tester",
             };
-            var hnId = "HN0000001";            
+            var hnId = "HN0000001";
 
-            _mockHnService.Setup(s => s.GetByHnIdAsync(hnId)).Throws(new Exception());            
+            _mockHnService.Setup(s => s.GetByHnIdAsync(hnId)).Throws(new Exception());
             var result = await _controller.UpdateNetworkElements(request, hnId);
             // Assert
             var res = Assert.IsType<ObjectResult>(result.Result);
@@ -707,12 +707,12 @@ namespace HNTAS.Digital.Core.Tests.Controllers
                 UpdatedAt = DateTime.Now,
                 UpdatedBy = "tester",
             };
-            var hnId = "";            
+            var hnId = "";
 
-            
+
             var result = await _controller.UpdateNetworkElements(request, hnId);
             // Assert
-            Assert.IsType<BadRequestObjectResult>(result.Result);            
+            Assert.IsType<BadRequestObjectResult>(result.Result);
         }
 
         [Fact]
@@ -745,7 +745,44 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             _mockHnService.Setup(s => s.GetByHnIdAsync(hnId)).Returns(Task.FromResult((HeatNetwork)null!));
             var result = await _controller.UpdateNetworkElements(request, hnId);
             // Assert
-            Assert.IsType<NotFoundObjectResult>(result.Result);            
+            Assert.IsType<NotFoundObjectResult>(result.Result);
+        }
+
+        [Fact]
+        public async Task RegisterOfgemNetwork_ReturnsOk_WithData()
+        {
+            var request = new HeatNetwork { Id = "1", HnId = "HN000001", CreatedBy = "testuser" };
+            _mockHnService.Setup(h => h.UpdateAsync(It.IsAny<string>(), It.IsAny<HeatNetwork>())).Returns(Task.CompletedTask);
+            _mockUserService.Setup(u => u.GetUserWithDetailsAsync(It.IsAny<string>())).ReturnsAsync(new UserDetailsResult { Roles = new List<UserRole> { UserRole.ResponsiblePerson} });
+            _mockInvitationService.Setup(i => i.GetNetworkManagersByInviterUserId(It.IsAny<string>())).ReturnsAsync(new List<Invitation>() { new Invitation { Status = InvitationStatus.Accepted, InvitedEmail = "test" } });
+            _mockUserService.Setup(u => u.GetByEmailAsync(It.IsAny<string>())).ReturnsAsync(new User { Id = "user1", EmailId = "test" });
+
+            var result = await _controller.RegisterOfgemNetwork(request);
+            Assert.NotNull(result);
+            var resultValue = Assert.IsType<OkObjectResult>(result.Result);
+            Assert.Equal(StatusCodes.Status200OK, resultValue.StatusCode);
+        }
+
+        [Fact]
+        public async Task RegisterOfgemNetwork_BadRequest()
+        {
+            var request = new HeatNetwork { CreatedBy = "testuser" };            
+
+            var result = await _controller.RegisterOfgemNetwork(request);            
+            Assert.IsType<BadRequestObjectResult>(result.Result);            
+        }
+
+        [Fact]
+        public async Task RegisterOfgemNetwork_ThrowException()
+        {
+            var request = new HeatNetwork { Id = "1", HnId = "HN000001", CreatedBy = "testuser" };
+            _mockHnService.Setup(h => h.UpdateAsync(It.IsAny<string>(), It.IsAny<HeatNetwork>())).Throws(new Exception("DB failure"));
+            
+
+            var result = await _controller.RegisterOfgemNetwork(request);
+            Assert.NotNull(result);
+            var resultValue = Assert.IsType<ObjectResult>(result.Result);
+            Assert.Equal(StatusCodes.Status500InternalServerError, resultValue.StatusCode);
         }
     }
 }

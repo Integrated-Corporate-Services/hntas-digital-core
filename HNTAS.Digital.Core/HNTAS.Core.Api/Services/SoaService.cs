@@ -120,6 +120,90 @@ namespace HNTAS.Core.Api.Services
 
         }
 
+        public async Task UpdateSoaStatusForExistingNetwork(string hnId, ElementTypeInShort elementType, Milestone milestone, List<SoaStatusWithCount> soaStatuses, string updatedBy, NetworkDetailsStatus elementSoaStatus)
+        {
+            try
+            {
+                // First, ensure SoaStages is initialized
+                var initFilter = Builders<HeatNetwork>.Filter.And(
+                    Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
+                    Builders<HeatNetwork>.Filter.ElemMatch(hn => hn.NetworkElements!.ElementsGroup,
+                        e => e.ElementType == elementType && e.SoaMilestones == null)
+                );
+
+                var initUpdate = Builders<HeatNetwork>.Update.Set("networkElements.elementsGroup.$.soaMilestones", new List<SoaMilestone>());
+
+                await _heatNetworkCollection.UpdateOneAsync(initFilter, initUpdate);
+
+                // Try to update existing status for the specific stage and element
+                var updateFilter = Builders<HeatNetwork>.Filter.And(
+                    Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
+                    Builders<HeatNetwork>.Filter.ElemMatch<ElementGroup>("networkElements.elementsGroup",
+                        new MongoDB.Bson.BsonDocument
+                        {
+                            { "elementType", elementType.ToString() },
+                            { "soaMilestones.milestoneId", milestone.ToString() }
+                        })
+                );
+
+                var update = Builders<HeatNetwork>.Update
+                    .Set("networkElements.elementsGroup.$[element].soaMilestones.$[milestone].soaStatuses", soaStatuses)
+                    .Set("networkElements.elementsGroup.$[element].soaMilestones.$[milestone].soaStatusUpdatedAt", DateTime.UtcNow)
+                    .Set("networkElements.elementsGroup.$[element].soaMilestones.$[milestone].soaStatusUpdatedBy", updatedBy)
+                    .Set(hn => hn.NetworkElements!.ElementSoaStatus, elementSoaStatus);
+
+                var arrayFilters = new[]
+                {
+                    new BsonDocumentArrayFilterDefinition<MongoDB.Bson.BsonDocument>(
+                        new MongoDB.Bson.BsonDocument("element.elementType", elementType.ToString())),
+                    new BsonDocumentArrayFilterDefinition<MongoDB.Bson.BsonDocument>(
+                        new MongoDB.Bson.BsonDocument("milestone.milestoneId", milestone.ToString()))
+                };
+
+                var updateOptions = new UpdateOptions { ArrayFilters = arrayFilters };
+                var result = await _heatNetworkCollection.UpdateOneAsync(updateFilter, update, updateOptions);
+
+                if (result.ModifiedCount == 0)
+                {
+                    // Stage doesn't exist - add it using array filter
+                    var pushFilter = Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId);
+
+                    var pushUpdate = Builders<HeatNetwork>.Update
+                        .Push("networkElements.elementsGroup.$[element].soaMilestones", new SoaMilestone
+                        {
+                            MilestoneId = milestone,
+                            SoaStatuses = soaStatuses,
+                            SoaStatusUpdatedAt = DateTime.UtcNow,
+                            SoaStatusUpdatedBy = updatedBy
+                        })
+                        .Set(hn => hn.NetworkElements!.ElementSoaStatus, elementSoaStatus);
+
+                    var pushArrayFilters = new[]
+                    {
+                        new BsonDocumentArrayFilterDefinition<MongoDB.Bson.BsonDocument>(
+                            new MongoDB.Bson.BsonDocument("element.elementType", elementType.ToString()))
+                    };
+
+                    var pushOptions = new UpdateOptions { ArrayFilters = pushArrayFilters };
+                    result = await _heatNetworkCollection.UpdateOneAsync(pushFilter, pushUpdate, pushOptions);
+
+                    if (result.ModifiedCount > 0)
+                    {
+                        _logger.LogInformation("Added document to existing element for HN ID: {HnId}, Milestone: {Milestone}, Element: {elementType}", StringFormatter.Sanitize(hnId), milestone, StringFormatter.Sanitize(elementType.ToString()));
+                        return;
+                    }
+                }
+
+                _logger.LogInformation("Updated ElementSoa document for HN ID: {HnId}, Milestone: {Milestone}, Element: {elementType}", StringFormatter.Sanitize(hnId), milestone, StringFormatter.Sanitize(elementType.ToString()));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating SOA document for HN ID: {HnId}, Element: {elementType}, Milestone: {Milestone}", StringFormatter.Sanitize(hnId), StringFormatter.Sanitize(elementType.ToString()), milestone);
+                throw;
+            }
+
+        }
+
         public async Task<NetworkElements> UpdateAssignAssessor(ElementSoaAssignAssessorRequest request, NetworkElements networkElements, string phase,  bool initiateSoa)
         {
             var networkElementsName = new List<string>();

@@ -24,6 +24,11 @@ builder.Services.Configure<AWSDocDbSettings>(
 builder.Services.Configure<HntasServiceSettings>(
     builder.Configuration.GetSection("HntasService"));
 
+builder.Configuration
+    .AddJsonFile("units.json", optional: false, reloadOnChange: true);
+
+builder.Services.Configure<UnitSettings>(builder.Configuration);
+
 builder.Services.AddControllers()
 .ConfigureApiBehaviorOptions(options =>
 {
@@ -66,6 +71,7 @@ builder.Services.AddScoped<IKpiSubmissionAuditService, KpiSubmissionAuditService
 builder.Services.AddScoped<IUserStatsService, UserStatsService>();
 builder.Services.AddScoped<ISuperUserService, SuperUserService>();
 builder.Services.AddScoped<IArmsPowerBiService, ArmsPowerBiService>();
+builder.Services.AddSingleton<IUnitService, UnitService>();
 
 //Data Migrations
 builder.Services.AddScoped<IDataMigration, SeedCountriesAndTerritories>();

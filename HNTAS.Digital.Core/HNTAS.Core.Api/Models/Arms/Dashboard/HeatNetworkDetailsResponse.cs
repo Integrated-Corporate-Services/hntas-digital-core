@@ -29,6 +29,8 @@ namespace HNTAS.Core.Api.Models.Arms.Dashboard
     {
         public string Label { get; set; } = null!;
         public double Value { get; set; }
+
+        public string? Unit { get; set; }
     }
 
     [ExcludeFromCodeCoverage]
@@ -37,6 +39,8 @@ namespace HNTAS.Core.Api.Models.Arms.Dashboard
         public string KpiName { get; set; } = string.Empty;
         public double Value { get; set; }
         public string Status { get; set; } = string.Empty;
+
+        public string? Unit { get; set; }
     }
 
     [ExcludeFromCodeCoverage]
@@ -52,6 +56,7 @@ namespace HNTAS.Core.Api.Models.Arms.Dashboard
     {
         public string KpiName { get; set; } = string.Empty; // The Dictionary Key
         public double Value { get; set; }
+        public string? Unit { get; set; }
         public string Status { get; set; } = string.Empty;
         public bool IsImputed { get; set; }
         public string? ImputationDetails { get; set; }

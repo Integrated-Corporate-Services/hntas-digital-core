@@ -23,6 +23,8 @@ namespace HNTAS.Core.Api.Controllers
         private readonly ILogger<ArmsDashboardController> _logger;
         private readonly ISuperUserService _superUserService;
         private readonly ArmsSettings _armsSettings;
+        private readonly IUnitService _unitService;
+
         public ArmsDashboardController(IUserService userService,
             IHeatNetworkService networkService,
             IArmsKpiService armsKpiService,
@@ -30,7 +32,8 @@ namespace HNTAS.Core.Api.Controllers
             IKpiSubmissionAuditService auditService,
             ILogger<ArmsDashboardController> logger,
             ISuperUserService superUserService,
-            IOptions<ArmsSettings> armsSettings)
+            IOptions<ArmsSettings> armsSettings,
+            IUnitService unitService)
         {
             _userService = userService;
             _networkService = networkService;
@@ -39,6 +42,7 @@ namespace HNTAS.Core.Api.Controllers
             _logger = logger;
             _superUserService = superUserService;
             _armsSettings = armsSettings.Value;
+            _unitService = unitService;
         }
 
         [HttpGet("get-kpi-networks-by-rp-user")]
@@ -202,7 +206,8 @@ namespace HNTAS.Core.Api.Controllers
                         Value = kvp.Value.Value,
                         Status = kvp.Value.AssessmentStatus.GetDescription(),
                         IsImputed = kvp.Value.IsKpiImputed,
-                        ImputationDetails = kvp.Value.KpiImputationDetails
+                        ImputationDetails = kvp.Value.KpiImputationDetails,
+                        Unit = _unitService.GetUnit(kvp.Key)
                     }).ToList()
                 })
             // Only include elements that actually have KPIs after filtering
@@ -225,7 +230,8 @@ namespace HNTAS.Core.Api.Controllers
                 {
                     KpiName = kvp.Key,
                     Value = kvp.Value.Value,
-                    Status = kvp.Value.AssessmentStatus.GetDescription()
+                    Status = kvp.Value.AssessmentStatus.GetDescription(),
+                    Unit = _unitService.GetUnit(kvp.Key)
                 }).ToList() ?? null;
 
             var carbonUiInputs = new Dictionary<string, CarbonInputUiDisplay>();
@@ -283,7 +289,8 @@ namespace HNTAS.Core.Api.Controllers
                         carbonUiInputs[target.Key] = new CarbonInputUiDisplay
                         {
                             Label = target.Label,
-                            Value = numericValue
+                            Value = numericValue,
+                            Unit = _unitService.GetUnit(target.Key)
                         };
                     }
                 }

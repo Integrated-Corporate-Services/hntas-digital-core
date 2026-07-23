@@ -92,6 +92,46 @@ namespace HNTAS.Core.Api.Controllers
             }
         }
 
+        [HttpPatch("update-soa-status-for-existing-network")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> UpdateSoaStatusForExistingNetwork([FromBody] ElementSoaStatusUpdateRequestForExistingNetwork request)
+        {
+            if (!ModelState.IsValid)
+            {
+                _logger.LogWarning("Invalid SaveDocument request: {@Errors}",
+                    ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage));
+                return BadRequest(ModelState);
+            }
+
+            _logger.LogInformation("Saving statuses for existing HN ID: {HnId}, Element:{ElementId}, Milestone: {Milestone}, UpdatedBy: {UpdatedBy}",
+                 StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(request.ElementId!), request.Milestone, StringFormatter.Sanitize(request.SoaStatusUpdatedBy!));
+
+            try
+            {
+                var existingHeatNetwork = await _heatNetworkService.GetByHnIdAsync(request.HnId);
+                if (existingHeatNetwork == null)
+                {
+                    _logger.LogInformation("No heat network found for existing HnId: {HnId}", StringFormatter.Sanitize(request.HnId));
+                    return NotFound($"No heat network found for HnId '{request.HnId}'.");
+                }
+
+                await _soaService.UpdateSoaStatusForExistingNetwork(request.HnId, request.ElementType, request.Milestone, request.SoaStatuses!, request.SoaStatusUpdatedBy!, request.ElementSoaStatus);
+
+                _logger.LogInformation("Updated statuses successfully for existing HN ID: {HnId}, Element:{ElementId}, Milestone: {Milestone}, UpdatedBy: {UpdatedBy}",
+                 StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(request.ElementId!), request.Milestone, StringFormatter.Sanitize(request.SoaStatusUpdatedBy!));
+
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to update statuses for HN ID: {HnId}, Element:{ElementId}, Milestone: {Milestone}, UpdatedBy: {UpdatedBy}",
+                 StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(request.ElementId!), request.Milestone, StringFormatter.Sanitize(request.SoaStatusUpdatedBy!));
+                throw;
+            }
+        }
+
         [HttpPatch("soa-assign-assessor")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -137,7 +177,53 @@ namespace HNTAS.Core.Api.Controllers
                 StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(request.UpdatedBy));
                 return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while assigning assessor to the network.");
             }
-        }        
+        }
+
+        [HttpPatch("soa-assign-assessor-for-existing-network")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> SoaAssignAssessorForExistingNetwork([FromBody] ElementSoaAssignAssessorRequestForExistingNetwork request)
+        {
+            if (!ModelState.IsValid)
+            {
+                _logger.LogWarning("Invalid SaveDocument request: {@Errors}",
+                    ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage));
+                return BadRequest(ModelState);
+            }
+
+            _logger.LogInformation("Saving Assessor Assigned for existing HN ID: {HnId}, UpdatedBy: {UpdatedBy}",
+                StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(request.UpdatedBy));
+
+            try
+            {
+                var existingHeatNetwork = await _heatNetworkService.GetByHnIdAsync(request.HnId);
+                if (existingHeatNetwork == null)
+                {
+                    _logger.LogInformation("No heat network found for existing HnId: {HnId}", StringFormatter.Sanitize(request.HnId));
+                    return NotFound($"No heat network found for existing HnId '{request.HnId}'.");
+                }
+
+                var networkElements = existingHeatNetwork.NetworkElements;
+
+                await _soaService.UpdateAssignAssessorForExistingNetwork(request, networkElements!, existingHeatNetwork.Phase!, true);
+                existingHeatNetwork = await _heatNetworkService.GetByHnIdAsync(request.HnId);
+                networkElements = existingHeatNetwork.NetworkElements;
+                var elementModelToUpdate = await _soaService.UpdateAssignAssessorForExistingNetwork(request, networkElements!, existingHeatNetwork.Phase!, false);
+                existingHeatNetwork.NetworkElements = elementModelToUpdate;
+                await _heatNetworkService.UpdateAsync(request.HnId, existingHeatNetwork);                
+                _logger.LogInformation("Saved Assessor Assigned for existing HN ID: {HnId}, UpdatedBy: {UpdatedBy}",
+                StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(request.UpdatedBy));
+
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to save Assessor Assigned for existing HN ID: {HnId}, UpdatedBy: {UpdatedBy}",
+                StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(request.UpdatedBy));
+                return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while assigning assessor to the existing network.");
+            }
+        }
 
 
         [HttpPut("update-soa-status")]

@@ -1,0 +1,356 @@
+{
+  "Units": [
+    {
+      "KpiId": "EC-KPI-01",
+      "Unit": "%"
+    },
+    {
+      "KpiId": "EC-KPI-02",
+      "Unit": "%"
+    },
+    {
+      "KpiId": "EC-KPI-03",
+      "Unit": "%"
+    },
+    {
+      "KpiId": "EC-KPI-04",
+      "Unit": "interruptions/month"
+    },
+    {
+      "KpiId": "EC-KPI-05",
+      "Unit": "interruptions/month"
+    },
+    {
+      "KpiId": "EC-KPI-06",
+      "Unit": "°C"
+    },
+    {
+      "KpiId": "EC-KPI-07",
+      "Unit": "°C"
+    },
+    {
+      "KpiId": "EC-KPI-08",
+      "Unit": "°C"
+    },
+    {
+      "KpiId": "EC-KPI-09A",
+      "Unit": "°C"
+    },
+    {
+      "KpiId": "EC-KPI-09B",
+      "Unit": "°C"
+    },
+    {
+      "KpiId": "EC-KPI-10A",
+      "Unit": "%"
+    },
+    {
+      "KpiId": "EC-KPI-10B",
+      "Unit": "%"
+    },
+    {
+      "KpiId": "EC-KPI-11",
+      "Unit": "%"
+    },
+    {
+      "KpiId": "EC-KPI-12",
+      "Unit": "%"
+    },
+    {
+      "KpiId": "EC-KPI-13",
+      "Unit": "%"
+    },
+    {
+      "KpiId": "EC-KPI-14",
+      "Unit": "%"
+    },
+    {
+      "KpiId": "EC-KPI-15",
+      "Unit": "%"
+    },
+    {
+      "KpiId": "EC-KPI-16A",
+      "Unit": "%"
+    },
+    {
+      "KpiId": "EC-KPI-16B",
+      "Unit": "%"
+    },
+    {
+      "KpiId": "EC-KPI-16C",
+      "Unit": "%"
+    },
+    {
+      "KpiId": "EC-KPI-16D",
+      "Unit": "%"
+    },
+    {
+      "KpiId": "EC-KPI-16E",
+      "Unit": "%"
+    },
+    {
+      "KpiId": "EC-KPI-16F",
+      "Unit": "%"
+    },
+    {
+      "KpiId": "EC-KPI-17A",
+      "Unit": "%"
+    },
+    {
+      "KpiId": "EC-KPI-17B",
+      "Unit": "%"
+    },
+    {
+      "KpiId": "EC-KPI-17C",
+      "Unit": "%"
+    },
+    {
+      "KpiId": "EC-KPI-17D",
+      "Unit": "%"
+    },
+    {
+      "KpiId": "EC-KPI-17E",
+      "Unit": "%"
+    },
+    {
+      "KpiId": "EC-KPI-17F",
+      "Unit": "%"
+    },
+    {
+      "KpiId": "EC-KPI-18",
+      "Unit": "kWh/month"
+    },
+
+    {
+      "KpiId": "DD-KPI-01",
+      "Unit": "%"
+    },
+    {
+      "KpiId": "DD-KPI-02",
+      "Unit": "%"
+    },
+    {
+      "KpiId": "DD-KPI-03",
+      "Unit": "%"
+    },
+    {
+      "KpiId": "DD-KPI-04",
+      "Unit": "interruptions/month"
+    },
+    {
+      "KpiId": "DD-KPI-05",
+      "Unit": "interruptions/month"
+    },
+    {
+      "KpiId": "DD-KPI-06",
+      "Unit": "kW"
+    },
+    {
+      "KpiId": "DD-KPI-07",
+      "Unit": "°C"
+    },
+    {
+      "KpiId": "DD-KPI-08",
+      "Unit": "°C"
+    },
+    {
+      "KpiId": "DD-KPI-09",
+      "Unit": "%"
+    },
+    {
+      "KpiId": "DD-KPI-10",
+      "Unit": "m³/h"
+    },
+
+    {
+      "KpiId": "SS-KPI-01",
+      "Unit": "%"
+    },
+    {
+      "KpiId": "SS-KPI-02",
+      "Unit": "%"
+    },
+    {
+      "KpiId": "SS-KPI-03",
+      "Unit": "%"
+    },
+    {
+      "KpiId": "SS-KPI-04",
+      "Unit": "interruptions/month"
+    },
+    {
+      "KpiId": "SS-KPI-05",
+      "Unit": "interruptions/month"
+    },
+    {
+      "KpiId": "SS-KPI-06",
+      "Unit": "°C"
+    },
+    {
+      "KpiId": "SS-KPI-07",
+      "Unit": "°C"
+    },
+    {
+      "KpiId": "SS-KPI-08",
+      "Unit": "°C"
+    },
+    {
+      "KpiId": "SS-KPI-09A",
+      "Unit": "°C"
+    },
+    {
+      "KpiId": "SS-KPI-09B",
+      "Unit": "°C"
+    },
+    {
+      "KpiId": "SS-KPI-10A",
+      "Unit": "%"
+    },
+    {
+      "KpiId": "SS-KPI-10B",
+      "Unit": "%"
+    },
+    {
+      "KpiId": "SS-KPI-11",
+      "Unit": "%"
+    },
+    {
+      "KpiId": "SS-KPI-12",
+      "Unit": "°C"
+    },
+    {
+      "KpiId": "SS-KPI-13",
+      "Unit": "%"
+    },
+    {
+      "KpiId": "SS-KPI-14",
+      "Unit": "%"
+    },
+    {
+      "KpiId": "SS-KPI-15",
+      "Unit": "%"
+    },
+    {
+      "KpiId": "SS-KPI-16",
+      "Unit": "%"
+    },
+    {
+      "KpiId": "SS-KPI-17",
+      "Unit": "kWh/month"
+    },
+
+    {
+      "KpiId": "CD-KPI-01",
+      "Unit": "%"
+    },
+    {
+      "KpiId": "CD-KPI-02",
+      "Unit": "%"
+    },
+    {
+      "KpiId": "CD-KPI-03",
+      "Unit": "%"
+    },
+    {
+      "KpiId": "CD-KPI-04",
+      "Unit": "interruptions/month"
+    },
+    {
+      "KpiId": "CD-KPI-05",
+      "Unit": "interruptions/month"
+    },
+    {
+      "KpiId": "CD-KPI-06",
+      "Unit": "kW"
+    },
+    {
+      "KpiId": "CD-KPI-07",
+      "Unit": "°C"
+    },
+    {
+      "KpiId": "CD-KPI-08",
+      "Unit": "°C"
+    },
+    {
+      "KpiId": "CD-KPI-09",
+      "Unit": "m³/h"
+    },
+
+    {
+      "KpiId": "CC-KPI-01",
+      "Unit": "%"
+    },
+    {
+      "KpiId": "CC-KPI-02",
+      "Unit": "%"
+    },
+    {
+      "KpiId": "CC-KPI-03",
+      "Unit": "%"
+    },
+    {
+      "KpiId": "CC-KPI-04",
+      "Unit": "interruptions/month"
+    },
+    {
+      "KpiId": "CC-KPI-05",
+      "Unit": "interruptions/month"
+    },
+    {
+      "KpiId": "CC-KPI-06",
+      "Unit": "°C"
+    },
+    {
+      "KpiId": "CC-KPI-07",
+      "Unit": "°C"
+    },
+    {
+      "KpiId": "EC-DATA-47",
+      "Unit": "MWh"
+    },
+    {
+      "KpiId": "EC-DATA-53",
+      "Unit": "MWh"
+    },
+    {
+      "KpiId": "EC-DATA-55",
+      "Unit": "MWh"
+    },
+    {
+      "KpiId": "EC-DATA-57",
+      "Unit": "MWh"
+    },
+    {
+      "KpiId": "EC-DATA-63",
+      "Unit": "kW"
+    },
+    {
+      "KpiId": "EC-DATA-64",
+      "Unit": "kW"
+    },
+    {
+      "KpiId": "EC-DATA-66",
+      "Unit": "MWh"
+    },
+    {
+      "KpiId": "EC-DATA-68",
+      "Unit": "MWh"
+    },
+    {
+      "KpiId": "EC-DATA-74",
+      "Unit": "kW"
+    },
+    {
+      "KpiId": "EC-DATA-84",
+      "Unit": "MWh"
+    },
+    {
+      "KpiId": "EC-DATA-86",
+      "Unit": "MWh"
+    },
+    {
+      "KpiId": "EC-DATA-92",
+      "Unit": "kW"
+    }
+  ]
+}

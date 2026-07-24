@@ -4,7 +4,6 @@ using MongoDB.Bson.Serialization.Attributes;
 using System.Diagnostics.CodeAnalysis;
 
 
-
 namespace HNTAS.Core.Api.Data.Models
 {
     [ExcludeFromCodeCoverage]

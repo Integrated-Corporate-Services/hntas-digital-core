@@ -21,10 +21,18 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonElement("orgId")]
         public string OrgId { get; set; }
 
+        [BsonElement("suppliesSixOrMoreUnits")]
+        [BsonRepresentation(BsonType.String)]
+        public bool SuppliesSixOrMoreUnits { get; set; }
+
         [BsonElement("name")]
         public string Name { get; set; } = string.Empty;
         [BsonElement("additionalDescription")]
         public string? AdditionalDescription { get; set; }
+
+        [BsonElement("hasAddressAndPostcode")]
+        [BsonRepresentation(BsonType.String)]
+        public bool HasAddressAndPostcode { get; set; }
 
         [BsonElement("address")]
         public RegisteredAddress? Address { get; set; }

@@ -13,6 +13,8 @@ namespace HNTAS.Core.Api.Models.Soa
         public string UHnId { get; set; } = null!;
         public string HnId { get; set; } = null!;
         public string OrgId { get; set; } = null!;
+        public bool SuppliesSixOrMoreUnits { get; set; }
+        public bool HasAddressAndPostcode { get; set; }
         public ECDetails? ECDetails { get; set; } = null!;
         public RegisteredAddress? Address { get; set; }
         public string Name { get; set; } = null!;

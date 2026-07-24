@@ -1,4 +1,5 @@
 ﻿using HNTAS.Core.Api.Configuration;
+using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Data.Models.Arms.Submission;
 using HNTAS.Core.Api.Models.Arms.PowerBi;
 using HNTAS.Core.Api.Services;
@@ -16,6 +17,7 @@ namespace HNTAS.Digital.Core.Tests.Services
     {
         private readonly Mock<IMongoDatabase> _mockMongoDatabase;
         private readonly Mock<IMongoCollection<KpiSubmission>> _mockKpiCollection;
+        private readonly Mock<IMongoCollection<User>> _mockUserCollection;
         private readonly Mock<ILogger<ArmsPowerBiService>> _mockLogger;
         private readonly Mock<IOptions<AWSDocDbSettings>> _mockDbSettings;
         private readonly ArmsPowerBiService _service;
@@ -26,12 +28,14 @@ namespace HNTAS.Digital.Core.Tests.Services
             _mockKpiCollection = new Mock<IMongoCollection<KpiSubmission>>();
             _mockLogger = new Mock<ILogger<ArmsPowerBiService>>();
             _mockDbSettings = new Mock<IOptions<AWSDocDbSettings>>();
+            _mockUserCollection = new Mock<IMongoCollection<User>>();
 
             var settings = new AWSDocDbSettings
             {
                 KPI_DataCollectionName = "KPI_Data",
                 HeatNetworksCollectionName = "HeatNetworks",
-                OrganisationsCollectionName = "Organisations"
+                OrganisationsCollectionName = "Organisations",
+                UsersCollectionName = "Users"
             };
 
             _mockDbSettings.Setup(s => s.Value).Returns(settings);
@@ -40,6 +44,10 @@ namespace HNTAS.Digital.Core.Tests.Services
             _mockMongoDatabase
                 .Setup(db => db.GetCollection<KpiSubmission>(settings.KPI_DataCollectionName, It.IsAny<MongoCollectionSettings>()))
                 .Returns(_mockKpiCollection.Object);
+
+            _mockMongoDatabase
+              .Setup(db => db.GetCollection<User>(settings.UsersCollectionName, It.IsAny<MongoCollectionSettings>()))
+              .Returns(_mockUserCollection.Object);
 
             _service = new ArmsPowerBiService(_mockLogger.Object, _mockMongoDatabase.Object, _mockDbSettings.Object);
         }
@@ -113,6 +121,47 @@ namespace HNTAS.Digital.Core.Tests.Services
                     It.IsAny<Exception>(),
                     It.Is<Func<It.IsAnyType, Exception, string>>((v, t) => true)),
                 Times.Once);
+        }
+
+        [Fact]
+        public async Task GetPowerBiUserDataAsync_ShouldReturnActiveResponsiblePeople_WhenUsersExist()
+        {
+            // --- Arrange ---
+            var expectedResults = new List<ArmsPowerBiUserReportResult>
+            {
+                new ArmsPowerBiUserReportResult
+                {
+                    UserId = "60c72b2f9b1d8b2bad000001",
+                    HnId = "HN-001",
+                    OrgId = "ORG-100"
+                }
+            };
+
+            var mockCursor = new Mock<IAsyncCursor<ArmsPowerBiUserReportResult>>();
+
+            // Set up the cursor to iterate and return our final data array
+            mockCursor.SetupSequence(_ => _.MoveNextAsync(It.IsAny<CancellationToken>()))
+                .ReturnsAsync(true)
+                .ReturnsAsync(false);
+            mockCursor.Setup(_ => _.Current).Returns(expectedResults);
+
+            // FIX: Mock the actual interface method 'AggregateAsync' instead of the extension method
+            _mockUserCollection
+                .Setup(c => c.AggregateAsync(
+                    It.IsAny<PipelineDefinition<User, ArmsPowerBiUserReportResult>>(),
+                    It.IsAny<AggregateOptions>(),
+                    It.IsAny<CancellationToken>()))
+                .ReturnsAsync(mockCursor.Object);
+
+            // --- Act ---
+            var result = await _service.GetPowerBiUserDataAsync();
+
+            // --- Assert ---
+            Assert.NotNull(result);
+            var singleResult = Assert.Single(result);
+            Assert.Equal("60c72b2f9b1d8b2bad000001", singleResult.UserId);
+            Assert.Equal("HN-001", singleResult.HnId);
+            Assert.Equal("ORG-100", singleResult.OrgId);
         }
 
     }

@@ -305,6 +305,10 @@
       "Unit": "°C"
     },
     {
+      "KpiId": "EC-DATA-47",
+      "Unit": "MWh"
+    },
+    {
       "KpiId": "EC-DATA-53",
       "Unit": "MWh"
     },

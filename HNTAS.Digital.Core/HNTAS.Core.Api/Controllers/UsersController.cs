@@ -141,6 +141,50 @@ public class UsersController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Get a User by their email ID
+    /// </summary>
+    /// <param name="emailId">The email address of the user to retrieve.</param>
+    /// <returns>
+    /// A <see cref="StatusCodes.Status200OK"/> (OK) response with the found user object,
+    /// or a <see cref="StatusCodes.Status400BadRequest"/> (Bad Request) if email is invalid,
+    /// or a <see cref="StatusCodes.Status404NotFound"/> (Not Found) if no user matches the provided email.
+    /// </returns>
+    [HttpGet("email/{emailId}")]
+    [ProducesResponseType(typeof(UserResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<UserResponse>> GetByEmail(string emailId)
+    {
+        if (string.IsNullOrWhiteSpace(emailId))
+        {
+            _logger.LogWarning("Get user by email request received with null or empty email ID.");
+            return BadRequest("Email ID must be provided.");
+        }
+
+        _logger.LogInformation("Attempting to retrieve user with given email");
+        try
+        {
+            var user = await _userService.GetByEmailAsync(emailId);
+
+            if (user == null)
+            {
+                _logger.LogWarning("User with given email not found.");
+                return NotFound();
+            }
+
+            _logger.LogInformation("Successfully retrieved user with given email");
+            var userResponse = _mapper.Map<UserResponse>(user);
+            return Ok(userResponse);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving user by given email");
+            return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while retrieving the user.");
+        }
+    }
+
 
     /// <summary>
     /// Check if a user is a Responsible Person by their email ID
@@ -240,7 +284,7 @@ public class UsersController : ControllerBase
             return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while retrieving the user.");
         }
     }
-
+    
 
     /// <summary>
     /// Register initial user after login
@@ -258,8 +302,8 @@ public class UsersController : ControllerBase
     {
         if (!ModelState.IsValid)
         {
-            _logger.LogWarning("Invalid initial registration data for UserId: {UserId}, EmailId: {EmailId}. Errors: {Errors}",
-                registrationData.OneLoginId.ToSafeLog(), registrationData.EmailId.ToSafeLog(), string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
+            _logger.LogWarning("Invalid initial registration data for UserId: {UserId}. Errors: {Errors}",
+                registrationData.OneLoginId.ToSafeLog(), string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
             return ValidationProblem(ModelState);
         }
 
@@ -293,7 +337,7 @@ public class UsersController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Unexpected error during initial user registration for UserId: {UserId}, EmailId: {EmailId}", registrationData.OneLoginId.ToSafeLog(), registrationData.EmailId.ToSafeLog());
+            _logger.LogError(ex, "Unexpected error during initial user registration for UserId: {UserId}", registrationData.OneLoginId.ToSafeLog());
             return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
             {
                 Status = StatusCodes.Status500InternalServerError,

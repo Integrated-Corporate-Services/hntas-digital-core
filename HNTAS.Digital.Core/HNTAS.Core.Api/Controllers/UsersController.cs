@@ -163,24 +163,24 @@ public class UsersController : ControllerBase
             return BadRequest("Email ID must be provided.");
         }
 
-        _logger.LogInformation("Attempting to retrieve user with email: {EmailId}", emailId.ToSafeLog());
+        _logger.LogInformation("Attempting to retrieve user with given email");
         try
         {
             var user = await _userService.GetByEmailAsync(emailId);
 
             if (user == null)
             {
-                _logger.LogWarning("User with email {EmailId} not found.", emailId.ToSafeLog());
+                _logger.LogWarning("User with given email not found.");
                 return NotFound();
             }
 
-            _logger.LogInformation("Successfully retrieved user with email: {EmailId}", emailId.ToSafeLog());
+            _logger.LogInformation("Successfully retrieved user with given email");
             var userResponse = _mapper.Map<UserResponse>(user);
             return Ok(userResponse);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error retrieving user by email: {EmailId}", emailId.ToSafeLog());
+            _logger.LogError(ex, "Error retrieving user by given email");
             return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while retrieving the user.");
         }
     }
@@ -302,8 +302,8 @@ public class UsersController : ControllerBase
     {
         if (!ModelState.IsValid)
         {
-            _logger.LogWarning("Invalid initial registration data for UserId: {UserId}, EmailId: {EmailId}. Errors: {Errors}",
-                registrationData.OneLoginId.ToSafeLog(), registrationData.EmailId.ToSafeLog(), string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
+            _logger.LogWarning("Invalid initial registration data for UserId: {UserId}. Errors: {Errors}",
+                registrationData.OneLoginId.ToSafeLog(), string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
             return ValidationProblem(ModelState);
         }
 
@@ -337,7 +337,7 @@ public class UsersController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Unexpected error during initial user registration for UserId: {UserId}, EmailId: {EmailId}", registrationData.OneLoginId.ToSafeLog(), registrationData.EmailId.ToSafeLog());
+            _logger.LogError(ex, "Unexpected error during initial user registration for UserId: {UserId}", registrationData.OneLoginId.ToSafeLog());
             return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
             {
                 Status = StatusCodes.Status500InternalServerError,

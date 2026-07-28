@@ -141,6 +141,50 @@ public class UsersController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Get a User by their email ID
+    /// </summary>
+    /// <param name="emailId">The email address of the user to retrieve.</param>
+    /// <returns>
+    /// A <see cref="StatusCodes.Status200OK"/> (OK) response with the found user object,
+    /// or a <see cref="StatusCodes.Status400BadRequest"/> (Bad Request) if email is invalid,
+    /// or a <see cref="StatusCodes.Status404NotFound"/> (Not Found) if no user matches the provided email.
+    /// </returns>
+    [HttpGet("email/{emailId}")]
+    [ProducesResponseType(typeof(UserResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<UserResponse>> GetByEmail(string emailId)
+    {
+        if (string.IsNullOrWhiteSpace(emailId))
+        {
+            _logger.LogWarning("Get user by email request received with null or empty email ID.");
+            return BadRequest("Email ID must be provided.");
+        }
+
+        _logger.LogInformation("Attempting to retrieve user with email: {EmailId}", emailId.ToSafeLog());
+        try
+        {
+            var user = await _userService.GetByEmailAsync(emailId);
+
+            if (user == null)
+            {
+                _logger.LogWarning("User with email {EmailId} not found.", emailId.ToSafeLog());
+                return NotFound();
+            }
+
+            _logger.LogInformation("Successfully retrieved user with email: {EmailId}", emailId.ToSafeLog());
+            var userResponse = _mapper.Map<UserResponse>(user);
+            return Ok(userResponse);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving user by email: {EmailId}", emailId.ToSafeLog());
+            return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while retrieving the user.");
+        }
+    }
+
 
     /// <summary>
     /// Check if a user is a Responsible Person by their email ID
@@ -240,7 +284,7 @@ public class UsersController : ControllerBase
             return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while retrieving the user.");
         }
     }
-
+    
 
     /// <summary>
     /// Register initial user after login

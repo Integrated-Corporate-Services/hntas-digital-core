@@ -15,7 +15,7 @@ namespace HNTAS.Core.Api.Models.Arms
         public Dictionary<string, Dictionary<string, KpiRule>> Elements { get; set; } = [];
 
         [JsonPropertyName("carbon_calculator")]
-        public CarbonCalculatorConfigResponse? CarbonCalculator { get; set; } = new();
+        public CarbonCalculatorConfigResponse? CarbonCalculator { get; set; }
     }
 
     [ExcludeFromCodeCoverage]

@@ -1,5 +1,8 @@
+using HNTAS.Core.Api.Data.Models;
+using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
+using HNTAS.Core.Api.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HNTAS.Core.Api.Controllers
@@ -9,12 +12,14 @@ namespace HNTAS.Core.Api.Controllers
     public class ImportController : ControllerBase
     {
         private readonly ICsvImportService _csvImportService;
+        private readonly IUserService  _userService;
         private readonly ILogger<ImportController> _logger;
         private readonly IEmailService _emailService;
 
-        public ImportController(ICsvImportService csvImportService, ILogger<ImportController> logger, IEmailService emailService)
+        public ImportController(ICsvImportService csvImportService, IUserService userService, ILogger<ImportController> logger, IEmailService emailService)
         {
             _csvImportService = csvImportService;
+            _userService = userService;
             _logger = logger;
             _emailService = emailService;
         }
@@ -42,6 +47,23 @@ namespace HNTAS.Core.Api.Controllers
                     {
                         await _emailService.TrySendOfgemDataForExistingOrgOrRpEmailAsync(item);
                     }
+                    // update the associated network managers with new heat network data if any heat networks were inserted or updated                    
+                    foreach(var item in result.DataForExistingOrgOrUser)
+                    {
+                        var rpEmailId = item.UserEmailId;
+                        var heatNetworkIds = item.HeatNetworkIds;
+                        var rpUser = await _userService.GetByEmailAsync(rpEmailId);
+                        var networkManagers = await _userService.GetActiveNetworkManagersByRpUserIdAsync(rpUser.Id);
+                        foreach (var networkManager in networkManagers) 
+                        {
+                            foreach (var heatNetworkId in heatNetworkIds)
+                            {
+                                await _userService.UpdateUserNetwork(networkManager.Id, heatNetworkId, ContributorRole.NetworkManager);
+                                _logger.LogInformation("Updated associated network managers with new heat network data for {heatNetworkId} - {networkManger}", heatNetworkId, networkManager.EmailId);
+                            }
+                        }                        
+                    }
+                    _logger.LogInformation("Updated associated network managers with new heat network data.");
                 }
 
                 // Notification for new RPs
@@ -68,8 +90,6 @@ namespace HNTAS.Core.Api.Controllers
                 _logger.LogError(ex, "Unexpected error while importing CSV.");
                 return StatusCode(StatusCodes.Status500InternalServerError, new { error = ex.Message });
             }
-
         }
-
     }
 }

@@ -176,7 +176,44 @@ namespace HNTAS.Core.Api.Services
                 .ToListAsync();
         }
 
+        public async Task<List<User>> GetActiveNetworkManagersByRpUserIdAsync(string rpUserId)
+        {
+            // 1) Find organisations that have this RP assigned
+            var orgFilter = Builders<Organisation>.Filter.Eq(o => o.RpUserId, rpUserId);
+            var organisations = await _OrgCollection.Find(orgFilter).ToListAsync();
 
+            // 2) Collect distinct Heat Network IDs for those organisations
+            var hnIds = organisations
+                .Where(o => o.HnIds != null)
+                .SelectMany(o => o.HnIds!)
+                .Distinct()
+                .ToList();
+
+            if (!hnIds.Any())
+            {
+                _logger.LogInformation("No heat networks found for RpUserId {RpUserId}", rpUserId);
+                return new List<User>();
+            }
+
+            // 3) Build filters:
+            // - user has an HnRoleMapping for any of the organization's HN IDs with ContributorRole.NetworkManager
+            // - user status is Active
+            var roleMappingFilter = Builders<User>.Filter.ElemMatch(
+                u => u.HnRoleMappings,
+                mapping => hnIds.Contains(mapping.HnId) && mapping.Role == ContributorRole.NetworkManager
+            );
+
+            var statusFilter = Builders<User>.Filter.Eq(u => u.Status, UserStatus.Active);
+
+            var finalFilter = Builders<User>.Filter.And(roleMappingFilter, statusFilter);
+
+            // 4) Query users
+            var users = await _usersCollection.Find(finalFilter).ToListAsync();
+
+            _logger.LogInformation("Found {Count} active network managers for RpUserId {RpUserId}", users.Count, rpUserId);
+
+            return users;
+        }
 
         public async Task<UserDetailsResult> GetUserWithDetailsAsync(string userId)
         {
@@ -204,18 +241,23 @@ namespace HNTAS.Core.Api.Services
             {
                 return await cursor.ToListAsync();
             }
-        }        
+        }
 
-        public async Task UpdateUserNetwork(string userId, string hnId)
+        public async Task UpdateUserNetwork(string userId, string hnId, ContributorRole role = ContributorRole.ResponsiblePerson)
         {
             var filter = Builders<User>.Filter.Eq(u => u.Id, userId);
             // update hnRoleMappings array by adding a new mapping with the provided hnId and a default role (e.g., RP)
             var update = Builders<User>.Update.AddToSet(u => u.HnRoleMappings, new HnRoleMapping
             {
                 HnId = hnId,
-                Role = ContributorRole.ResponsiblePerson
+                Role = role
             });
-            await _usersCollection.UpdateOneAsync(filter, update);
+            var result = await _usersCollection.UpdateOneAsync(filter, update);
+
+            _logger.LogInformation(
+                "Matched={MatchedCount}, Modified={ModifiedCount}",
+                result.MatchedCount,
+                result.ModifiedCount);
         }
 
         // --- Private Helper Method for Reusable Pipeline ---
@@ -353,10 +395,6 @@ namespace HNTAS.Core.Api.Services
             };
 
             return _usersCollection.Aggregate<UserDetailsResult>(pipeline);
-        }
-
-
-
+        }        
     }
-
 }

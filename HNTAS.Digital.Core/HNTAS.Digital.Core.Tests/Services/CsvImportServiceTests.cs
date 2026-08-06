@@ -65,7 +65,8 @@ namespace HNTAS.Digital.Core.Tests.Services
                     Name = "Test Organisation",
                     CompaniesHouseNumber = "42188207",
                     RpUserId = "user123",
-                }));            
+                }));
+            _mockUserService.Setup(x => x.GetByEmailAsync(It.IsAny<string>())).ReturnsAsync(new User { Id = "test123", EmailId = "test@c.com" });
 
             // Act
             var result = await _sut.ImportFromCsvAsync(csvContent);

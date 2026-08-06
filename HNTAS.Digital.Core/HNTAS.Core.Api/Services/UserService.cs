@@ -19,6 +19,7 @@ namespace HNTAS.Core.Api.Services
         private readonly ILogger<UserService> _logger;
         private readonly IMongoCollection<User> _usersCollection;
         private readonly IMongoCollection<Organisation> _OrgCollection;
+        private readonly IMongoCollection<Invitation> _invitationsCollection;
 
         public UserService(
         IMongoDatabase mongoDatabase,
@@ -28,6 +29,7 @@ namespace HNTAS.Core.Api.Services
             _logger = logger;
             _usersCollection = mongoDatabase.GetCollection<User>(dbSettings.Value.UsersCollectionName);
             _OrgCollection = mongoDatabase.GetCollection<Organisation>(dbSettings.Value.OrganisationsCollectionName);
+            _invitationsCollection = mongoDatabase.GetCollection<Invitation>(dbSettings.Value.InvitationsCollectionName);
             _logger.LogInformation("UserService initialized via Dependency Injection.");
         }
 
@@ -178,41 +180,23 @@ namespace HNTAS.Core.Api.Services
 
         public async Task<List<User>> GetActiveNetworkManagersByRpUserIdAsync(string rpUserId)
         {
-            // 1) Find organisations that have this RP assigned
-            var orgFilter = Builders<Organisation>.Filter.Eq(o => o.RpUserId, rpUserId);
-            var organisations = await _OrgCollection.Find(orgFilter).ToListAsync();
-
-            // 2) Collect distinct Heat Network IDs for those organisations
-            var hnIds = organisations
-                .Where(o => o.HnIds != null)
-                .SelectMany(o => o.HnIds!)
-                .Distinct()
-                .ToList();
-
-            if (!hnIds.Any())
+            // find invitations where inviterUserId: ObjectId(rpUserId), invitedRoles: [ 'NetworkManager' ] and status: 'Accepted' , in that order
+            ;            
+            var networkManagerInvitations = await _invitationsCollection.Find(u =>
+                u.InviterUserId == rpUserId &&
+                u.InvitedRoles.Contains(ContributorRole.NetworkManager) &&
+                u.Status == InvitationStatus.Accepted
+            ).ToListAsync();
+            var networkManagers = new List<User>();
+            foreach(var invitation in networkManagerInvitations)
             {
-                _logger.LogInformation("No heat networks found for RpUserId {RpUserId}", rpUserId);
-                return new List<User>();
+                var user = await _usersCollection.Find(u => u.EmailId == invitation.InvitedEmail).FirstOrDefaultAsync();
+                if (user != null && user.Status == UserStatus.Active)
+                {
+                    networkManagers.Add(user);
+                }
             }
-
-            // 3) Build filters:
-            // - user has an HnRoleMapping for any of the organization's HN IDs with ContributorRole.NetworkManager
-            // - user status is Active
-            var roleMappingFilter = Builders<User>.Filter.ElemMatch(
-                u => u.HnRoleMappings,
-                mapping => hnIds.Contains(mapping.HnId) && mapping.Role == ContributorRole.NetworkManager
-            );
-
-            var statusFilter = Builders<User>.Filter.Eq(u => u.Status, UserStatus.Active);
-
-            var finalFilter = Builders<User>.Filter.And(roleMappingFilter, statusFilter);
-
-            // 4) Query users
-            var users = await _usersCollection.Find(finalFilter).ToListAsync();
-
-            _logger.LogInformation("Found {Count} active network managers for RpUserId {RpUserId}", users.Count, rpUserId);
-
-            return users;
+            return networkManagers;
         }
 
         public async Task<UserDetailsResult> GetUserWithDetailsAsync(string userId)

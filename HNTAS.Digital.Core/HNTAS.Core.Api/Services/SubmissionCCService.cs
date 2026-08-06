@@ -149,9 +149,9 @@ namespace HNTAS.Core.Api.Services
                 {
                     YearCount = configDefaults["EC-DATA-36"].AsInt32,
                     StartYear = configDefaults["EC-DATA-37"].AsInt32,
-                    ChpCount = 1,
+                    ChpCount = chpSection == null ? 0 : 1,
                     EnergyHeatNetworkPrimaryLosses = [configDefaults["EC-DATA-38"].AsInt32],
-                    ChpInputs = new List<ChpInput>
+                    ChpInputs = chpSection == null ? new List<ChpInput>() : new List<ChpInput>
                             {
                                 new ChpInput
                                 {

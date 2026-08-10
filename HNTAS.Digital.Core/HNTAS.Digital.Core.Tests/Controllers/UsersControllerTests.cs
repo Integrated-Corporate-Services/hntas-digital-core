@@ -865,7 +865,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             _mockMapper.Setup(m => m.Map<RegisteredAddress>(It.IsAny<RegisteredAddress>())).Returns(new RegisteredAddress {AddressLine1 = "test" });
             _mockUserService.Setup(u => u.UpdateAsync(It.IsAny<string>(), It.IsAny<User>())).Returns(Task.CompletedTask);
             _mockHeatNetworkService.Setup(h => h.GetByOfgemEmailIdAsync(It.IsAny<string>())).ReturnsAsync(new List<HeatNetwork> { new HeatNetwork { Id = "test", HnId = "test", OrgId = "test", CreatedBy = "test" } });
-            _mockUserService.Setup(u => u.UpdateUserNetwork(It.IsAny<string>(), It.IsAny<string>())).Returns(Task.CompletedTask);
+            _mockUserService.Setup(u => u.UpdateUserNetwork(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<ContributorRole>())).Returns(Task.CompletedTask);
             _mockEmailService.Setup(e => e.TrySendOrgCreatedEmailAsync(It.IsAny<User>(), It.IsAny<Organisation>())).Returns(Task.CompletedTask);
 
             var result = await _controller.UpdateUserAndOrgDetails("id", request);
@@ -894,7 +894,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             _mockMapper.Setup(m => m.Map<RegisteredAddress>(It.IsAny<RegisteredAddress>())).Returns(new RegisteredAddress { AddressLine1 = "test" });
             _mockUserService.Setup(u => u.UpdateAsync(It.IsAny<string>(), It.IsAny<User>())).Returns(Task.CompletedTask);
             _mockHeatNetworkService.Setup(h => h.GetByOfgemEmailIdAsync(It.IsAny<string>())).ReturnsAsync(new List<HeatNetwork> { new HeatNetwork { Id = "test", HnId = "test", OrgId = "test", CreatedBy = "test" } });
-            _mockUserService.Setup(u => u.UpdateUserNetwork(It.IsAny<string>(), It.IsAny<string>())).Returns(Task.CompletedTask);
+            _mockUserService.Setup(u => u.UpdateUserNetwork(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<ContributorRole>())).Returns(Task.CompletedTask);
             _mockEmailService.Setup(e => e.TrySendOrgCreatedEmailAsync(It.IsAny<User>(), It.IsAny<Organisation>())).Returns(Task.CompletedTask);
 
             var result = await _controller.UpdateUserAndOrgDetails("id", request);
@@ -983,8 +983,8 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             _mockUserService.Setup(u => u.GetByIdAsync(It.IsAny<string>())).ReturnsAsync(new User { Id = "test", EmailId = "test", Roles = new List<UserRole> { UserRole.NetworkManager } });
             _mockCounterService.Setup(o => o.GetNextSequenceValue(It.IsAny<string>())).ReturnsAsync(12);
             _mockInvitationService.Setup(i => i.GetByInvitedEmailAsync(It.IsAny<string>())).ReturnsAsync(new Invitation { Status = InvitationStatus.Accepted, InvitedEmail = "test", InviterUserId = "test" });
-            _mockOrgService.Setup(o => o.CreateAsync(It.IsAny<Organisation>())).Returns(Task.CompletedTask);
-            
+            _mockOrgService.Setup(o => o.CreateAsync(It.IsAny<Organisation>())).Returns(Task.CompletedTask);            
+
 
             var mockUpdateResult = new Mock<UpdateResult>();
             mockUpdateResult.Setup(r => r.IsAcknowledged).Returns(true);
@@ -1289,7 +1289,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
         [Fact]
         public async Task GetUsersByOrganisation_Ok()
         {
-            _mockUserService.Setup(u => u.GetUsersByOrgIdAsync(It.IsAny<string>())).ReturnsAsync(new List<User> { new User { Id = "test", EmailId = "test", Roles = new List<UserRole> { UserRole.NetworkManager } } });
+            _mockUserService.Setup(u => u.GetUsersByOrgIdAsync(It.IsAny<string>())).ReturnsAsync(new List<User> { new User { Id = "test", EmailId = "test", Roles = new List<UserRole> { UserRole.NetworkManager } } });            
             
             _mockMapper.Setup(s => s.Map<List<UserResponse>>(It.IsAny<List<User>>())).Returns(new List<UserResponse>());
             var result = await _controller.GetUsersByOrganisation("uid");

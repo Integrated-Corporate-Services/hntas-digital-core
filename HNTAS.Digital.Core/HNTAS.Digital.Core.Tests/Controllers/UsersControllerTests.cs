@@ -985,7 +985,6 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             _mockInvitationService.Setup(i => i.GetByInvitedEmailAsync(It.IsAny<string>())).ReturnsAsync(new Invitation { Status = InvitationStatus.Accepted, InvitedEmail = "test", InviterUserId = "test" });
             _mockOrgService.Setup(o => o.CreateAsync(It.IsAny<Organisation>())).Returns(Task.CompletedTask);            
 
-
             var mockUpdateResult = new Mock<UpdateResult>();
             mockUpdateResult.Setup(r => r.IsAcknowledged).Returns(true);
             mockUpdateResult.Setup(r => r.MatchedCount).Returns(1);
@@ -1014,7 +1013,6 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             _mockCounterService.Setup(o => o.GetNextSequenceValue(It.IsAny<string>())).ReturnsAsync(12);
             _mockInvitationService.Setup(i => i.GetByInvitedEmailAsync(It.IsAny<string>())).ReturnsAsync(new Invitation { Status = InvitationStatus.Accepted, InvitedEmail = "test", InviterUserId = "test" });
             _mockOrgService.Setup(o => o.CreateAsync(It.IsAny<Organisation>())).Returns(Task.CompletedTask);
-
 
             var mockUpdateResult = new Mock<UpdateResult>();
             mockUpdateResult.Setup(r => r.IsAcknowledged).Returns(true);
@@ -1290,7 +1288,6 @@ namespace HNTAS.Digital.Core.Tests.Controllers
         public async Task GetUsersByOrganisation_Ok()
         {
             _mockUserService.Setup(u => u.GetUsersByOrgIdAsync(It.IsAny<string>())).ReturnsAsync(new List<User> { new User { Id = "test", EmailId = "test", Roles = new List<UserRole> { UserRole.NetworkManager } } });            
-            
             _mockMapper.Setup(s => s.Map<List<UserResponse>>(It.IsAny<List<User>>())).Returns(new List<UserResponse>());
             var result = await _controller.GetUsersByOrganisation("uid");
             Assert.IsType<OkObjectResult>(result.Result);

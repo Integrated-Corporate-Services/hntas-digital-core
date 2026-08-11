@@ -9,5 +9,7 @@ namespace HNTAS.Core.Api.Interfaces
         Task<Soa?> UpdateStatusAsync(string hnId, SoaStatus newStatus, string updatedBy);        
         Task UpdateSoaStatus(string hnId, ElementTypeInShort elementType, SoaStage stage, List<SoaStatusWithCount> soaStatuses, string updatedBy, NetworkDetailsStatus elementSoaStatus);
         Task<NetworkElements> UpdateAssignAssessor(ElementSoaAssignAssessorRequest request, NetworkElements networkElements, string phase, bool initiateSoa);
+        Task<NetworkElements> UpdateAssignAssessorForExistingNetwork(ElementSoaAssignAssessorRequestForExistingNetwork request, NetworkElements networkElements, string phase, bool initiateSoa);
+        Task UpdateSoaStatusForExistingNetwork(string hnId, ElementTypeInShort elementType, Milestone milestone, List<SoaStatusWithCountExistingNetwork> soaStatuses, string updatedBy, NetworkDetailsStatus elementSoaStatus);
     }
 }

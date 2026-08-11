@@ -13,6 +13,7 @@ namespace HNTAS.Core.Api.Data.Models
 
         [BsonElement("soaStatuses")]
         public List<SoaStatusWithCountExistingNetwork>? SoaStatuses { get; set; } = [];
+
         [BsonElement("soaStatusUpdatedAt")]
         [BsonRepresentation(BsonType.DateTime)]
         public DateTime? SoaStatusUpdatedAt { get; set; }

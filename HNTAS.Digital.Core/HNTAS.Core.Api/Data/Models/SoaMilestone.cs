@@ -5,15 +5,14 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace HNTAS.Core.Api.Data.Models
 {
-    [ExcludeFromCodeCoverage]
-    public class SoaStages
+    public class SoaMilestone
     {
-        [BsonElement("stageId")]
+        [BsonElement("milestoneId")]
         [BsonRepresentation(BsonType.String)]
-        public SoaStage? StageId { get; set; }
+        public Milestone? MilestoneId { get; set; }
 
         [BsonElement("soaStatuses")]
-        public List<SoaStatusWithCount>? SoaStatuses { get; set; } = [];
+        public List<SoaStatusWithCountExistingNetwork>? SoaStatuses { get; set; } = [];
 
         [BsonElement("soaStatusUpdatedAt")]
         [BsonRepresentation(BsonType.DateTime)]
@@ -26,12 +25,22 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonElement("assessorUpdatedBy")]
         public string? AssessorUpdatedBy { get; set; }
         [BsonElement("assessor")]
-        public List<SoaAssessor>? Assessors { get; set; } = [];
-
+        public List<SoaAssessorExistingNetwork>? Assessors { get; set; } = [];
     }
 
     [ExcludeFromCodeCoverage]
-    public class SoaAssessor
+    public class SoaStatusWithCountExistingNetwork
+    {
+        [BsonElement("soaStatus")]
+        [BsonRepresentation(BsonType.String)]
+        public SoaStatus SoaStatus { get; set; }
+        [BsonElement("count")]
+        [BsonRepresentation(BsonType.Int32)]
+        public int? Count { get; set; }
+    }
+
+    [ExcludeFromCodeCoverage]
+    public class SoaAssessorExistingNetwork
     {
         [BsonElement("firstName")]
         public string FirstName { get; set; } = null!;
@@ -48,16 +57,5 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonElement("status")]
         [BsonRepresentation(BsonType.String)]
         public UserStatus Status { get; set; }
-    }
-
-    [ExcludeFromCodeCoverage]
-    public class SoaStatusWithCount
-    {
-        [BsonElement("soaStatus")]
-        [BsonRepresentation(BsonType.String)]
-        public SoaStatus SoaStatus { get; set; }
-        [BsonElement("count")]
-        [BsonRepresentation(BsonType.Int32)]
-        public int? Count { get; set; }
     }
 }

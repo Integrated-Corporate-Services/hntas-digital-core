@@ -47,7 +47,6 @@ namespace HNTAS.Digital.Core.Tests.Services
             };
 
             _mockSettings.Setup(s => s.Value).Returns(settings);
-            _mockSettings.Setup(s => s.Value).Returns(settings2);
 
             // Initialize the UserService with the mocked dependencies
             _sut = new UserService(_mockDatabase.Object, _mockSettings.Object, _mockLogger.Object );

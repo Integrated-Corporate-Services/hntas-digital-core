@@ -19,6 +19,7 @@ namespace HNTAS.Core.Api.Services
         private readonly ILogger<UserService> _logger;
         private readonly IMongoCollection<User> _usersCollection;
         private readonly IMongoCollection<Organisation> _OrgCollection;
+        private readonly IMongoCollection<Invitation> _invitationsCollection;
 
         public UserService(
         IMongoDatabase mongoDatabase,
@@ -28,6 +29,7 @@ namespace HNTAS.Core.Api.Services
             _logger = logger;
             _usersCollection = mongoDatabase.GetCollection<User>(dbSettings.Value.UsersCollectionName);
             _OrgCollection = mongoDatabase.GetCollection<Organisation>(dbSettings.Value.OrganisationsCollectionName);
+            _invitationsCollection = mongoDatabase.GetCollection<Invitation>(dbSettings.Value.InvitationsCollectionName);
             _logger.LogInformation("UserService initialized via Dependency Injection.");
         }
 
@@ -176,7 +178,26 @@ namespace HNTAS.Core.Api.Services
                 .ToListAsync();
         }
 
-
+        public async Task<List<User>> GetActiveNetworkManagersByRpUserIdAsync(string rpUserId)
+        {
+            // find invitations where inviterUserId: ObjectId(rpUserId), invitedRoles: [ 'NetworkManager' ] and status: 'Accepted' , in that order
+            ;            
+            var networkManagerInvitations = await _invitationsCollection.Find(u =>
+                u.InviterUserId == rpUserId &&
+                u.InvitedRoles.Contains(ContributorRole.NetworkManager) &&
+                u.Status == InvitationStatus.Accepted
+            ).ToListAsync();
+            var networkManagers = new List<User>();
+            foreach(var invitation in networkManagerInvitations)
+            {
+                var user = await _usersCollection.Find(u => u.EmailId == invitation.InvitedEmail).FirstOrDefaultAsync();
+                if (user != null && user.Status == UserStatus.Active)
+                {
+                    networkManagers.Add(user);
+                }
+            }
+            return networkManagers;
+        }
 
         public async Task<UserDetailsResult> GetUserWithDetailsAsync(string userId)
         {
@@ -204,18 +225,23 @@ namespace HNTAS.Core.Api.Services
             {
                 return await cursor.ToListAsync();
             }
-        }        
+        }
 
-        public async Task UpdateUserNetwork(string userId, string hnId)
+        public async Task UpdateUserNetwork(string userId, string hnId, ContributorRole role = ContributorRole.ResponsiblePerson)
         {
             var filter = Builders<User>.Filter.Eq(u => u.Id, userId);
             // update hnRoleMappings array by adding a new mapping with the provided hnId and a default role (e.g., RP)
             var update = Builders<User>.Update.AddToSet(u => u.HnRoleMappings, new HnRoleMapping
             {
                 HnId = hnId,
-                Role = ContributorRole.ResponsiblePerson
+                Role = role
             });
-            await _usersCollection.UpdateOneAsync(filter, update);
+            var result = await _usersCollection.UpdateOneAsync(filter, update);
+
+            _logger.LogInformation(
+                "Matched={MatchedCount}, Modified={ModifiedCount}",
+                result.MatchedCount,
+                result.ModifiedCount);
         }
 
         // --- Private Helper Method for Reusable Pipeline ---
@@ -353,10 +379,7 @@ namespace HNTAS.Core.Api.Services
             };
 
             return _usersCollection.Aggregate<UserDetailsResult>(pipeline);
-        }
-
-
-
+        }        
     }
 
 }

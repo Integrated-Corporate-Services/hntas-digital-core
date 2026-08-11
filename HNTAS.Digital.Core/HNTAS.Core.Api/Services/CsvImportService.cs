@@ -60,7 +60,7 @@ namespace HNTAS.Core.Api.Services
 
                     result.RowsProcessed++;
 
-                    await ProcessNetworkCreatonThroughOrgOrUserExistance(row, result, ofgemDataModelPostImportList, ct);
+                    await ProcessNetworkCreationThroughOrgOrUserExistance(row, result, ofgemDataModelPostImportList, ct);
 
                 }
                 catch (Exception ex)
@@ -147,7 +147,7 @@ namespace HNTAS.Core.Api.Services
             return true;
         }
 
-        private async Task ProcessNetworkCreatonThroughOrgOrUserExistance(
+        private async Task ProcessNetworkCreationThroughOrgOrUserExistance(
             CsvRow row,
             ImportResult result,
             List<OfgemDataModelPostImport> ofgemDataModelPostImportList,
@@ -164,12 +164,13 @@ namespace HNTAS.Core.Api.Services
             {
                 // find if the associated OrgId is based on CompanyHouseNumber
                 orgDetails = await _organisationService.GetByCompanyHouseNumberAsync(row.CompaniesHouseNo);
+                var userDetails = await _userService.GetByEmailAsync(row.EmailId);
 
                 // Org exists
                 if (orgDetails != null)
                 {
                     // Create a network and link to the org
-                    await ProcessHeatNetworkAsync(row, result, ofgemDataModelPostImportList, orgDetails.RpUserId!, orgDetails.OrgId!, orgDetails.Name, ct);
+                    await ProcessHeatNetworkAsync(row, result, ofgemDataModelPostImportList, userDetails.Id!, orgDetails.OrgId!, orgDetails.Name, ct);
                 }
                 else
                 {
@@ -268,6 +269,7 @@ namespace HNTAS.Core.Api.Services
                 OrgId = hntasOrgId,
                 Name = row.HnName,
                 Phase = "Operation",
+                HasAddressAndPostcode = row.EcPostcode != string.Empty ? true : false,
                 Address = new RegisteredAddress
                 {
                     AddressLine1 = row.EcStreetAddress ?? string.Empty,

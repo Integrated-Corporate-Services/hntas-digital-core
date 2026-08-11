@@ -21,15 +21,18 @@ namespace HNTAS.Core.Api.Services
         private readonly IMongoCollection<HeatNetwork> _hnCollection;
         private readonly ILogger<HeatNetworkService> _logger;
         private readonly IAuditService _auditService;
+        private readonly IUserService _userService;
 
         public HeatNetworkService(IOptions<AWSDocDbSettings> dbSettings,
             IMongoDatabase mongoDatabase,
             ILogger<HeatNetworkService> logger,
-            IAuditService auditService)
+            IAuditService auditService,
+            IUserService userService)
         {
             _hnCollection = mongoDatabase.GetCollection<HeatNetwork>(dbSettings.Value.HeatNetworksCollectionName);
             _logger = logger;
             _auditService = auditService;
+            _userService = userService;
             _logger.LogInformation("HeatNetworkService initialized via Dependency Injection.");
         }
 
@@ -378,17 +381,60 @@ namespace HNTAS.Core.Api.Services
         {
             try
             {
+                // Load user and their hn role mappings
+                var user = await _userService.GetByIdAsync(existingNetworkRequest.UserId);
+                if (user == null)
+                {
+                    _logger.LogWarning("User not found for id {UserId}", existingNetworkRequest.UserId);
+                    return new ExistingNetworkResponse
+                    {
+                        Items = new List<HeatNetworkResponse>(),
+                        PageNumber = existingNetworkRequest.Page,
+                        PageSize = existingNetworkRequest.PageSize,
+                        TotalCount = 0,
+                        TotalPages = 0,
+                        UserId = existingNetworkRequest.UserId
+                    };
+                }
+
+                // Defensive: extract HnIds from user's role mappings (adjust property names if different)
+                var hnIds = (user.HnRoleMappings ?? Enumerable.Empty<object>())
+                    .Select(m =>
+                    {
+                        // handle different possible shapes - try common property names
+                        var prop = m.GetType().GetProperty("HnId") ?? m.GetType().GetProperty("hnId");
+                        return prop?.GetValue(m)?.ToString();
+                    })
+                    .Where(id => !string.IsNullOrEmpty(id))
+                    .Distinct()
+                    .ToList();
+
+                if (!hnIds.Any())
+                {
+                    return new ExistingNetworkResponse
+                    {
+                        Items = new List<HeatNetworkResponse>(),
+                        PageNumber = existingNetworkRequest.Page,
+                        PageSize = existingNetworkRequest.PageSize,
+                        TotalCount = 0,
+                        TotalPages = 0,
+                        UserId = existingNetworkRequest.UserId
+                    };
+                }
+
+                // Filter by the HnIds from the user's mappings and OFGEM registration source
                 var filter = Builders<HeatNetwork>.Filter.And(
-                    Builders<HeatNetwork>.Filter.Eq(nh => nh.CreatedBy, existingNetworkRequest.UserId),
+                    Builders<HeatNetwork>.Filter.In(nh => nh.HnId, hnIds),
                     Builders<HeatNetwork>.Filter.Eq(nh => nh.RegistrationSource, RegistrationSource.OFGEM)
                 );
 
                 var totalCount = await _hnCollection.CountDocumentsAsync(filter);
 
                 var sortDirection = existingNetworkRequest.SortDirection?.ToLowerInvariant() ?? "desc";
+                var sortField = existingNetworkRequest.SortBy ?? "ofgemImportedDate";
                 var sort = sortDirection == "desc"
-                    ? Builders<HeatNetwork>.Sort.Descending(existingNetworkRequest.SortBy ?? "ofgemImportedDate")
-                    : Builders<HeatNetwork>.Sort.Ascending(existingNetworkRequest.SortBy ?? "ofgemImportedDate");
+                    ? Builders<HeatNetwork>.Sort.Descending(sortField)
+                    : Builders<HeatNetwork>.Sort.Ascending(sortField);
 
                 var existingNetworks = await _hnCollection
                     .Find(filter)
@@ -403,7 +449,7 @@ namespace HNTAS.Core.Api.Services
                     UHnId = nh.UHnId,
                     HnId = nh.HnId,
                     OrgId = nh.OrgId,
-                    Name = nh.Name,                    
+                    Name = nh.Name,
                     AdditionalDescription = nh.AdditionalDescription,
                     Pathway = nh.Pathway,
                     RegistrationSource = nh.RegistrationSource,
@@ -414,16 +460,15 @@ namespace HNTAS.Core.Api.Services
                     HeatNetworkType = nh.HeatNetworkType,
                 }).ToList();
 
-                var existingNetworkResponses =
-                    new ExistingNetworkResponse
-                    {
-                        Items = existingNetworkData,
-                        PageNumber = existingNetworkRequest.Page,
-                        PageSize = existingNetworkRequest.PageSize,
-                        TotalCount = (int)totalCount,
-                        TotalPages = (int)Math.Ceiling(totalCount / (double)existingNetworkRequest.PageSize),
-                        UserId = existingNetworkRequest.UserId
-                    };
+                var existingNetworkResponses = new ExistingNetworkResponse
+                {
+                    Items = existingNetworkData,
+                    PageNumber = existingNetworkRequest.Page,
+                    PageSize = existingNetworkRequest.PageSize,
+                    TotalCount = (int)totalCount,
+                    TotalPages = (int)Math.Ceiling(totalCount / (double)existingNetworkRequest.PageSize),
+                    UserId = existingNetworkRequest.UserId
+                };
 
                 _logger.LogInformation("Retrieved existing network records");
 

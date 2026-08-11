@@ -310,34 +310,8 @@ namespace HNTAS.Core.Api.Controllers
                     return BadRequest("Invalid heat network details.");
                 }
                 await _hnService.UpdateAsync(heatNetworkDetails.HnId, heatNetworkDetails);
-                _logger.LogInformation("Heat network initially registered: {HNID} (DB Id: {Id})", heatNetworkDetails.HnId.ToSafeLog(), heatNetworkDetails.Id.ToSafeLog());
+                _logger.LogInformation("Heat network initially registered: {HNID} (DB Id: {Id})", heatNetworkDetails.HnId.ToSafeLog(), heatNetworkDetails.Id.ToSafeLog());                
                 
-                UserDetailsResult user = await _userService.GetUserWithDetailsAsync(heatNetworkDetails.CreatedBy);
-                ContributorRole role = user.Roles[0] switch
-                {
-                    UserRole.ResponsiblePerson => ContributorRole.ResponsiblePerson,
-                    UserRole.NetworkManager => ContributorRole.NetworkManager
-                };
-
-                if (role == ContributorRole.ResponsiblePerson)
-                {
-                    //find the network managers
-                    var allNetworkManagers = await _invitationService.GetNetworkManagersByInviterUserId(heatNetworkDetails.CreatedBy);
-                    var acceptedNetworkManagers = allNetworkManagers.Where(nm => nm.Status == InvitationStatus.Accepted).ToList();
-
-                    // All networks managers reporting to the rp can access all heat networks the rp adds
-                    foreach (var nm in acceptedNetworkManagers)
-                    {
-                        if (nm.Status == InvitationStatus.Accepted)
-                        {
-                            User nmWithUpdatedHnRoleMapping = await _userService.GetByEmailAsync(nm.InvitedEmail);
-                            nmWithUpdatedHnRoleMapping.HnRoleMappings.Add(new HnRoleMapping { HnId = heatNetworkDetails.HnId, Role = ContributorRole.NetworkManager });
-                            await _userService.UpdateAsync(nmWithUpdatedHnRoleMapping.Id, nmWithUpdatedHnRoleMapping);
-                        }
-                    }
-                }
-                _logger.LogInformation("New heat network role mapping updated");
-
                 return Ok(heatNetworkDetails);
             }
             catch (Exception ex)

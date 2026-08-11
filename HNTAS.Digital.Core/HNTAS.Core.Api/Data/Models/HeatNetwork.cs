@@ -19,7 +19,7 @@ namespace HNTAS.Core.Api.Data.Models
         public string? HnId { get; set; }
 
         [BsonElement("orgId")]
-        public string OrgId { get; set; }
+        public string? OrgId { get; set; }
 
         [BsonElement("suppliesSixOrMoreUnits")]
         [BsonRepresentation(BsonType.String)]

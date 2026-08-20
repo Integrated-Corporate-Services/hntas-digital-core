@@ -40,6 +40,9 @@ builder.Services.AddControllers()
 });
 
 // Register AutoMapper, scan for profiles, and apply global recursion protection
+
+const int MaxMappingDepth = 64;
+
 builder.Services.AddAutoMapper(cfg =>
 {
     cfg.AddMaps(typeof(UserMappingProfile).Assembly);
@@ -47,7 +50,7 @@ builder.Services.AddAutoMapper(cfg =>
     // Mitigate CVE-2026-32933 by forcing a max depth limit across all mappings
     cfg.Internal().ForAllMaps((_, mapExpr) =>
     {
-        mapExpr.MaxDepth(64);
+        mapExpr.MaxDepth(MaxMappingDepth);
     });
 });
 

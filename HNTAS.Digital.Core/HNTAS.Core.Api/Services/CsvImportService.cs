@@ -164,7 +164,7 @@ namespace HNTAS.Core.Api.Services
             {
                 // find if the associated OrgId is based on CompanyHouseNumber
                 orgDetails = await _organisationService.GetByCompanyHouseNumberAsync(row.CompaniesHouseNo);
-                var userDetails = await _userService.GetByEmailAsync(row.EmailId);
+                var userDetails = await _userService.GetByEmailAsync(row.EmailId.ToLower());
 
                 // Org exists
                 if (orgDetails != null)
@@ -189,7 +189,7 @@ namespace HNTAS.Core.Api.Services
             CancellationToken ct)
         {
             // Check with user id
-            var user = await _userService.GetByEmailAsync(row.EmailId);
+            var user = await _userService.GetByEmailAsync(row.EmailId.ToLower());
             // User exists and has RP role
             if (user != null && user.Roles.Contains(Enums.UserRole.ResponsiblePerson))
             {
@@ -214,7 +214,7 @@ namespace HNTAS.Core.Api.Services
                     OrganisationId = string.Empty,
                     OrganisationName = row.OrganisationName,
                     UserId = string.Empty,
-                    UserEmailId = row.EmailId,
+                    UserEmailId = row.EmailId.ToLower(),
                     IsUserOrOrganisationExist = false
                 };
 
@@ -251,7 +251,7 @@ namespace HNTAS.Core.Api.Services
                 OrganisationId = hntasOrgId,
                 OrganisationName = hntasOrgName,
                 UserId = userId,
-                UserEmailId = row.EmailId,
+                UserEmailId = row.EmailId.ToLower(),
                 IsUserOrOrganisationExist = true
             };
 

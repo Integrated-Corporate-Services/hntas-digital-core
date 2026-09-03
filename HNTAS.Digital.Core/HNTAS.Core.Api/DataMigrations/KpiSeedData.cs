@@ -1,5 +1,7 @@
 ﻿
+using HNTAS.Core.Api.Configuration;
 using HNTAS.Core.Api.Data.Models.Arms.Configuration;
+using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 using System.Diagnostics.CodeAnalysis;
 using ElementType = HNTAS.Core.Api.Enums.HeatNetworkElementType;
@@ -12,10 +14,10 @@ namespace HNTAS.Core.Api.DataMigrations
         private readonly IMongoCollection<KpiConfiguration> _configCollection;
         private readonly ILogger<KpiSeedData> _logger;
 
-        public KpiSeedData(IMongoDatabase database, ILogger<KpiSeedData> logger)
+        public KpiSeedData(IMongoDatabase database, ILogger<KpiSeedData> logger, IOptions<AWSDocDbSettings> dbSettings)
         {
             // Get the specific collection
-            _configCollection = database.GetCollection<KpiConfiguration>("KPI_Configurations");
+            _configCollection = database.GetCollection<KpiConfiguration>(dbSettings.Value.KPI_ConfigurationsCollectionName);
             _logger = logger;
         }
 

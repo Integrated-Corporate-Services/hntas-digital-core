@@ -59,7 +59,7 @@ namespace HNTAS.Core.Api.DataMigrations
             var count = await _countryAndTerritoryCollection.CountDocumentsAsync(FilterDefinition<CountryAndTerritory>.Empty);
             if (count == 0)
             {
-                _logger.LogInformation("Seeding CountriesAndTerritories collection...");
+                _logger.LogInformation("Seeding countries_and_territories collection...");
 
                 var seedData = new List<CountryAndTerritory>
                 {
@@ -282,7 +282,7 @@ namespace HNTAS.Core.Api.DataMigrations
             }
             else
             {
-                _logger.LogInformation("CountriesAndTerritories collection already contains data. Skipping seeding.");
+                _logger.LogInformation("countries_and_territories collection already contains data. Skipping seeding.");
             }
         }
     }

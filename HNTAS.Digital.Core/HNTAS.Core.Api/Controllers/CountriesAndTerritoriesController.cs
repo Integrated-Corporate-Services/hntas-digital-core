@@ -35,7 +35,7 @@ namespace HNTAS.Core.Api.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to retrieve CountriesAndTerritories.");
+                _logger.LogError(ex, "Failed to retrieve countries_and_territories.");
                 return StatusCode(500, "Internal server error");
             }
         }

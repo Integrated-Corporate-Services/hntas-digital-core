@@ -20,5 +20,9 @@
         public string KPI_DataCollectionName { get; set; } = null!;
 
         public string KPI_ConfigurationsCollectionName { get; set; } = null!;
+
+        public string AuditHeatNetworksCollectionName { get; set; } = null!;
+
+        public string AuditKpiSubmissionCollectionName { get; set; } = null!;
     }
 }

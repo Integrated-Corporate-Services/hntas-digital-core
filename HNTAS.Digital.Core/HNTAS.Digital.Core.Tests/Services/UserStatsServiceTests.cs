@@ -24,7 +24,7 @@ public class UserStatsServiceTests
         _mockOptions = new Mock<IOptions<AWSDocDbSettings>>();
 
         // Setup options mock
-        var settings = new AWSDocDbSettings { UserStatsCollectionName = "UserStats" };
+        var settings = new AWSDocDbSettings { UserStatsCollectionName = "user_stats" };
         _mockOptions.Setup(o => o.Value).Returns(settings);
 
         // Setup database mock to return the mock collection

@@ -258,7 +258,7 @@ namespace HNTAS.Core.Api.Services
 
                 new BsonDocument("$lookup", new BsonDocument
                 {
-                    { "from", "Organisations" },
+                    { "from", "organisations" },
                     { "localField", "orgId" },
                     { "foreignField", "orgId" },
                     { "as", "organisationDetails" }
@@ -272,7 +272,7 @@ namespace HNTAS.Core.Api.Services
 
                 new BsonDocument("$lookup", new BsonDocument
                 {
-                    { "from", "HeatNetworks" },
+                    { "from", "heat_networks" },
                     { "localField", "organisationDetails.hnIds" },
                     { "foreignField", "hnId" },
                     { "as", "organisationHeatNetworkDetails" }
@@ -280,7 +280,7 @@ namespace HNTAS.Core.Api.Services
 
                 new BsonDocument("$lookup", new BsonDocument
                 {
-                    { "from", "HeatNetworks" },
+                    { "from", "heat_networks" },
                     { "localField", "hnRoleMappings.hnId" },
                     { "foreignField", "hnId" },
                     { "as", "mappedHeatNetworks" }

@@ -58,7 +58,7 @@ namespace HNTAS.Core.Api.Models
         [JsonPropertyName("boilerInputs")] public List<BoilerInput>? BoilerInputs { get; set; }
 
         // Optional arrays/notes
-        [JsonPropertyName("eppElectricityUsedForPumpingValue")] public List<decimal>? EppElectricityUsedForPumpingValue { get; set; }
+        [JsonPropertyName("eppElectricityUsedForPumpingValue")] public List<double>? EppElectricityUsedForPumpingValue { get; set; }
         [JsonPropertyName("eppElectricityUsedForPumpingNotes")] public string? EppElectricityUsedForPumpingNotes { get; set; }
         [JsonPropertyName("eppSleevingPCentNotes")] public string? EppSleevingPCentNotes { get; set; }
     }
@@ -70,13 +70,13 @@ namespace HNTAS.Core.Api.Models
         [JsonPropertyName("chpInstallationDateInput")] public string? ChpInstallationDateInput { get; set; }
         [JsonPropertyName("chpOperationalModeInput")] public string? ChpOperationalModeInput { get; set; }
 
-        [JsonPropertyName("chpUsefulHeatValue")] public List<int>? ChpUsefulHeatValue { get; set; }
+        [JsonPropertyName("chpUsefulHeatValue")] public List<double>? ChpUsefulHeatValue { get; set; }
         [JsonPropertyName("chpUsefulHeatNotes")] public string? ChpUsefulHeatNotes { get; set; }
 
-        [JsonPropertyName("chpElectricityGeneratedValue")] public List<int>? ChpElectricityGeneratedValue { get; set; }
+        [JsonPropertyName("chpElectricityGeneratedValue")] public List<double>? ChpElectricityGeneratedValue { get; set; }
         [JsonPropertyName("chpElectricityGeneratedNotes")] public string? ChpElectricityGeneratedNotes { get; set; }
 
-        [JsonPropertyName("chpFuelUsedValue")] public List<int>? ChpFuelUsedValue { get; set; }
+        [JsonPropertyName("chpFuelUsedValue")] public List<double>? ChpFuelUsedValue { get; set; }
         [JsonPropertyName("chpFuelUsedNotes")] public string? ChpFuelUsedNotes { get; set; }
 
         [JsonPropertyName("chpHeatCoolingValue")] public List<int>? ChpHeatCoolingValue { get; set; }
@@ -94,10 +94,10 @@ namespace HNTAS.Core.Api.Models
     {
         [JsonPropertyName("hpmTypeFuelUsedInput")] public int? HpmTypeFuelUsedInput { get; set; }
 
-        [JsonPropertyName("hpmUsefulHeatGeneratedValue")] public List<int>? HpmUsefulHeatGeneratedValue { get; set; }
+        [JsonPropertyName("hpmUsefulHeatGeneratedValue")] public List<double>? HpmUsefulHeatGeneratedValue { get; set; }
         [JsonPropertyName("hpmUsefulHeatGeneratedNotes")] public string? HpmUsefulHeatGeneratedNotes { get; set; }
 
-        [JsonPropertyName("hpmEnergyUsedValue")] public List<int>? HpmEnergyUsedValue { get; set; }
+        [JsonPropertyName("hpmEnergyUsedValue")] public List<double>? HpmEnergyUsedValue { get; set; }
         [JsonPropertyName("hpmEnergyUsedNotes")] public string? HpmEnergyUsedNotes { get; set; }
 
         [JsonPropertyName("hpmUsefulCoolingGeneratedValue")] public List<int>? HpmUsefulCoolingGeneratedValue { get; set; }
@@ -131,10 +131,10 @@ namespace HNTAS.Core.Api.Models
     {
         [JsonPropertyName("blrTypeFuelUsedInput")] public int? BlrTypeFuelUsedInput { get; set; }
 
-        [JsonPropertyName("blrUsefulHeatGeneratedValue")] public List<int>? BlrUsefulHeatGeneratedValue { get; set; }
+        [JsonPropertyName("blrUsefulHeatGeneratedValue")] public List<double>? BlrUsefulHeatGeneratedValue { get; set; }
         [JsonPropertyName("blrUsefulHeatGeneratedNotes")] public string? BlrUsefulHeatGeneratedNotes { get; set; }
 
-        [JsonPropertyName("blrFuelUsedByValue")] public List<int>? BlrFuelUsedByValue { get; set; }
+        [JsonPropertyName("blrFuelUsedByValue")] public List<double>? BlrFuelUsedByValue { get; set; }
         [JsonPropertyName("blrFuelUsedByNotes")] public string? BlrFuelUsedByNotes { get; set; }
 
         [JsonPropertyName("blrHeatUsedForCoolingProductionValue")] public List<int>? BlrHeatUsedForCoolingProductionValue { get; set; }

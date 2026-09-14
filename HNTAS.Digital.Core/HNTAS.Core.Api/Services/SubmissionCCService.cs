@@ -99,16 +99,16 @@ namespace HNTAS.Core.Api.Services
                         histInputs.TryGetValue("hpm_totals", out var hHpm);
                         histInputs.TryGetValue("blr_totals", out var hBlr);
 
-                        totalEc47 += hChp != null && hChp.TryGetValue("EC-DATA-47", out var hk47) ? hk47.Value.AsDouble : 0;
-                        totalEc53 += hChp != null && hChp.TryGetValue("EC-DATA-53", out var hk53) ? hk53.Value.AsDouble : 0;
-                        totalEc55 += hChp != null && hChp.TryGetValue("EC-DATA-55", out var hk55) ? hk55.Value.AsDouble : 0;
-                        totalEc57 += hChp != null && hChp.TryGetValue("EC-DATA-57", out var hk57) ? hk57.Value.AsDouble : 0;
+                        totalEc47 += hChp != null && hChp.TryGetValue("EC-DATA-47", out var hk47) ? hk47.Value.ToDouble() : 0;
+                        totalEc53 += hChp != null && hChp.TryGetValue("EC-DATA-53", out var hk53) ? hk53.Value.ToDouble() : 0;
+                        totalEc55 += hChp != null && hChp.TryGetValue("EC-DATA-55", out var hk55) ? hk55.Value.ToDouble() : 0;
+                        totalEc57 += hChp != null && hChp.TryGetValue("EC-DATA-57", out var hk57) ? hk57.Value.ToDouble() : 0;
 
-                        totalEc66 += hHpm != null && hHpm.TryGetValue("EC-DATA-66", out var hk66) ? hk66.Value.AsDouble : 0;
-                        totalEc68 += hHpm != null && hHpm.TryGetValue("EC-DATA-68", out var hk68) ? hk68.Value.AsDouble : 0;
+                        totalEc66 += hHpm != null && hHpm.TryGetValue("EC-DATA-66", out var hk66) ? hk66.Value.ToDouble() : 0;
+                        totalEc68 += hHpm != null && hHpm.TryGetValue("EC-DATA-68", out var hk68) ? hk68.Value.ToDouble() : 0;
 
-                        totalEc84 += hBlr != null && hBlr.TryGetValue("EC-DATA-84", out var hk84) ? hk84.Value.AsDouble : 0;
-                        totalEc86 += hBlr != null && hBlr.TryGetValue("EC-DATA-86", out var hk86) ? hk86.Value.AsDouble : 0;
+                        totalEc84 += hBlr != null && hBlr.TryGetValue("EC-DATA-84", out var hk84) ? hk84.Value.ToDouble() : 0;
+                        totalEc86 += hBlr != null && hBlr.TryGetValue("EC-DATA-86", out var hk86) ? hk86.Value.ToDouble() : 0;
 
                         // Increment the counter for every valid historical month found
                         submittedMonthsCount++;

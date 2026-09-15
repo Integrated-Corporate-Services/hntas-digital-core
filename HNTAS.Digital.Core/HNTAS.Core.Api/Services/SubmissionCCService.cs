@@ -60,26 +60,26 @@ namespace HNTAS.Core.Api.Services
             inputs.TryGetValue("blr_totals", out var blrSection);
 
             double currentEc47 = chpSection != null && chpSection.TryGetValue("EC-DATA-47", out var kpi47) ? kpi47.AsDouble() : 0;
-            int currentEc53 = chpSection != null && chpSection.TryGetValue("EC-DATA-53", out var kpi53) ? kpi53.AsInt() : 0;
-            int currentEc55 = chpSection != null && chpSection.TryGetValue("EC-DATA-55", out var kpi55) ? kpi55.AsInt() : 0;
-            int currentEc57 = chpSection != null && chpSection.TryGetValue("EC-DATA-57", out var kpi57) ? kpi57.AsInt() : 0;
+            double currentEc53 = chpSection != null && chpSection.TryGetValue("EC-DATA-53", out var kpi53) ? kpi53.AsDouble() : 0;
+            double currentEc55 = chpSection != null && chpSection.TryGetValue("EC-DATA-55", out var kpi55) ? kpi55.AsDouble() : 0;
+            double currentEc57 = chpSection != null && chpSection.TryGetValue("EC-DATA-57", out var kpi57) ? kpi57.AsDouble() : 0;
 
-            int currentEc66 = hpmSection != null && hpmSection.TryGetValue("EC-DATA-66", out var kpi66) ? kpi66.AsInt() : 0;
-            int currentEc68 = hpmSection != null && hpmSection.TryGetValue("EC-DATA-68", out var kpi68) ? kpi68.AsInt() : 0;
+            double currentEc66 = hpmSection != null && hpmSection.TryGetValue("EC-DATA-66", out var kpi66) ? kpi66.AsDouble() : 0;
+            double currentEc68 = hpmSection != null && hpmSection.TryGetValue("EC-DATA-68", out var kpi68) ? kpi68.AsDouble() : 0;
 
-            int currentEc84 = blrSection != null && blrSection.TryGetValue("EC-DATA-84", out var kpi84) ? kpi84.AsInt() : 0;
-            int currentEc86 = blrSection != null && blrSection.TryGetValue("EC-DATA-86", out var kpi86) ? kpi86.AsInt() : 0;
+            double currentEc84 = blrSection != null && blrSection.TryGetValue("EC-DATA-84", out var kpi84) ? kpi84.AsDouble() : 0;
+            double currentEc86 = blrSection != null && blrSection.TryGetValue("EC-DATA-86", out var kpi86) ? kpi86.AsDouble() : 0;
 
 
             // Initialize accumulation metrics with current month values
             double totalEc47 = currentEc47;
-            int totalEc53 = currentEc53;
-            int totalEc55 = currentEc55;
-            int totalEc57 = currentEc57;
-            int totalEc66 = currentEc66;
-            int totalEc68 = currentEc68;
-            int totalEc84 = currentEc84;
-            int totalEc86 = currentEc86;
+            double totalEc53 = currentEc53;
+            double totalEc55 = currentEc55;
+            double totalEc57 = currentEc57;
+            double totalEc66 = currentEc66;
+            double totalEc68 = currentEc68;
+            double totalEc84 = currentEc84;
+            double totalEc86 = currentEc86;
 
             int submittedMonthsCount = 1;
 
@@ -99,16 +99,16 @@ namespace HNTAS.Core.Api.Services
                         histInputs.TryGetValue("hpm_totals", out var hHpm);
                         histInputs.TryGetValue("blr_totals", out var hBlr);
 
-                        totalEc47 += hChp != null && hChp.TryGetValue("EC-DATA-47", out var hk47) ? hk47.Value.AsInt32 : 0.0;
-                        totalEc53 += hChp != null && hChp.TryGetValue("EC-DATA-53", out var hk53) ? hk53.Value.AsInt32 : 0;
-                        totalEc55 += hChp != null && hChp.TryGetValue("EC-DATA-55", out var hk55) ? hk55.Value.AsInt32 : 0;
-                        totalEc57 += hChp != null && hChp.TryGetValue("EC-DATA-57", out var hk57) ? hk57.Value.AsInt32 : 0;
+                        totalEc47 += hChp != null && hChp.TryGetValue("EC-DATA-47", out var hk47) ? hk47.Value.ToDouble() : 0;
+                        totalEc53 += hChp != null && hChp.TryGetValue("EC-DATA-53", out var hk53) ? hk53.Value.ToDouble() : 0;
+                        totalEc55 += hChp != null && hChp.TryGetValue("EC-DATA-55", out var hk55) ? hk55.Value.ToDouble() : 0;
+                        totalEc57 += hChp != null && hChp.TryGetValue("EC-DATA-57", out var hk57) ? hk57.Value.ToDouble() : 0;
 
-                        totalEc66 += hHpm != null && hHpm.TryGetValue("EC-DATA-66", out var hk66) ? hk66.Value.AsInt32 : 0;
-                        totalEc68 += hHpm != null && hHpm.TryGetValue("EC-DATA-68", out var hk68) ? hk68.Value.AsInt32 : 0;
+                        totalEc66 += hHpm != null && hHpm.TryGetValue("EC-DATA-66", out var hk66) ? hk66.Value.ToDouble() : 0;
+                        totalEc68 += hHpm != null && hHpm.TryGetValue("EC-DATA-68", out var hk68) ? hk68.Value.ToDouble() : 0;
 
-                        totalEc84 += hBlr != null && hBlr.TryGetValue("EC-DATA-84", out var hk84) ? hk84.Value.AsInt32 : 0;
-                        totalEc86 += hBlr != null && hBlr.TryGetValue("EC-DATA-86", out var hk86) ? hk86.Value.AsInt32 : 0;
+                        totalEc84 += hBlr != null && hBlr.TryGetValue("EC-DATA-84", out var hk84) ? hk84.Value.ToDouble() : 0;
+                        totalEc86 += hBlr != null && hBlr.TryGetValue("EC-DATA-86", out var hk86) ? hk86.Value.ToDouble() : 0;
 
                         // Increment the counter for every valid historical month found
                         submittedMonthsCount++;
@@ -119,14 +119,15 @@ namespace HNTAS.Core.Api.Services
             // 6. Calculate the annualization factor multiplier (e.g., if Feb, Month=2, Multiplier = 12 / 2 = 6)
             double projectionMultiplier = 12.0 / submittedMonthsCount;
 
-            decimal projectedEc47 = (decimal)Math.Round(totalEc47 * projectionMultiplier);
-            int projectedEc53 = (int)Math.Round(totalEc53 * projectionMultiplier);
-            int projectedEc55 = (int)Math.Round(totalEc55 * projectionMultiplier);
-            int projectedEc57 = (int)Math.Round(totalEc57 * projectionMultiplier);
-            int projectedEc66 = (int)Math.Round(totalEc66 * projectionMultiplier);
-            int projectedEc68 = (int)Math.Round(totalEc68 * projectionMultiplier);
-            int projectedEc84 = (int)Math.Round(totalEc84 * projectionMultiplier);
-            int projectedEc86 = (int)Math.Round(totalEc86 * projectionMultiplier);
+            // Keep inputs as double or decimal and preserve decimal precision
+            double projectedEc47 = Math.Round(totalEc47 * projectionMultiplier, 3);
+            double projectedEc53 = Math.Round(totalEc53 * projectionMultiplier, 3);
+            double projectedEc55 = Math.Round(totalEc55 * projectionMultiplier, 3);
+            double projectedEc57 = Math.Round(totalEc57 * projectionMultiplier, 3);
+            double projectedEc66 = Math.Round(totalEc66 * projectionMultiplier, 3);
+            double projectedEc68 = Math.Round(totalEc68 * projectionMultiplier, 3);
+            double projectedEc84 = Math.Round(totalEc84 * projectionMultiplier, 3);
+            double projectedEc86 = Math.Round(totalEc86 * projectionMultiplier, 3);
 
             var heatNetwork = await _heatNetworkService.GetByHnIdAsync(request.MetaData.NetworkId.ToUpper());
 

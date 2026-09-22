@@ -106,5 +106,11 @@ namespace HNTAS.Core.Api.Services
             var update = Builders<Organisation>.Update.AddToSet(o => o.HnIds, hnId);
             await _organizationsCollection.UpdateOneAsync(filter, update);
         }
+
+        public async Task<List<Organisation>> GetOrganisationsByOrgIds(List<string> orgIds)
+        {
+            var filter = Builders<Organisation>.Filter.In(o => o.OrgId, orgIds);
+            return await _organizationsCollection.Find(filter).ToListAsync();
+        }
     }
 }

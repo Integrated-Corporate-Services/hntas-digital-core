@@ -19,6 +19,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
         private readonly Mock<ILogger<OrganisationsController>> _mockLogger;
         private readonly Mock<IMapper> _mockMapper;
         private readonly OrganisationsController _controller;
+        private readonly Mock<IInvitationService> _mockInvitationService;
 
 
         public OrganisationsControllerTests()
@@ -28,11 +29,13 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             _mockOrgService = new Mock<IOrganisationService>();
             _mockLogger = new Mock<ILogger<OrganisationsController>>();
             _mockMapper = new Mock<IMapper>();
+            _mockInvitationService = new Mock<IInvitationService>();
 
             _controller = new OrganisationsController(
                 _mockOrgService.Object,
                 _mockUserService.Object,
                 _mockEmailService.Object,
+                _mockInvitationService.Object,
                 _mockLogger.Object,
                 _mockMapper.Object
             );

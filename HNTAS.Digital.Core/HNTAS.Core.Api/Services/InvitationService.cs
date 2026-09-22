@@ -241,9 +241,11 @@ namespace HNTAS.Core.Api.Services
             var heatNetwork = await _heatNetworkService.GetByHnIdAsync(invitation.InvitedHnId!);
             // HnId can be null in case of network manager, they will have invited orgId - check and fix
 
+           
             // User exists
             if (invitedUser != null)
             {
+                invitedUser.OrgId = invitation.InvitedOrgId;
                 await UpdateExistingUser(invitedUser, invitation, heatNetwork);
                 // update invitation after user is successfully updated
                 await UpdateAsync(invitation.Id, invitation);
@@ -374,6 +376,7 @@ namespace HNTAS.Core.Api.Services
                 LastName = invitation.LastName,
                 JobTitle = null,
                 Status = UserStatus.Active,
+                OrgId = invitation.InvitedOrgId,
                 ContributingOrganisations = new List<string> { invitation.InvitedOrgId }
             };
 
@@ -580,5 +583,14 @@ namespace HNTAS.Core.Api.Services
             }
 
         }
+
+        public async Task<List<Invitation>> GetAcceptedInvitationsByInvitedEmail(string invitedEmail)
+        {
+            var acceptedInvitations = await _invitationsCollection
+                .Find(invitation => invitation.InvitedEmail == invitedEmail && invitation.Status == InvitationStatus.Accepted)
+                .ToListAsync();
+            return acceptedInvitations;
+        }
+
     }
 }

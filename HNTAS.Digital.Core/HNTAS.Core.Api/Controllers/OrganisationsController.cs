@@ -4,7 +4,9 @@ using HNTAS.Core.Api.Extensions;
 using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models.Users;
+using HNTAS.Core.Api.Services;
 using Microsoft.AspNetCore.Mvc;
+using MongoDB.Bson;
 using System.Net.Mime;
 
 namespace HNTAS.Core.Api.Controllers
@@ -17,6 +19,7 @@ namespace HNTAS.Core.Api.Controllers
         private readonly IUserService _userService;
         private readonly IEmailService _emailService;
         private readonly IOrganisationService _organisationService;
+        private readonly IInvitationService _invitationService;
         private readonly ILogger<OrganisationsController> _logger;
         private readonly IMapper _mapper;
 
@@ -24,11 +27,13 @@ namespace HNTAS.Core.Api.Controllers
             IOrganisationService organisationService,
             IUserService userService,
             IEmailService emailService,
+            IInvitationService invitationService,
             ILogger<OrganisationsController> logger,
             IMapper mapper)
         {
             _logger = logger;
             _mapper = mapper;
+            _invitationService = invitationService;
             _organisationService = organisationService;
             _userService = userService;
             _emailService = emailService;
@@ -197,6 +202,60 @@ namespace HNTAS.Core.Api.Controllers
             {
                 _logger.LogError(ex, "An error occurred while updating heat network ID for organisation with OrgId: {OrgId}", orgId.ToSafeLog());
                 return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while updating the heat network ID.");
+            }
+        }
+
+        /// <summary>
+        /// Get the organisations associated with the specific User.
+        /// </summary>
+        /// <param name="userId">The ID of the user.</param>        
+        /// <returns>A list of Organisation objects associated with the specific user.</returns>
+        [HttpPost("orgs-associated-to-user/{userId}")]
+        [ProducesResponseType(typeof(List<Organisation>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<List<Organisation>>> GetOrganisationsAssociatedToUser(
+            string userId
+            )
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            if (string.IsNullOrWhiteSpace(userId) || !ObjectId.TryParse(userId, out _))
+            {
+                return BadRequest("Invalid or missing UserId.");
+            }
+
+            try
+            {
+                // Check the user exists
+                var existingUser = await _userService.GetByIdAsync(userId);
+                if (existingUser == null)
+                {
+                    _logger.LogWarning("User with ID '{UserId}' was not found.", userId.ToSafeLog());
+                    return NotFound($"User with ID '{userId}' was not found.");
+                }
+
+                var acceptedInvitations = await _invitationService.GetAcceptedInvitationsByInvitedEmail(existingUser.EmailId);
+
+                var organisationIds = acceptedInvitations.Select(i => i.InvitedOrgId).Distinct().ToList();
+
+                if (!organisationIds.Any())
+                {
+                    _logger.LogInformation("No organisations associated with user ID '{UserId}'.", userId.ToSafeLog());
+                    return Ok(new List<Organisation>());
+                }
+                var organisations = await _organisationService.GetOrganisationsByOrgIds(organisationIds);
+
+                return Ok(organisations);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to get organisations record associated to the user.");
+                return StatusCode(StatusCodes.Status500InternalServerError,
+                    "An unexpected error occurred during getting the associated user orginations: " + ex.Message);
             }
         }
     }

@@ -7,9 +7,11 @@ using HNTAS.Core.Api.MappingProfiles;
 using HNTAS.Core.Api.Services;
 using HNTAS.Core.Api.Validators.Arms;
 using HNTAS.Core.Api.Validators.Extensions;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
+using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -38,6 +40,82 @@ builder.Services.AddControllers()
     options.ClientErrorMapping[StatusCodes.Status503ServiceUnavailable].Link = null;
     // This stops the RFC link from appearing for 400 errors
 });
+
+
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.Authority =
+            builder.Configuration["OneLogin:Authority"];
+
+        options.Audience =
+           Environment.GetEnvironmentVariable("ONELOGIN_CLIENT_ID");
+
+        options.Events = new JwtBearerEvents
+        {
+            OnAuthenticationFailed = context =>
+            {
+                Console.WriteLine(
+                $"AUTH FAILED: {context.Exception.Message}");
+
+                return Task.CompletedTask;
+            },
+
+            OnChallenge = context =>
+            {
+                Console.WriteLine(
+                $"CHALLENGE: {context.Error} {context.ErrorDescription}");
+
+                return Task.CompletedTask;
+            },
+            OnTokenValidated = async context =>
+            {
+                var userRepository =
+                    context.HttpContext.RequestServices
+                        .GetRequiredService<IUserService>();
+
+                var identity =
+                    (ClaimsIdentity)context.Principal!.Identity!;
+
+                var sub =
+                    context.Principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+                if (string.IsNullOrEmpty(sub))
+                {
+                    context.Fail("Missing sub claim.");
+                    return;
+                }
+
+                var user =
+                    await userRepository.GetByUserOneLoginIdAsync(sub);
+
+                if (user == null)
+                {
+                    context.Fail("User not found.");
+                    return;
+                }
+
+                foreach (var role in user.Roles)
+                {
+                    identity.AddClaim(
+                    new Claim(ClaimTypes.Role, role.ToString()));
+                }
+
+                if (!string.IsNullOrEmpty(user.OrgId))
+                {
+                    identity.AddClaim(
+                        new Claim("OrgId", user.OrgId));
+                }
+
+                if (!string.IsNullOrEmpty(user.Id))
+                {
+                    identity.AddClaim(
+                        new Claim("UserId", user.Id));
+                }
+            }
+        };
+    });
 
 // Register AutoMapper, scan for profiles, and apply global recursion protection
 
@@ -228,6 +306,7 @@ using (var scope = app.Services.CreateScope())
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+
     app.UseSwaggerUI(options =>
     {
         options.SwaggerEndpoint("/openapi/HNTAS.Core.Api.json", "HNTAS Core API v1");
@@ -236,6 +315,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();

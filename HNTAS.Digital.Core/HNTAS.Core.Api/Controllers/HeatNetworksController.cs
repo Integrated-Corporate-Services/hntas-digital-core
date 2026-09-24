@@ -181,7 +181,7 @@ namespace HNTAS.Core.Api.Controllers
 
                 // Fetch paginated data from MongoDB
                 var (heatNetworks, totalCount) = await _hnService.GetByHnIdsAndRegistrationSourcePaginatedAsync(
-                    hnIds, registrationSource, pageNumber, pageSize, sortBy, sortDirection);
+                    hnIds, userDetails.OrgId!, registrationSource, pageNumber, pageSize, sortBy, sortDirection);
 
                 var result = new PagedResult<UserNetworkDetailsResponse>
                 {

@@ -374,6 +374,7 @@ namespace HNTAS.Core.Api.Services
         [ExcludeFromCodeCoverage]
         public async Task<(List<UserNetworkDetailsResponse> Items, long TotalCount)> GetByHnIdsAndRegistrationSourcePaginatedAsync(
             List<string> hnIds,
+            string orgId,
             RegistrationSource registrationSource,
             int pageNumber,
             int pageSize,
@@ -381,7 +382,8 @@ namespace HNTAS.Core.Api.Services
             string sortDirection)
         {
             var filter = Builders<HeatNetwork>.Filter.In(hn => hn.HnId, hnIds) &
-                         Builders<HeatNetwork>.Filter.Eq(hn => hn.RegistrationSource, registrationSource);
+                         Builders<HeatNetwork>.Filter.Eq(hn => hn.RegistrationSource, registrationSource) &
+                         Builders<HeatNetwork>.Filter.Eq(hn => hn.OrgId, orgId);
 
             var totalCount = await _hnCollection.CountDocumentsAsync(filter);
 

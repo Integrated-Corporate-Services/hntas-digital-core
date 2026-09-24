@@ -31,6 +31,7 @@ namespace HNTAS.Core.Api.Interfaces
 
         Task<(List<UserNetworkDetailsResponse> Items, long TotalCount)> GetByHnIdsAndRegistrationSourcePaginatedAsync(
                List<string> hnIds,
+               string orgId,
                RegistrationSource registrationSource,
                int pageNumber,
                int pageSize,

@@ -179,9 +179,10 @@ namespace HNTAS.Core.Api.Controllers
                 // Collect all HnIds for the user
                 var hnIds = userDetails.HnRoleMappings.Select(x => x.HnId).Distinct().ToList();
 
+                var orgId = userDetails.Roles.Contains(UserRole.ResponsibleParty) ? userDetails.OrgId : userDetails.ActiveContributingOrgId;
                 // Fetch paginated data from MongoDB
                 var (heatNetworks, totalCount) = await _hnService.GetByHnIdsAndRegistrationSourcePaginatedAsync(
-                    hnIds, userDetails.OrgId!, registrationSource, pageNumber, pageSize, sortBy, sortDirection);
+                    hnIds, orgId!, registrationSource, pageNumber, pageSize, sortBy, sortDirection);
 
                 var result = new PagedResult<UserNetworkDetailsResponse>
                 {

@@ -123,6 +123,7 @@ namespace HNTAS.Core.Api.Controllers
                     return NotFound();
                 }
 
+                var invitedOrgId = existingUser.Roles.Contains(UserRole.ResponsibleParty) ? existingUser.OrgId : existingUser.ActiveContributingOrgId;
                 // Create a new Invitation document and save it to the new collection
                 var newInvitation = new Invitation
                 {
@@ -131,7 +132,7 @@ namespace HNTAS.Core.Api.Controllers
                     InviterUserId = existingUser.Id, // Link to the user who sent the invite
                     InvitedEmail = request.EmailAddress,
                     InvitedHnId = request.HnId,
-                    InvitedOrgId = request.OrgId,
+                    InvitedOrgId = invitedOrgId,
                     InvitedRoles = request.ContributorRoles,
                     Status = InvitationStatus.Invited, // Status should be 'Invited' for a new invitation
                     InvitedAt = DateTime.UtcNow,

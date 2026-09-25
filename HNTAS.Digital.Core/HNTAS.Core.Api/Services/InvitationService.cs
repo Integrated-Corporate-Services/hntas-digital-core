@@ -245,7 +245,7 @@ namespace HNTAS.Core.Api.Services
             // User exists
             if (invitedUser != null)
             {
-                invitedUser.OrgId = invitation.InvitedOrgId;
+                invitedUser.ActiveContributingOrgId = invitation.InvitedOrgId;
                 await UpdateExistingUser(invitedUser, invitation, heatNetwork);
                 // update invitation after user is successfully updated
                 await UpdateAsync(invitation.Id, invitation);
@@ -278,7 +278,7 @@ namespace HNTAS.Core.Api.Services
         HeatNetwork heatNetwork)
         {
             AddRoles(user, invitation);
-            AddHnMapping(user, invitation);
+            await AddHnMapping(user, invitation);
             AddOrganisation(user, invitation);
 
             await _userService.UpdateAsync(user.Id!, user);
@@ -286,7 +286,7 @@ namespace HNTAS.Core.Api.Services
             await PostActions(invitation, user, heatNetwork);
         }
 
-        public async void AddHnMapping(User user, Invitation invitation)
+        public async Task AddHnMapping(User user, Invitation invitation)
         {
             // Two cases to handle
             // If accepted as an NM - then all the hns that the inviter (RP - only possible option) owns will be mapped
@@ -376,7 +376,7 @@ namespace HNTAS.Core.Api.Services
                 LastName = invitation.LastName,
                 JobTitle = null,
                 Status = UserStatus.Active,
-                OrgId = invitation.InvitedOrgId,
+                ActiveContributingOrgId = invitation.InvitedOrgId,
                 ContributingOrganisations = new List<string> { invitation.InvitedOrgId }
             };
 

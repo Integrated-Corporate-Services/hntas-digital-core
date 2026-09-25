@@ -19,7 +19,7 @@ namespace HNTAS.Core.Api.Interfaces
         Task<AcceptInvitationResult> AcceptAsync(InvitedUserRequest request);
         Task<User> CreateUser(InvitedUserRequest request, Invitation invitation,HeatNetwork heatNetwork);
         Task UpdateExistingUser(User user, Invitation invitation, HeatNetwork heatNetwork);
-        void AddHnMapping(User user, Invitation invitation);
+        Task AddHnMapping(User user, Invitation invitation);
         void AddOrganisation(User user, Invitation invitation);
         void AddRoles(User user, Invitation invitation);
         Task PostActions(Invitation invitation, User user, HeatNetwork heatNetwork);

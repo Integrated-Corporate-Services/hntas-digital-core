@@ -163,7 +163,7 @@ namespace HNTAS.Core.Api.Services
                         {
             var filter = Builders<User>.Filter.Eq(u => u.Id, userId);
 
-            var update = Builders<User>.Update.Set(u => u.OrgId, orgId);
+            var update = Builders<User>.Update.Set(u => u.ActiveContributingOrgId, orgId);
 
             return await _usersCollection.UpdateOneAsync(filter, update);
         }
@@ -171,7 +171,7 @@ namespace HNTAS.Core.Api.Services
 
         public async Task<List<User>> GetUsersByOrgIdAsync(string organisationId)
         {
-            var filter = Builders<User>.Filter.Eq(u => u.OrgId, organisationId);
+            var filter = Builders<User>.Filter.Eq(u => u.ActiveContributingOrgId, organisationId);
 
             return await _usersCollection
                 .Find(filter)
@@ -297,10 +297,21 @@ namespace HNTAS.Core.Api.Services
                 // The dynamic filter stage
                 matchStage,
 
+                new BsonDocument("$addFields", new BsonDocument
+                {
+                    { "organisationLookupId", new BsonDocument("$cond", new BsonDocument
+                        {
+                            { "if", new BsonDocument("$in", new BsonArray { UserRole.ResponsibleParty.ToString(), "$roles" }) },
+                            { "then", "$orgId" },
+                            { "else", "$activeContributingOrgId" }
+                        })
+                    }
+                }),
+
                 new BsonDocument("$lookup", new BsonDocument
                 {
                     { "from", "Organisations" },
-                    { "localField", "orgId" },
+                    { "localField", "organisationLookupId" },
                     { "foreignField", "orgId" },
                     { "as", "organisationDetails" }
                 }),
@@ -342,6 +353,7 @@ namespace HNTAS.Core.Api.Services
                     { "mobileNumber", new BsonDocument("$ifNull", new BsonArray { "$mobileNumber", BsonNull.Value }) },
                     { "roles", 1 },
                     { "status", 1 },
+                    { "contributingOrganisations", 1},
 
                     // Organisation projection
                     { "organisation", new BsonDocument("$cond", new BsonDocument
@@ -384,7 +396,7 @@ namespace HNTAS.Core.Api.Services
                             { "as", "mapping" },
                             { "in", new BsonDocument
                                 {
-                                    { "role", "$$mapping.role" },
+                                    { "role", "$$mapping.role" },                                
                                     { "heatNetwork", new BsonDocument("$let", new BsonDocument
                                         {
                                             { "vars", new BsonDocument("matchedHn", new BsonDocument("$arrayElemAt", new BsonArray

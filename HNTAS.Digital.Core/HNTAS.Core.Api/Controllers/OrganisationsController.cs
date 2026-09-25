@@ -236,11 +236,9 @@ namespace HNTAS.Core.Api.Controllers
                 {
                     _logger.LogWarning("User with ID '{UserId}' was not found.", userId.ToSafeLog());
                     return NotFound($"User with ID '{userId}' was not found.");
-                }
+                }                
 
-                var acceptedInvitations = await _invitationService.GetAcceptedInvitationsByInvitedEmail(existingUser.EmailId);
-
-                var organisationIds = acceptedInvitations.Select(i => i.InvitedOrgId).Distinct().ToList();
+                var organisationIds = existingUser.ContributingOrganisations?.Distinct().ToList() ?? new List<string>();
 
                 if (!organisationIds.Any())
                 {

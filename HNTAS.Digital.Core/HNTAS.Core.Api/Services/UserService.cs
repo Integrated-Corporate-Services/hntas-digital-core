@@ -380,7 +380,7 @@ namespace HNTAS.Core.Api.Services
                                             {
                                                 { "hnId", "$$hn.hnId" },
                                                 { "name", "$$hn.name" },
-                                                { "location", "$$hn.location" }
+                                                { "location", "$$hn.location" }                                                
                                             }
                                         }
                                     })
@@ -418,7 +418,8 @@ namespace HNTAS.Core.Api.Services
                                                         {
                                                             { "hnId", "$$matchedHn.hnId" },
                                                             { "name", "$$matchedHn.name" },
-                                                            { "location", "$$matchedHn.location" }
+                                                            { "location", "$$matchedHn.location" },
+                                                            { "orgId", "$$matchedHn.orgId" }
                                                         }
                                                 })
                                             }

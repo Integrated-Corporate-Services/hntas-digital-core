@@ -756,6 +756,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             _mockHnService
                 .Setup(s => s.GetByHnIdsAndRegistrationSourcePaginatedAsync(
                     It.Is<List<string>>(ids => ids.Contains("HN0000001")),
+                    It.IsAny<string>(),
                     registrationSource,
                     pageNumber,
                     pageSize,

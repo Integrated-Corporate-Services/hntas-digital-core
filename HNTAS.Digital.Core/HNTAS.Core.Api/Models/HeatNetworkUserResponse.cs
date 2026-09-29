@@ -20,5 +20,7 @@ namespace HNTAS.Core.Api.Models
         // Expose the structured address instead of a single location string
         [BsonElement("address")]
         public RegisteredAddress? Address { get; set; }
+        [BsonElement("orgId")]
+        public string? OrgId { get; set; }
     }
 }

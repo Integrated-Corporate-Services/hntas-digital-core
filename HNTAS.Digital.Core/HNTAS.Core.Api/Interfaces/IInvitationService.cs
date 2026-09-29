@@ -19,7 +19,7 @@ namespace HNTAS.Core.Api.Interfaces
         Task<AcceptInvitationResult> AcceptAsync(InvitedUserRequest request);
         Task<User> CreateUser(InvitedUserRequest request, Invitation invitation,HeatNetwork heatNetwork);
         Task UpdateExistingUser(User user, Invitation invitation, HeatNetwork heatNetwork);
-        void AddHnMapping(User user, Invitation invitation);
+        Task AddHnMapping(User user, Invitation invitation);
         void AddOrganisation(User user, Invitation invitation);
         void AddRoles(User user, Invitation invitation);
         Task PostActions(Invitation invitation, User user, HeatNetwork heatNetwork);
@@ -32,5 +32,6 @@ namespace HNTAS.Core.Api.Interfaces
         Task<List<Invitation>> GetByEmailsAndHnIdAsync(List<string> invitedEmails, string hnId);
         Task<Invitation> GetByInvitedEmailAsync(string invitedEmailId);
         Task<(List<ManagedUserResponse> items, long totalCount)> GetInvitedUsersDdhAndContributorsAsync(string inviterUserId, int pageNumber, int pageSize, string sortBy, string sortDirection);
+        Task<List<Invitation>> GetAcceptedInvitationsByInvitedEmail(string invitedEmail);
     }
 }

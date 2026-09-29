@@ -44,7 +44,7 @@ namespace HNTAS.Core.Api.MappingProfiles
                     src.Status
                 )).ForMember(dest => dest.ContributingOrganisations, opt => opt.MapFrom(src =>
                     src.ContributingOrganisations
-                ));
+                )).ForMember(dest => dest.ActiveContributingOrgId, opt => opt.MapFrom(src => src.ActiveContributingOrgId));
 
 
             // Mapping for an Invitation document to an InvitedUserResponse DTO

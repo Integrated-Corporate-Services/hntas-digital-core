@@ -13,16 +13,14 @@ namespace HNTAS.Digital.Core.Tests.Controllers
         private readonly Mock<ILogger<NotificationHistoryController>> _mockLogger;
         private readonly Mock<INotificationHistoryService> _mockNotificationSevice;
         private readonly Mock<IUserService> _mockUserService;
-        private readonly Mock<IUserStatsService> _mockUserStatsService;
         private readonly NotificationHistoryController _controller;
 
         public NotificationHistoryControllerTests()
         {
             _mockLogger = new Mock<ILogger<NotificationHistoryController>>();
             _mockNotificationSevice = new Mock<INotificationHistoryService>();
-            _mockUserService = new Mock<IUserService>();
-            _mockUserStatsService = new Mock<IUserStatsService>();
-            _controller = new NotificationHistoryController(_mockLogger.Object, _mockNotificationSevice.Object, _mockUserService.Object, _mockUserStatsService.Object);
+            _mockUserService = new Mock<IUserService>();            
+            _controller = new NotificationHistoryController(_mockLogger.Object, _mockNotificationSevice.Object, _mockUserService.Object);
 
         }
 
@@ -36,7 +34,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             _mockNotificationSevice.Setup(n => n.GetNotificationHistoryCount(It.IsAny<string>()))
                 .ReturnsAsync(2);
 
-            _mockUserStatsService.Setup(u => u.UpdateNotificationHistoryCountAsync(It.IsAny<string>(), It.IsAny<int>()))
+            _mockUserService.Setup(u => u.UpdateNotificationHistoryCountAsync(It.IsAny<string>(), It.IsAny<int>()))
                 .Returns(Task.CompletedTask);
 
             var result = await _controller.GetNotificationHistory(request);
@@ -79,7 +77,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             _mockNotificationSevice.Setup(n => n.GetNotificationHistoryCount(It.IsAny<string>()))
                 .ReturnsAsync(4);
 
-            _mockUserStatsService.Setup(u => u.GetNotificationHistoryCountAsync(It.IsAny<string>()))
+            _mockUserService.Setup(u => u.GetNotificationHistoryCountAsync(It.IsAny<string>()))
                 .ReturnsAsync(2);
 
             var result = await _controller.UnreadNotificationCount("userId", HNTAS.Core.Api.Enums.UserRole.NetworkManager);

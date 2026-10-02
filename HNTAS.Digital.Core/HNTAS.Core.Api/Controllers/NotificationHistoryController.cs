@@ -17,14 +17,12 @@ namespace HNTAS.Core.Api.Controllers
         private readonly ILogger<NotificationHistoryController> _logger;
         private readonly INotificationHistoryService _notificationHistoryService;
         private readonly IUserService _userService;
-        private readonly IUserStatsService _userStatsService;
 
-        public NotificationHistoryController(ILogger<NotificationHistoryController> logger, INotificationHistoryService notificationHistoryService, IUserService userService, IUserStatsService userStatsService)
+        public NotificationHistoryController(ILogger<NotificationHistoryController> logger, INotificationHistoryService notificationHistoryService, IUserService userService)
         {
             _logger = logger;
             _notificationHistoryService = notificationHistoryService;
             _userService = userService;
-            _userStatsService = userStatsService;
         }
         [HttpGet("notification-history")]
         [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(NotificationHistoryResponse))]
@@ -44,7 +42,8 @@ namespace HNTAS.Core.Api.Controllers
                 }
 
                 var notificationHistoryCount = await _notificationHistoryService.GetNotificationHistoryCount(request.UserId!);
-                await _userStatsService.UpdateNotificationHistoryCountAsync(request.UserId!, notificationHistoryCount);
+                
+                await _userService.UpdateNotificationHistoryCountAsync(request.UserId!, notificationHistoryCount);
 
                 _logger.LogInformation("Notification history(s) are retrieved successfully for the user: {userId}", StringFormatter.Sanitize(request.UserId!));
                 return Ok(result);
@@ -65,7 +64,7 @@ namespace HNTAS.Core.Api.Controllers
             try
             {
                 var notificationHistoryCount = await _notificationHistoryService.GetNotificationHistoryCount(userId);
-                var userStatsNotificatonCount = await _userStatsService.GetNotificationHistoryCountAsync(userId);
+                var userStatsNotificatonCount = await _userService.GetNotificationHistoryCountAsync(userId);
                 var unreadNotificationCount = notificationHistoryCount - userStatsNotificatonCount;
                 _logger.LogInformation("Unread Notification Count is retrieved successfully for the user: {userId}", StringFormatter.Sanitize(userId));
                 return Ok(unreadNotificationCount);

@@ -5,15 +5,13 @@ using System.Diagnostics.CodeAnalysis;
 namespace HNTAS.Core.Api.Data.Models
 {
     [ExcludeFromCodeCoverage]
-    public class UserStats
+    public class NotificationStats
     {
-        [BsonId]
-        [BsonRepresentation(BsonType.ObjectId)]
-        public string? Id { get; set; }
-        [BsonElement("userId")]
-        public string UserId { get; set; }
-
         [BsonElement("notificationHistoryCount")]
         public int NotificationHistoryCount { get; set; }
+        [BsonElement("lastVisitedAt")]
+        [BsonRepresentation(BsonType.DateTime)]
+        [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
+        public DateTime LastVisitedAt { get; set; }
     }
 }

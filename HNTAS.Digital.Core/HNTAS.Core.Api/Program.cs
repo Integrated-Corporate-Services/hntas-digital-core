@@ -163,7 +163,6 @@ builder.Services.AddScoped<INotificationHistoryService, NotificationHistoryServi
 builder.Services.AddScoped<IKpiRuleValidator, KpiRuleValidator>();
 builder.Services.AddScoped<IHeatNetworkValidator, HeatNetworkValidator>();
 builder.Services.AddScoped<IKpiSubmissionAuditService, KpiSubmissionAuditService>();
-builder.Services.AddScoped<IUserStatsService, UserStatsService>();
 builder.Services.AddScoped<ISuperUserService, SuperUserService>();
 builder.Services.AddScoped<IArmsPowerBiService, ArmsPowerBiService>();
 builder.Services.AddSingleton<IUnitService, UnitService>();

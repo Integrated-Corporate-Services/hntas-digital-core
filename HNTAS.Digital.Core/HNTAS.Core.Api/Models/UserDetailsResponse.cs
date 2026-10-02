@@ -23,6 +23,7 @@ namespace HNTAS.Core.Api.Models
         public OrganisationResponse? Organisation { get; set; }
         public List<HeatNetworkUserResponse>? HeatNetworks { get; set; }
         public List<string>? ContributingOrganisations { get; set; }
+        public string? ActiveContributingOrgId { get; set; }
 
     }
 

@@ -285,6 +285,38 @@ namespace HNTAS.Core.Api.Services
             return users;
         }
 
+        public async Task UpdateNotificationHistoryCountAsync(string userId, int notificationHistoryCount)
+        {
+            var filter = Builders<User>.Filter.Eq(u => u.Id, userId);
+
+            var missingNotificationStatsFilter = Builders<User>.Filter.And(
+                filter,
+                Builders<User>.Filter.Or(
+                    Builders<User>.Filter.Eq(u => u.NotificationStats, null),
+                    Builders<User>.Filter.Exists("notificationStats", false)
+                )
+            );
+
+            await _usersCollection.UpdateOneAsync(
+                missingNotificationStatsFilter,
+                Builders<User>.Update.Set(u => u.NotificationStats, new NotificationStats())
+            );
+
+            var update = Builders<User>.Update
+                .Set(u => u.NotificationStats!.NotificationHistoryCount, notificationHistoryCount)
+                .Set(u => u.NotificationStats!.LastVisitedAt, DateTime.UtcNow);
+
+            await _usersCollection.UpdateOneAsync(filter, update);
+        }
+
+        public async Task<int> GetNotificationHistoryCountAsync(string userId)
+        {
+            var filter = Builders<User>.Filter.Eq(u => u.Id, userId);
+            var projection = Builders<User>.Projection.Include(u => u.NotificationStats.NotificationHistoryCount);
+            var user = await _usersCollection.Find(filter).Project<User>(projection).FirstOrDefaultAsync();
+            return user?.NotificationStats?.NotificationHistoryCount ?? 0;
+        }
+
         // --- Private Helper Method for Reusable Pipeline ---
 
         /// <summary>

@@ -77,6 +77,7 @@ public class UsersController : ControllerBase
     /// Retrieves a list of all users.
     /// </summary>
     /// <returns>A list of user objects.</returns>
+    [AllowAnonymous]
     [HttpGet("user-details-by-id")]
     [ProducesResponseType(typeof(UserDetailsResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(UserDetailsResponse))]

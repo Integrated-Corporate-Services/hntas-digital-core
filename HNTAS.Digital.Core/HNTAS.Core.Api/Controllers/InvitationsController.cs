@@ -5,11 +5,13 @@ using HNTAS.Core.Api.Extensions;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
 using HNTAS.Core.Api.Models.Users;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Net.Mime;
 
 namespace HNTAS.Core.Api.Controllers
 {
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class InvitationsController : ControllerBase
@@ -55,6 +57,7 @@ namespace HNTAS.Core.Api.Controllers
         /// 200 OK with the invitation details if found;  
         /// 404 Not Found if no invitation exists with the given ID.
         /// </returns>
+        [AllowAnonymous]
         [HttpGet("{id:length(24)}")]
         [ProducesResponseType(typeof(InvitedUserResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -215,6 +218,7 @@ namespace HNTAS.Core.Api.Controllers
             return NoContent();
         }
 
+        [AllowAnonymous]
         [HttpPatch("accept-invitation")]
         [Consumes(MediaTypeNames.Application.Json)]
         [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
@@ -240,6 +244,7 @@ namespace HNTAS.Core.Api.Controllers
         /// </summary>
         /// <param name="invitationId">The ID of the invitation to reject.</param>
         /// <returns>204 No Content if successful; 404 if not found; 400 if already accepted or rejected.</returns>
+        [AllowAnonymous]
         [HttpPost("{invitationId}/Reject")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]

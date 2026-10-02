@@ -9,11 +9,13 @@ using HNTAS.Core.Api.Models;
 using HNTAS.Core.Api.Models.HeatNetwork;
 using HNTAS.Core.Api.Models.Soa;
 using HNTAS.Core.Api.Models.Users;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Net.Mime;
 
 namespace HNTAS.Core.Api.Controllers
 {
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public partial class HeatNetworksController : ControllerBase
@@ -46,7 +48,7 @@ namespace HNTAS.Core.Api.Controllers
         /// <summary>
         /// Retrieves a list of all heat networks available in the system.
         /// </summary>
-        /// <returns>A list of heat network response objects.</returns>
+        /// <returns>A list of heat network response objects.</returns>  
         [HttpGet] // This defines the route as GET /api/HeatNetworks
         [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<HeatNetworkResponse>))]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]

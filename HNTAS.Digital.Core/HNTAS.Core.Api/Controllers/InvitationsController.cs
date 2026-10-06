@@ -289,7 +289,7 @@ namespace HNTAS.Core.Api.Controllers
             var invitation = await _invitationService.GetAcceptedInvitationsByInvitedEmailAndOrg(invitedEmail, invitedOrgId);
             if (invitation == null || !invitation.Any())
             {
-                _logger.LogInformation("Invitation not found for the invitedEmail: {InvitedEmail} and invitedOrgId: {InvitedOrgId}", invitedEmail.ToSafeLog(), invitedOrgId.ToSafeLog());
+                _logger.LogInformation("Invitation not found for the invitedOrgId: {InvitedOrgId}", invitedOrgId.ToSafeLog());
                 return NotFound();
             }            
             return Ok(invitation);

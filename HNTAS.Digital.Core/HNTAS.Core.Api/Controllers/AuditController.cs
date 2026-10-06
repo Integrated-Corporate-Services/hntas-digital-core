@@ -1,10 +1,12 @@
 ﻿using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HNTAS.Core.Api.Controllers
 {
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class AuditController : Controller

@@ -1,9 +1,11 @@
 ﻿using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HNTAS.Core.Api.Controllers
 {
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class CountriesAndTerritoriesController : ControllerBase

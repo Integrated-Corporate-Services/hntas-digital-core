@@ -272,6 +272,29 @@ namespace HNTAS.Core.Api.Controllers
             return NoContent();
         }
 
+
+        /// <summary>
+        /// Retrieves a list of invitations by invitedEmail and invitedOrgId.
+        /// </summary>        
+        /// <returns>
+        /// 200 OK with the invitations list if found;  
+        /// 404 Not Found if no invitation exists with the given invitedEmail and invitedOrgId.
+        /// </returns>
+        [AllowAnonymous]
+        [HttpGet("user-invitations")]
+        [ProducesResponseType(typeof(List<Invitation>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]        
+        public async Task<ActionResult<List<Invitation>>> GetInvitationByEmailAndOrg(string invitedEmail, string invitedOrgId)
+        {
+            var invitation = await _invitationService.GetAcceptedInvitationsByInvitedEmailAndOrg(invitedEmail, invitedOrgId);
+            if (invitation == null || !invitation.Any())
+            {
+                _logger.LogInformation("Invitation not found for the invitedEmail: {InvitedEmail} and invitedOrgId: {InvitedOrgId}", invitedEmail.ToSafeLog(), invitedOrgId.ToSafeLog());
+                return NotFound();
+            }            
+            return Ok(invitation);
+        }
+
         private async Task NotificationHistoryForAddInvite(User user, Invitation invitation)
         {
             var subject = string.Empty;

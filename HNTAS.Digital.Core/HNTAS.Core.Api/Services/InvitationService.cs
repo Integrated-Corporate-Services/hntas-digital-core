@@ -136,20 +136,19 @@ namespace HNTAS.Core.Api.Services
                 .ToListAsync();
         }
 
-        public async Task<(List<ManagedUserResponse> items, long totalCount)> GetInvitedUsersDdhAndContributorsAsync(string inviterUserId, int pageNumber,
+        public async Task<(List<ManagedUserResponse> items, long totalCount)> GetInvitedUsersDdhAndContributorsAsync(string inviterOrgId, List<string> invitedRoles, int pageNumber,
             int pageSize,
             string sortBy,
             string sortDirection)
-        {
-            var inviterObjectId = ObjectId.Parse(inviterUserId);
+        {           
 
             var pipeline = new[]
             {
                 // Match invitations sent by the specified user and the invited roles are either DesignatedDutyHolder or Contributor
                 new BsonDocument("$match", new BsonDocument
                 {
-                    { "inviterUserId", inviterObjectId },
-                    { "invitedRoles", new BsonDocument("$in", new BsonArray { ContributorRole.DesignatedDutyHolder.ToString(), ContributorRole.Contributor.ToString() }) }
+                    { "invitedOrgId", inviterOrgId },
+                    { "invitedRoles", new BsonDocument("$in", new BsonArray(invitedRoles)) }
                 }),
 
                 // Lookup heat network name using invitedHnId
@@ -201,8 +200,8 @@ namespace HNTAS.Core.Api.Services
             
             var totalCountResult = await _invitationsCollection.CountDocumentsAsync(new BsonDocument
             {
-                { "inviterUserId", inviterObjectId },
-                { "invitedRoles", new BsonDocument("$in", new BsonArray { ContributorRole.DesignatedDutyHolder.ToString(), ContributorRole.Contributor.ToString() }) }
+                { "invitedOrgId", inviterOrgId },
+                { "invitedRoles", new BsonDocument("$in", new BsonArray(invitedRoles)) }
             });                
 
             return (await _invitationsCollection
@@ -588,6 +587,14 @@ namespace HNTAS.Core.Api.Services
         {
             var acceptedInvitations = await _invitationsCollection
                 .Find(invitation => invitation.InvitedEmail == invitedEmail && invitation.Status == InvitationStatus.Accepted)
+                .ToListAsync();
+            return acceptedInvitations;
+        }
+
+        public async Task<List<Invitation>> GetAcceptedInvitationsByInvitedEmailAndOrg(string invitedEmail, string invitedOrgId)
+        {
+            var acceptedInvitations = await _invitationsCollection
+                .Find(invitation => invitation.InvitedEmail == invitedEmail && invitation.InvitedOrgId == invitedOrgId && invitation.Status == InvitationStatus.Accepted)
                 .ToListAsync();
             return acceptedInvitations;
         }

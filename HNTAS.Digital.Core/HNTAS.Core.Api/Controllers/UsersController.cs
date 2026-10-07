@@ -6,12 +6,14 @@ using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
 using HNTAS.Core.Api.Models.Users;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Bson;
 using System.Net.Mime;
 
 namespace HNTAS.Core.Api.Controllers;
 
+[Authorize]
 [Route("api/[controller]")]
 [ApiController]
 public class UsersController : ControllerBase
@@ -75,6 +77,7 @@ public class UsersController : ControllerBase
     /// Retrieves a list of all users.
     /// </summary>
     /// <returns>A list of user objects.</returns>
+    [AllowAnonymous]
     [HttpGet("user-details-by-id")]
     [ProducesResponseType(typeof(UserDetailsResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(UserDetailsResponse))]
@@ -823,8 +826,10 @@ public class UsersController : ControllerBase
             return NotFound();
         }
         var managedUsers = new List<ManagedUserResponse>();
-        
-        var (invitations, totalCount) = await _invitationService.GetInvitedUsersDdhAndContributorsAsync(user.Id, pageNumber, pageSize, sortBy, sortDirection);
+
+        var orgId = user.Roles!.Contains(UserRole.ResponsibleParty) ? user.Organisation!.OrgId : user.ActiveContributingOrgId;
+        var invitedRoles = user.Roles.Contains(UserRole.DesignatedDutyHolder) ? new List<string> { ContributorRole.Contributor.ToString() } : new List<string> { ContributorRole.DesignatedDutyHolder.ToString(), ContributorRole.Contributor.ToString() };
+        var (invitations, totalCount) = await _invitationService.GetInvitedUsersDdhAndContributorsAsync(orgId!, invitedRoles, pageNumber, pageSize, sortBy, sortDirection);
         
         // get the invitations where the status is accepted
         var acceptedInvitations = invitations.Where(i => i.Status == InvitationStatus.Accepted.ToString()).ToList();

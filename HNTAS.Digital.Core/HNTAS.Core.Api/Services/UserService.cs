@@ -386,6 +386,7 @@ namespace HNTAS.Core.Api.Services
                     { "roles", 1 },
                     { "status", 1 },
                     { "contributingOrganisations", 1},
+                    { "activeContributingOrgId", 1 },
 
                     // Organisation projection
                     { "organisation", new BsonDocument("$cond", new BsonDocument

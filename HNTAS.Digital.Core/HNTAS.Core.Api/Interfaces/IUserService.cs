@@ -1,4 +1,5 @@
 ﻿using HNTAS.Core.Api.Data.Models;
+using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Models;
 using MongoDB.Driver;
 
@@ -19,12 +20,16 @@ namespace HNTAS.Core.Api.Interfaces
         Task<UserDetailsResult> GetUserWithDetailsAsync(string userId);
 
         Task<List<User>> GetAssessorsByHnIdAsync(string hnId);
-        Task<User?> GetResponsiblePersonByHnIdAsync(string hnId);
+        Task<User?> GetResponsiblePartyByHnIdAsync(string hnId);
         Task<List<User>> GetContributorsByHnIdAsync(string hnId);
 
         Task<List<UserDetailsResult>> GetUsersByInvitedEmailsWithDetailsAsync(List<string> invitedEmails);
         Task<List<UserRoleDetailResponse>> GetHeatNetworkUsersWithRolesAsync(string hnId);
         Task<List<User>> GetUsersAssociatedByHnIdAsync(string hnId);
-        Task UpdateUserNetwork(string userId, string hnId);
+        Task UpdateUserNetwork(string userId, string hnId, ContributorRole role = ContributorRole.ResponsibleParty);
+        Task<List<User>> GetActiveNetworkManagersByRpUserIdAsync(string rpUserId);
+        Task<List<ManagedUserResponse>> GetActiveUsers(List<ManagedUserResponse> users);
+        Task UpdateNotificationHistoryCountAsync(string userId, int notificationHistoryCount);
+        Task<int> GetNotificationHistoryCountAsync(string userId);
     }
 }

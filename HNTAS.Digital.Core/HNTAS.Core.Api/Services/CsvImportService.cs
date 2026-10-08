@@ -60,7 +60,7 @@ namespace HNTAS.Core.Api.Services
 
                     result.RowsProcessed++;
 
-                    await ProcessNetworkCreatonThroughOrgOrUserExistance(row, result, ofgemDataModelPostImportList, ct);
+                    await ProcessNetworkCreationThroughOrgOrUserExistance(row, result, ofgemDataModelPostImportList, ct);
 
                 }
                 catch (Exception ex)
@@ -147,7 +147,7 @@ namespace HNTAS.Core.Api.Services
             return true;
         }
 
-        private async Task ProcessNetworkCreatonThroughOrgOrUserExistance(
+        private async Task ProcessNetworkCreationThroughOrgOrUserExistance(
             CsvRow row,
             ImportResult result,
             List<OfgemDataModelPostImport> ofgemDataModelPostImportList,
@@ -164,12 +164,13 @@ namespace HNTAS.Core.Api.Services
             {
                 // find if the associated OrgId is based on CompanyHouseNumber
                 orgDetails = await _organisationService.GetByCompanyHouseNumberAsync(row.CompaniesHouseNo);
+                var userDetails = await _userService.GetByEmailAsync(row.EmailId.ToLower());
 
                 // Org exists
                 if (orgDetails != null)
                 {
                     // Create a network and link to the org
-                    await ProcessHeatNetworkAsync(row, result, ofgemDataModelPostImportList, orgDetails.RpUserId!, orgDetails.OrgId!, orgDetails.Name, ct);
+                    await ProcessHeatNetworkAsync(row, result, ofgemDataModelPostImportList, userDetails.Id!, orgDetails.OrgId!, orgDetails.Name, ct);
                 }
                 else
                 {
@@ -188,9 +189,9 @@ namespace HNTAS.Core.Api.Services
             CancellationToken ct)
         {
             // Check with user id
-            var user = await _userService.GetByEmailAsync(row.EmailId);
+            var user = await _userService.GetByEmailAsync(row.EmailId.ToLower());
             // User exists and has RP role
-            if (user != null && user.Roles.Contains(Enums.UserRole.ResponsiblePerson))
+            if (user != null && user.Roles.Contains(Enums.UserRole.ResponsibleParty))
             {
                 // Get org details for the user
                 var userOrgDetails = await _organisationService.GetByOrgIdAsync(user.OrgId!);
@@ -213,7 +214,7 @@ namespace HNTAS.Core.Api.Services
                     OrganisationId = string.Empty,
                     OrganisationName = row.OrganisationName,
                     UserId = string.Empty,
-                    UserEmailId = row.EmailId,
+                    UserEmailId = row.EmailId.ToLower(),
                     IsUserOrOrganisationExist = false
                 };
 
@@ -250,7 +251,7 @@ namespace HNTAS.Core.Api.Services
                 OrganisationId = hntasOrgId,
                 OrganisationName = hntasOrgName,
                 UserId = userId,
-                UserEmailId = row.EmailId,
+                UserEmailId = row.EmailId.ToLower(),
                 IsUserOrOrganisationExist = true
             };
 
@@ -267,6 +268,8 @@ namespace HNTAS.Core.Api.Services
                 UHnId = row.HnId.Replace("HN", ""),
                 OrgId = hntasOrgId,
                 Name = row.HnName,
+                Phase = "Operation",
+                HasAddressAndPostcode = row.EcPostcode != string.Empty ? true : false,
                 Address = new RegisteredAddress
                 {
                     AddressLine1 = row.EcStreetAddress ?? string.Empty,

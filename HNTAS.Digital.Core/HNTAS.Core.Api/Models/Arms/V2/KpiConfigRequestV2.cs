@@ -16,7 +16,7 @@ namespace HNTAS.Core.Api.Models.Arms.V2
 
         // Option 1: Dedicated structural configuration block for the Carbon Calculator
         [JsonPropertyName("carbon_calculator")]
-        public CarbonCalculatorConfigRequest? CarbonCalculator { get; set; } = new();
+        public CarbonCalculatorConfigRequest? CarbonCalculator { get; set; }
     }
 
     [ExcludeFromCodeCoverage]

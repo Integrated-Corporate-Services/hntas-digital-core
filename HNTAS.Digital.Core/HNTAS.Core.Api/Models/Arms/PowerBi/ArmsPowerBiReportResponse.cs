@@ -6,28 +6,28 @@ namespace HNTAS.Core.Api.Models.Arms.PowerBi
     [ExcludeFromCodeCoverage]
     public class ArmsPowerBiReportResponse
     {
-        [JsonPropertyName("hnId")]
+        [JsonPropertyName("hn_id")]
         public string HnId { get; set; } = null!;
 
-        [JsonPropertyName("orgId")]
+        [JsonPropertyName("org_id")]
         public string OrgId { get; set; } = null!;
 
-        [JsonPropertyName("periodStart")]
+        [JsonPropertyName("period_start")]
         public string PeriodStart { get; set; } = null!;
 
-        [JsonPropertyName("elementId")]
+        [JsonPropertyName("element_id")]
         public string? ElementId { get; set; }
 
-        [JsonPropertyName("elementType")]
+        [JsonPropertyName("element_type")]
         public string ElementType { get; set; } = null!;
 
-        [JsonPropertyName("kpiId")]
+        [JsonPropertyName("kpi_id")]
         public string KpiId { get; set; } = null!;
 
         [JsonPropertyName("value")]
         public double Value { get; set; }
 
-        [JsonPropertyName("assessmentStatus")]
+        [JsonPropertyName("assessment_status")]
         public string AssessmentStatus { get; set; } = null!;
     }
 }

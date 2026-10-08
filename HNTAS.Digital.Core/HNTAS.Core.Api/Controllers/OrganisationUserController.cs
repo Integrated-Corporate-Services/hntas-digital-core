@@ -1,10 +1,12 @@
 ﻿using AutoMapper;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models.Users;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HNTAS.Core.Api.Controllers
 {
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class OrganisationUserController : ControllerBase

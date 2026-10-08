@@ -78,6 +78,7 @@ namespace HNTAS.Core.Api.MappingProfiles
                         el => el.Kpis)))
                 .ForMember(dest => dest.CarbonCalculator, opt => opt.MapFrom(src => src.CarbonCalculator));
 
+            CreateMap<JsonElement, ConfigDefault>().ConvertUsing(src => new ConfigDefault { Value = src });
 
             CreateMap<CCKpiValueRequest, CCKpiValue>()
             .ForMember(dest => dest.Value, opt => opt.MapFrom(src => ConvertJsonElementToBsonValue(src.Value)));

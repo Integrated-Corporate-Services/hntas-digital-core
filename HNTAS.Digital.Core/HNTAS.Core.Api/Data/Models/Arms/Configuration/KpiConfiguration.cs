@@ -24,7 +24,7 @@ namespace HNTAS.Core.Api.Data.Models.Arms.Configuration
         [JsonPropertyName("carbon_calculator")]
         [BsonElement("carbonCalculator")]
         [BsonIgnoreIfNull]
-        public CarbonCalculatorConfig? CarbonCalculator { get; set; } = new();
+        public CarbonCalculatorConfig? CarbonCalculator { get; set; }
 
         [JsonPropertyName("created_at")]
         [BsonElement("createdAt")]

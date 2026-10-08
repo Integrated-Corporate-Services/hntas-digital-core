@@ -1,4 +1,5 @@
 ﻿using HNTAS.Core.Api.Controllers;
+using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
 using HNTAS.Core.Api.Services;
@@ -12,6 +13,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
     public class ImportControllerTests
     {
         private readonly Mock<ICsvImportService> _mockCsvImportService;
+        private readonly Mock<IUserService> _mockUserService;
         private readonly Mock<IEmailService> _mockEmailService;
         private readonly Mock<ILogger<ImportController>> _mockLogger;
         private readonly ImportController _controller;
@@ -19,11 +21,13 @@ namespace HNTAS.Digital.Core.Tests.Controllers
         public ImportControllerTests()
         {
             _mockCsvImportService = new Mock<ICsvImportService>();
+            _mockUserService = new Mock<IUserService>();
             _mockEmailService = new Mock<IEmailService>();
             _mockLogger = new Mock<ILogger<ImportController>>();
 
             _controller = new ImportController(
                 _mockCsvImportService.Object,
+                _mockUserService.Object,
                 _mockLogger.Object,
                 _mockEmailService.Object);
         }
@@ -140,6 +144,8 @@ namespace HNTAS.Digital.Core.Tests.Controllers
                     It.IsAny<string>(),
                     It.IsAny<CancellationToken>()))
                 .ReturnsAsync(importResult);
+            _mockUserService.Setup(x => x.GetByEmailAsync(It.IsAny<string>())).ReturnsAsync(new User { Id="test123"});
+            _mockUserService.Setup(x => x.GetActiveNetworkManagersByRpUserIdAsync(It.IsAny<string>())).ReturnsAsync(It.IsAny<List<User>>());
 
             // Act
             var result = await _controller.UploadCsv("csv-content", CancellationToken.None);

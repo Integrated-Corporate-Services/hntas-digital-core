@@ -97,7 +97,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
                 x => x.Log(
                     LogLevel.Warning,
                     It.IsAny<EventId>(),
-                    It.Is<It.IsAnyType>((v, t) => v.ToString().Contains("No data returned from ArmsPowerBiService")),
+                    It.Is<It.IsAnyType>((v, t) => v.ToString().Contains("No data returned from GetPowerBiData.")),
                     null,
                     It.Is<Func<It.IsAnyType, Exception, string>>((v, t) => true)),
                 Times.Once);
@@ -127,6 +127,71 @@ namespace HNTAS.Digital.Core.Tests.Controllers
                     It.IsAny<Exception>(),
                     It.Is<Func<It.IsAnyType, Exception, string>>((v, t) => true)),
                 Times.Once);
+        }
+
+
+        [Fact]
+        public async Task GetPowerBiUserData_ShouldReturnOkWithMappedData_WhenDataExists()
+        {
+            // --- Arrange ---
+            var serviceResults = new List<ArmsPowerBiUserReportResult>
+            {
+                new ArmsPowerBiUserReportResult { UserId = "60c72b2f9b", HnId = "HN-001", OrgId = "ORG-100" },
+                new ArmsPowerBiUserReportResult { UserId = "60c72b2f9c", HnId = "HN-002", OrgId = "ORG-200" }
+            };
+
+            _mockService
+                .Setup(s => s.GetPowerBiUserDataAsync())
+                .ReturnsAsync(serviceResults);
+
+            // --- Act ---
+            var result = await _controller.GetPowerBiUserData();
+
+            // --- Assert ---
+            var okResult = Assert.IsType<OkObjectResult>(result);
+            var responseData = Assert.IsAssignableFrom<IEnumerable<ArmsPowerBiUserReportResponse>>(okResult.Value).ToList();
+
+            Assert.Equal(2, responseData.Count);
+            Assert.Equal("60c72b2f9b", responseData[0].UserId);
+            Assert.Equal("HN-001", responseData[0].HnId);
+            Assert.Equal("ORG-100", responseData[0].OrgId);
+        }
+
+        [Fact]
+        public async Task GetPowerBiUserData_ShouldReturnOkWithEmptyFallbackList_WhenServiceReturnsNullOrEmpty()
+        {
+            // --- Arrange ---
+            // Simulating a null return value from the service layer
+            _mockService
+                .Setup(s => s.GetPowerBiUserDataAsync())
+                .ReturnsAsync((List<ArmsPowerBiUserReportResult>)null);
+
+            // --- Act ---
+            var result = await _controller.GetPowerBiUserData();
+
+            // --- Assert ---
+            var okResult = Assert.IsType<OkObjectResult>(result);
+
+            // Your controller instantiates `new List<ArmsPowerBiReportResponse>()` in the fallback case
+            var responseData = Assert.IsAssignableFrom<IEnumerable<ArmsPowerBiReportResponse>>(okResult.Value);
+            Assert.Empty(responseData);
+        }
+
+        [Fact]
+        public async Task GetPowerBiUserData_ShouldReturn500InternalServerError_WhenServiceThrowsException()
+        {
+            // --- Arrange ---
+            _mockService
+                .Setup(s => s.GetPowerBiUserDataAsync())
+                .ThrowsAsync(new Exception("Database connection failure"));
+
+            // --- Act ---
+            var result = await _controller.GetPowerBiUserData();
+
+            // --- Assert ---
+            var objectResult = Assert.IsType<ObjectResult>(result);
+            Assert.Equal(StatusCodes.Status500InternalServerError, objectResult.StatusCode);
+            Assert.Equal("Error retrieving user data for Power BI.", objectResult.Value);
         }
     }
 }

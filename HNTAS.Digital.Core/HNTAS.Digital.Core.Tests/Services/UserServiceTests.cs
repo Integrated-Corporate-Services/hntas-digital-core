@@ -1,5 +1,7 @@
 ﻿using HNTAS.Core.Api.Configuration;
 using HNTAS.Core.Api.Data.Models;
+using HNTAS.Core.Api.Enums;
+using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
 using HNTAS.Core.Api.Services;
 using Microsoft.Extensions.Logging;
@@ -7,11 +9,7 @@ using Microsoft.Extensions.Options;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using Moq;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+
 
 namespace HNTAS.Digital.Core.Tests.Services
 {
@@ -32,23 +30,18 @@ namespace HNTAS.Digital.Core.Tests.Services
             _mockDatabase = new Mock<IMongoDatabase>();
             _mockSettings = new Mock<IOptions<AWSDocDbSettings>>();
             // Setup the mock database to return the mock collections
-            _mockDatabase.Setup(db => db.GetCollection<User>(It.IsAny<string>(), null))
+            _mockDatabase.Setup(db => db.GetCollection<User>(It.IsAny<string>(), It.IsAny<MongoCollectionSettings?>()))
                 .Returns(_mockUserCollection.Object);
-            _mockDatabase.Setup(db => db.GetCollection<Organisation>(It.IsAny<string>(), null))
+            _mockDatabase.Setup(db => db.GetCollection<Organisation>(It.IsAny<string>(), It.IsAny<MongoCollectionSettings?>()))
                 .Returns(_mockOrgCollection.Object);
             // Setup the mock settings to return a dummy connection string
             var settings = new AWSDocDbSettings
             {
-                UsersCollectionName = "Users"
-            };
-
-            var settings2 = new AWSDocDbSettings
-            {
+                UsersCollectionName = "Users" ,
                 OrganisationsCollectionName = "Organisations"
             };
 
             _mockSettings.Setup(s => s.Value).Returns(settings);
-            _mockSettings.Setup(s => s.Value).Returns(settings2);
 
             // Initialize the UserService with the mocked dependencies
             _sut = new UserService(_mockDatabase.Object, _mockSettings.Object, _mockLogger.Object );
@@ -272,7 +265,7 @@ namespace HNTAS.Digital.Core.Tests.Services
         }
 
         [Fact]
-        public async Task GetResponsiblePersonByHnIdAsync_ShouldReturnUser()
+        public async Task GetResponsiblePartyByHnIdAsync_ShouldReturnUser()
         {
             _mockOrgCollection.Setup(c => c.FindAsync(
                 It.IsAny<FilterDefinition<Organisation>>(),
@@ -292,7 +285,7 @@ namespace HNTAS.Digital.Core.Tests.Services
                     cursor.MoveNext(It.IsAny<CancellationToken>()) == true &&
                     cursor.MoveNextAsync(It.IsAny<CancellationToken>()).Result == true));
 
-            await _sut.GetResponsiblePersonByHnIdAsync("test");
+            await _sut.GetResponsiblePartyByHnIdAsync("test");
             _mockUserCollection.Verify(c => c.FindAsync(
                 It.IsAny<FilterDefinition<User>>(),
                 It.IsAny<FindOptions<User, User>>(),
@@ -300,7 +293,7 @@ namespace HNTAS.Digital.Core.Tests.Services
         }
 
         [Fact]
-        public async Task GetResponsiblePersonByHnIdAsync_ShouldNotReturnUser()
+        public async Task GetResponsiblePartyByHnIdAsync_ShouldNotReturnUser()
         {
             _mockOrgCollection.Setup(c => c.FindAsync(
                 It.IsAny<FilterDefinition<Organisation>>(),
@@ -312,7 +305,7 @@ namespace HNTAS.Digital.Core.Tests.Services
                     cursor.MoveNextAsync(It.IsAny<CancellationToken>()).Result == true));
             
 
-            await _sut.GetResponsiblePersonByHnIdAsync("test");
+            await _sut.GetResponsiblePartyByHnIdAsync("test");
             _mockUserCollection.Verify(c => c.FindAsync(
                 It.IsAny<FilterDefinition<User>>(),
                 It.IsAny<FindOptions<User, User>>(),
@@ -484,6 +477,20 @@ namespace HNTAS.Digital.Core.Tests.Services
         [Fact]
         public async Task UpdateUserNetwork_ShouldUpdateUser()
         {
+            // Arrange
+            var updateResultMock = new Mock<UpdateResult>();
+            updateResultMock.Setup(r => r.IsAcknowledged).Returns(true);
+            updateResultMock.Setup(r => r.MatchedCount).Returns(1);
+            updateResultMock.Setup(r => r.ModifiedCount).Returns(1);
+
+            _mockUserCollection
+                .Setup(c => c.UpdateOneAsync(
+                    It.IsAny<FilterDefinition<User>>(),
+                    It.IsAny<UpdateDefinition<User>>(),
+                    It.IsAny<UpdateOptions>(),
+                    It.IsAny<CancellationToken>()))
+                .ReturnsAsync(updateResultMock.Object);
+            
             // Act
             await _sut.UpdateUserNetwork("userId", "hnId");
             // Assert

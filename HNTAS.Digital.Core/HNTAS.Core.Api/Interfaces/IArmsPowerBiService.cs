@@ -5,5 +5,6 @@ namespace HNTAS.Core.Api.Interfaces
     public interface IArmsPowerBiService
     {
         Task<List<ArmsPowerBiReportResult>> GetPowerBiDataAsync();
+        Task<List<ArmsPowerBiUserReportResult>> GetPowerBiUserDataAsync();
     }
 }

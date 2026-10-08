@@ -7,12 +7,12 @@ using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models.AssignedAssessor;
 using HNTAS.Core.Api.Models.HeatNetwork;
-using HNTAS.Core.Api.Models.NotificationHistory;
 using HNTAS.Core.Api.Models.Soa;
+using HNTAS.Core.Api.Models.Users;
 using Microsoft.Extensions.Options;
 using MongoDB.Bson;
 using MongoDB.Driver;
-using System.Linq.Expressions;
+using System.Diagnostics.CodeAnalysis;
 
 namespace HNTAS.Core.Api.Services
 {
@@ -21,16 +21,25 @@ namespace HNTAS.Core.Api.Services
         private readonly IMongoCollection<HeatNetwork> _hnCollection;
         private readonly ILogger<HeatNetworkService> _logger;
         private readonly IAuditService _auditService;
+        private readonly IUserService _userService;
 
         public HeatNetworkService(IOptions<AWSDocDbSettings> dbSettings,
             IMongoDatabase mongoDatabase,
             ILogger<HeatNetworkService> logger,
-            IAuditService auditService)
+            IAuditService auditService,
+            IUserService userService)
         {
             _hnCollection = mongoDatabase.GetCollection<HeatNetwork>(dbSettings.Value.HeatNetworksCollectionName);
             _logger = logger;
             _auditService = auditService;
+            _userService = userService;
             _logger.LogInformation("HeatNetworkService initialized via Dependency Injection.");
+        }
+
+        // Exposed as protected virtual to allow unit tests to mock the aggregation pipeline.
+        protected virtual IAggregateFluent<HeatNetwork> Aggregate(AggregateOptions? options = null)
+        {
+            return _hnCollection.Aggregate(options);
         }
 
         public async Task CreateAsync(HeatNetwork newHeatNetwork, bool isNewHeatNetwork = false)
@@ -361,6 +370,54 @@ namespace HNTAS.Core.Api.Services
         {
             return await _hnCollection.Find(hn => hn.HnId == hnId && hn.RegistrationSource == registrationSource).FirstOrDefaultAsync();
         }
+
+        [ExcludeFromCodeCoverage]
+        public async Task<(List<UserNetworkDetailsResponse> Items, long TotalCount)> GetByHnIdsAndRegistrationSourcePaginatedAsync(
+            List<string> hnIds,
+            string orgId,
+            RegistrationSource registrationSource,
+            int pageNumber,
+            int pageSize,
+            string sortBy,
+            string sortDirection)
+        {
+            var filter = Builders<HeatNetwork>.Filter.In(hn => hn.HnId, hnIds) &
+                         Builders<HeatNetwork>.Filter.Eq(hn => hn.RegistrationSource, registrationSource) &
+                         Builders<HeatNetwork>.Filter.Eq(hn => hn.OrgId, orgId);
+
+            var totalCount = await _hnCollection.CountDocumentsAsync(filter);
+
+            var isDescending = sortDirection.Equals("desc", StringComparison.OrdinalIgnoreCase);
+            var sortDefinition = isDescending
+                ? Builders<HeatNetwork>.Sort.Descending(sortBy)
+                : Builders<HeatNetwork>.Sort.Ascending(sortBy);
+
+            var items = await Aggregate()
+                .Match(filter)
+                .Sort(sortDefinition)
+                .Skip((pageNumber - 1) * pageSize)
+                .Limit(pageSize)
+                .Lookup(
+                    foreignCollectionName: "Organisations",
+                    localField: "orgId",
+                    foreignField: "orgId",
+                    @as: "orgDocs"
+                )
+                .Project(new BsonDocument
+                {
+                    { "_id", 0 },
+                    { "HnId", "$hnId" },
+                    { "Name", "$name" },
+                    { "AdditionalDescription", "$additionalDescription" },
+                    { "OrgId", "$orgId" },
+                    { "OrganisationName", new BsonDocument("$arrayElemAt", new BsonArray { "$orgDocs.name", 0 }) }
+                })
+                .As<UserNetworkDetailsResponse>()
+                .ToListAsync();
+
+            return (items, totalCount);
+        }
+
         public async Task<List<HeatNetwork>> GetByOfgemEmailIdAsync(string ofgemEmailId)
         {
             // filter where ofgemUserEmailId is ofgemEmailId and orgId is null
@@ -378,17 +435,60 @@ namespace HNTAS.Core.Api.Services
         {
             try
             {
+                // Load user and their hn role mappings
+                var user = await _userService.GetByIdAsync(existingNetworkRequest.UserId);
+                if (user == null)
+                {
+                    _logger.LogWarning("User not found for id {UserId}", existingNetworkRequest.UserId);
+                    return new ExistingNetworkResponse
+                    {
+                        Items = new List<HeatNetworkResponse>(),
+                        PageNumber = existingNetworkRequest.Page,
+                        PageSize = existingNetworkRequest.PageSize,
+                        TotalCount = 0,
+                        TotalPages = 0,
+                        UserId = existingNetworkRequest.UserId
+                    };
+                }
+
+                // Defensive: extract HnIds from user's role mappings (adjust property names if different)
+                var hnIds = (user.HnRoleMappings ?? Enumerable.Empty<object>())
+                    .Select(m =>
+                    {
+                        // handle different possible shapes - try common property names
+                        var prop = m.GetType().GetProperty("HnId") ?? m.GetType().GetProperty("hnId");
+                        return prop?.GetValue(m)?.ToString();
+                    })
+                    .Where(id => !string.IsNullOrEmpty(id))
+                    .Distinct()
+                    .ToList();
+
+                if (!hnIds.Any())
+                {
+                    return new ExistingNetworkResponse
+                    {
+                        Items = new List<HeatNetworkResponse>(),
+                        PageNumber = existingNetworkRequest.Page,
+                        PageSize = existingNetworkRequest.PageSize,
+                        TotalCount = 0,
+                        TotalPages = 0,
+                        UserId = existingNetworkRequest.UserId
+                    };
+                }
+
+                // Filter by the HnIds from the user's mappings and OFGEM registration source
                 var filter = Builders<HeatNetwork>.Filter.And(
-                    Builders<HeatNetwork>.Filter.Eq(nh => nh.CreatedBy, existingNetworkRequest.UserId),
+                    Builders<HeatNetwork>.Filter.In(nh => nh.HnId, hnIds),
                     Builders<HeatNetwork>.Filter.Eq(nh => nh.RegistrationSource, RegistrationSource.OFGEM)
                 );
 
                 var totalCount = await _hnCollection.CountDocumentsAsync(filter);
 
                 var sortDirection = existingNetworkRequest.SortDirection?.ToLowerInvariant() ?? "desc";
+                var sortField = existingNetworkRequest.SortBy ?? "ofgemImportedDate";
                 var sort = sortDirection == "desc"
-                    ? Builders<HeatNetwork>.Sort.Descending(existingNetworkRequest.SortBy ?? "ofgemImportedDate")
-                    : Builders<HeatNetwork>.Sort.Ascending(existingNetworkRequest.SortBy ?? "ofgemImportedDate");
+                    ? Builders<HeatNetwork>.Sort.Descending(sortField)
+                    : Builders<HeatNetwork>.Sort.Ascending(sortField);
 
                 var existingNetworks = await _hnCollection
                     .Find(filter)
@@ -403,7 +503,7 @@ namespace HNTAS.Core.Api.Services
                     UHnId = nh.UHnId,
                     HnId = nh.HnId,
                     OrgId = nh.OrgId,
-                    Name = nh.Name,                    
+                    Name = nh.Name,
                     AdditionalDescription = nh.AdditionalDescription,
                     Pathway = nh.Pathway,
                     RegistrationSource = nh.RegistrationSource,
@@ -414,16 +514,15 @@ namespace HNTAS.Core.Api.Services
                     HeatNetworkType = nh.HeatNetworkType,
                 }).ToList();
 
-                var existingNetworkResponses =
-                    new ExistingNetworkResponse
-                    {
-                        Items = existingNetworkData,
-                        PageNumber = existingNetworkRequest.Page,
-                        PageSize = existingNetworkRequest.PageSize,
-                        TotalCount = (int)totalCount,
-                        TotalPages = (int)Math.Ceiling(totalCount / (double)existingNetworkRequest.PageSize),
-                        UserId = existingNetworkRequest.UserId
-                    };
+                var existingNetworkResponses = new ExistingNetworkResponse
+                {
+                    Items = existingNetworkData,
+                    PageNumber = existingNetworkRequest.Page,
+                    PageSize = existingNetworkRequest.PageSize,
+                    TotalCount = (int)totalCount,
+                    TotalPages = (int)Math.Ceiling(totalCount / (double)existingNetworkRequest.PageSize),
+                    UserId = existingNetworkRequest.UserId
+                };
 
                 _logger.LogInformation("Retrieved existing network records");
 

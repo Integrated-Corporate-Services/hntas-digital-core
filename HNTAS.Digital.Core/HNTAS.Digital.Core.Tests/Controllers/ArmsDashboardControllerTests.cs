@@ -12,11 +12,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MongoDB.Bson;
 using Moq;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace HNTAS.Digital.Core.Tests.Controllers
 {
@@ -30,6 +25,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
         private readonly Mock<ISuperUserService> _mockSuperUserService;
         private readonly Mock<IOptions<ArmsSettings>> _mockArmsSettings;
         private readonly Mock<IMapper> _mockMapper;
+        private readonly Mock<IUnitService> _mockUnitService;
         private readonly ArmsDashboardController _sut;
 
         public ArmsDashboardControllerTests()
@@ -42,6 +38,8 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             _mockSuperUserService = new Mock<ISuperUserService>();
             _mockMapper = new Mock<IMapper>();
             _mockArmsSettings = new Mock<IOptions<ArmsSettings>>();
+            _mockUnitService = new Mock<IUnitService>();
+
 
             _mockArmsSettings.Setup(x => x.Value).Returns(new ArmsSettings
             {
@@ -57,7 +55,18 @@ namespace HNTAS.Digital.Core.Tests.Controllers
                 _mockAuditService.Object,
                 _mockLogger.Object,
                 _mockSuperUserService.Object,
-                _mockArmsSettings.Object);
+                _mockArmsSettings.Object,
+                _mockUnitService.Object);
+
+            _mockUnitService.Setup(x => x.GetUnit(It.IsAny<string>())).Returns((string kpiId) =>
+            {
+                var units = new Dictionary<string, string>
+                {
+                    { "kpi-1", "°C" },
+                    { "kpi-2", "m³/h" }
+                };
+                return units.TryGetValue(kpiId, out var unit) ? unit : null;
+            });
         }
 
         [Fact]
@@ -66,7 +75,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             // Arrange
             var userId = "testUserId";
             var kpiNetworks = new List<string> { "Network1", "Network2" };
-            _mockUserService.Setup(x => x.GetUserWithDetailsAsync(It.IsAny<string>())).ReturnsAsync(new UserDetailsResult { Roles = new List<UserRole> { UserRole.ResponsiblePerson }, EmailId = "trest", HnRoleMappings = new List<HnRoleMappingsUserResult> { new HnRoleMappingsUserResult { HeatNetwork = new HeatNetworkUserResponse { HnId = "HN1000002" }, Role = "ResponsiblePerson" } } });
+            _mockUserService.Setup(x => x.GetUserWithDetailsAsync(It.IsAny<string>())).ReturnsAsync(new UserDetailsResult { Roles = new List<UserRole> { UserRole.ResponsibleParty }, EmailId = "trest", HnRoleMappings = new List<HnRoleMappingsUserResult> { new HnRoleMappingsUserResult { HeatNetwork = new HeatNetworkUserResponse { HnId = "HN1000002" }, Role = "ResponsibleParty" } } });
 
             _mockSuperUserService.Setup(x => x.IsSuperUserAsync(It.IsAny<string>())).ReturnsAsync(false);
 
@@ -84,7 +93,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             // Arrange
             var userId = "testUserId";
             var kpiNetworks = new List<string> { "Network1", "Network2" };
-            _mockUserService.Setup(x => x.GetUserWithDetailsAsync(It.IsAny<string>())).ReturnsAsync(new UserDetailsResult { Roles = new List<UserRole> { UserRole.NetworkManager }, EmailId = "trest", HnRoleMappings = new List<HnRoleMappingsUserResult> { new HnRoleMappingsUserResult { HeatNetwork = new HeatNetworkUserResponse { HnId = "HN1000002" }, Role = "ResponsiblePerson" } } });
+            _mockUserService.Setup(x => x.GetUserWithDetailsAsync(It.IsAny<string>())).ReturnsAsync(new UserDetailsResult { Roles = new List<UserRole> { UserRole.NetworkManager }, EmailId = "trest", HnRoleMappings = new List<HnRoleMappingsUserResult> { new HnRoleMappingsUserResult { HeatNetwork = new HeatNetworkUserResponse { HnId = "HN1000002" }, Role = "ResponsibleParty" } } });
 
             // Act
             var result = await _sut.GetKpiNetworksByRpUser(userId, 2, 3);
@@ -112,7 +121,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             // Arrange
             var userId = "testUserId";
             var kpiNetworks = new List<string> { "Network1", "Network2" };
-            _mockUserService.Setup(x => x.GetUserWithDetailsAsync(It.IsAny<string>())).ReturnsAsync(new UserDetailsResult { Roles = new List<UserRole> { UserRole.ResponsiblePerson }, EmailId = "trest" });
+            _mockUserService.Setup(x => x.GetUserWithDetailsAsync(It.IsAny<string>())).ReturnsAsync(new UserDetailsResult { Roles = new List<UserRole> { UserRole.ResponsibleParty }, EmailId = "trest" });
 
             _mockSuperUserService.Setup(x => x.IsSuperUserAsync(It.IsAny<string>())).ReturnsAsync(false);
 
@@ -130,7 +139,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             // Arrange
             var userId = "testUserId";
             var kpiNetworks = new List<string> { "Network1", "Network2" };
-            _mockUserService.Setup(x => x.GetUserWithDetailsAsync(It.IsAny<string>())).ReturnsAsync(new UserDetailsResult { Roles = new List<UserRole> { UserRole.NetworkManager }, EmailId = "trest", HnRoleMappings = new List<HnRoleMappingsUserResult> { new HnRoleMappingsUserResult { HeatNetwork = new HeatNetworkUserResponse { HnId = "HN1000002" }, Role = "ResponsiblePerson" } } });
+            _mockUserService.Setup(x => x.GetUserWithDetailsAsync(It.IsAny<string>())).ReturnsAsync(new UserDetailsResult { Roles = new List<UserRole> { UserRole.NetworkManager }, EmailId = "trest", HnRoleMappings = new List<HnRoleMappingsUserResult> { new HnRoleMappingsUserResult { HeatNetwork = new HeatNetworkUserResponse { HnId = "HN1000002" }, Role = "ResponsibleParty" } } });
 
             _mockSuperUserService.Setup(x => x.IsSuperUserAsync(It.IsAny<string>())).ReturnsAsync(true);
 
@@ -150,19 +159,27 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             // Arrange
             var submissionId = "testSubmissionId";
             var networkId = "HN1000002";
-            var filterType = "testFilterType";  
-            
-            _mockArmsKpiService.Setup(x => x.GetSubmissionByIdAsync(It.IsAny<string>()))                
-                .ReturnsAsync(new KpiSubmission { Id = "test", UpdatedAt = new DateTime(), MetaData = new KpiMetadata { NetworkId = networkId, PeriodStart = "20-12-2025" }, Elements = new List<NetworkElement> { new NetworkElement {ElementId = "test", Type = HeatNetworkElementType.EnergyCentre, Kpis = new Dictionary<string, KpiValue>()
+            var filterType = "testFilterType";
+
+            _mockArmsKpiService.Setup(x => x.GetSubmissionByIdAsync(It.IsAny<string>()))
+                .ReturnsAsync(new KpiSubmission
+                {
+                    Id = "test",
+                    UpdatedAt = new DateTime(),
+                    MetaData = new KpiMetadata { NetworkId = networkId, PeriodStart = "20-12-2025" },
+                    Elements = new List<NetworkElement> { new NetworkElement {ElementId = "test", Type = HeatNetworkElementType.EnergyCentre, Kpis = new Dictionary<string, KpiValue>()
                             {
                                 { "kpi-1", new KpiValue { Value = 10, AssessmentStatus = KPIAssessmentStatus.OutsideLimit } }
-                            } } }, ConsumerConnectionAggregatedKpis = new Dictionary<string, KpiValueAggregated> { { "someKey", new KpiValueAggregated { AssessmentStatus = new KPIAssessmentStatus {}, Value = 20.2 } } }, CarbonCalculatorInputs = new Dictionary<string, Dictionary<string, CCKpiValue>> { { "someKey", new Dictionary<string, CCKpiValue> { { "someAddKey", new CCKpiValue { IsImputed = true, ImputationDetails = "test"} } } } } });
-            
+                            } } },
+                    ConsumerConnectionAggregatedKpis = new Dictionary<string, KpiValueAggregated> { { "someKey", new KpiValueAggregated { AssessmentStatus = new KPIAssessmentStatus { }, Value = 20.2 } } },
+                    CarbonCalculatorInputs = new Dictionary<string, Dictionary<string, CCKpiValue>> { { "someKey", new Dictionary<string, CCKpiValue> { { "someAddKey", new CCKpiValue { IsImputed = true, ImputationDetails = "test" } } } } }
+                });
+
             _mockHeatNetworkService.Setup(x => x.GetByHnIdAsync(It.IsAny<string>()))
                 .ReturnsAsync(new HeatNetwork { HnId = networkId, Name = "Test Network" });
 
             _mockArmsKpiService.Setup(x => x.GetConfigurationAsync(It.IsAny<string>()))
-                .ReturnsAsync(new KpiConfiguration { CarbonCalculator = new CarbonCalculatorConfig { Defaults = new Dictionary<string, BsonValue> { { "key", BsonValue.Create("someValue") } }} });
+                .ReturnsAsync(new KpiConfiguration { CarbonCalculator = new CarbonCalculatorConfig { Defaults = new Dictionary<string, BsonValue> { { "key", BsonValue.Create("someValue") } } } });
             // Act
             var result = await _sut.GetKpiNetworkDetailsByRpUser(submissionId, networkId, filterType);
             // Assert
@@ -212,7 +229,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
 
             _mockArmsKpiService.Setup(x => x.GetSubmissionByIdAsync(It.IsAny<string>()))
                 .ReturnsAsync((KpiSubmission)null!);
-            
+
             // Act
             var result = await _sut.GetKpiNetworkDetailsByRpUser(submissionId, networkId, filterType);
             // Assert
@@ -243,7 +260,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
 
             _mockHeatNetworkService.Setup(x => x.GetByHnIdAsync(It.IsAny<string>()))
                 .ReturnsAsync((HeatNetwork)null!);
-            
+
             // Act
             var result = await _sut.GetKpiNetworkDetailsByRpUser(submissionId, networkId, filterType);
             // Assert
@@ -281,7 +298,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             // Act
             var result = await _sut.GetSubmissionHistory("");
             // Assert
-            Assert.IsType<Microsoft.AspNetCore.Mvc.BadRequestObjectResult>(result);            
+            Assert.IsType<Microsoft.AspNetCore.Mvc.BadRequestObjectResult>(result);
         }
     }
 }

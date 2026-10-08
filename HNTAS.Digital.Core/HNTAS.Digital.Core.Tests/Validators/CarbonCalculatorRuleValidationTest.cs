@@ -1,5 +1,6 @@
 ﻿using HNTAS.Core.Api.Data.Models.Arms.Configuration;
 using HNTAS.Core.Api.Data.Models.Arms.Submission;
+using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Validators.Arms;
 using Microsoft.Extensions.Logging;
@@ -34,6 +35,7 @@ namespace HNTAS.Core.Api.Tests.Validators
                     NetworkId = "NET1",
                     PeriodStart = "2026-02"
                 },
+                Elements = new List<NetworkElement> { new NetworkElement { ElementId = "0001", Type = HeatNetworkElementType.EnergyCentre } },
                 CarbonCalculatorInputs = new Dictionary<string, Dictionary<string, CCKpiValue>>
                 {
                     ["chp_totals"] = new()
@@ -219,6 +221,7 @@ namespace HNTAS.Core.Api.Tests.Validators
                     NetworkId = "NET1",
                     PeriodStart = "2026-02"
                 },
+                Elements = new List<NetworkElement> { new NetworkElement { ElementId = "0001", Type = HeatNetworkElementType.EnergyCentre } },
                 //  MUST be non-null to enter the block
                 CarbonCalculatorInputs = new Dictionary<string, Dictionary<string, CCKpiValue>>
                 {
@@ -255,6 +258,49 @@ namespace HNTAS.Core.Api.Tests.Validators
 
 
         [Fact]
+        public async Task ValidateAsync_ShouldReturn200_WhenCarbonCalculatorRulesAreMissingButNoEnergyCentre()
+        {
+            // Arrange
+            var submission = new KpiSubmission
+            {
+                MetaData = new KpiMetadata
+                {
+                    NetworkId = "NET1",
+                    PeriodStart = "2026-02"
+                },
+                Elements = new List<NetworkElement> { new NetworkElement { ElementId = "0001", Type = HeatNetworkElementType.Substation } },
+                //  MUST be non-null to enter the block
+                CarbonCalculatorInputs = new Dictionary<string, Dictionary<string, CCKpiValue>>
+                {
+                    ["chp_totals"] = new()
+                    {
+                        ["EC-DATA-53"] = new() { Value = 100 }
+                    }
+                }
+            };
+
+            var config = new KpiConfiguration
+            {
+                CarbonCalculator = new CarbonCalculatorConfig
+                {
+                    Rules = new Dictionary<string, KpiRule>()
+                }
+            };
+
+            _armsKpiServiceMock
+                .Setup(x => x.GetConfigurationAsync(It.IsAny<string>()))
+                .ReturnsAsync(config);
+
+            // Act
+            var result = await _validator.ValidateAsync(submission);
+
+            // Assert
+            Assert.True(result.IsValid);
+            Assert.Equal(200, result.StatusCode);
+        }
+
+
+        [Fact]
         public async Task ValidateAsync_ShouldAddKpiToOutsideLimitBucket_WhenValueExceedsUpperLimit()
         {
             // Arrange
@@ -265,6 +311,8 @@ namespace HNTAS.Core.Api.Tests.Validators
                     NetworkId = "NET1",
                     PeriodStart = "2026-02"
                 },
+                Elements = new List<NetworkElement> { new NetworkElement{ ElementId = "0001", Type = HeatNetworkElementType.EnergyCentre } },
+
                 CarbonCalculatorInputs = new Dictionary<string, Dictionary<string, CCKpiValue>>
                 {
                     ["chp_totals"] = new()
@@ -361,6 +409,7 @@ namespace HNTAS.Core.Api.Tests.Validators
             var submission = new KpiSubmission
             {
                 MetaData = new KpiMetadata { NetworkId = "NET1", PeriodStart = "2026-02" },
+                Elements = new List<NetworkElement> { new NetworkElement { ElementId = "0001", Type = HeatNetworkElementType.EnergyCentre } },
                 CarbonCalculatorInputs = new()
                 {
                     ["chp_totals"] = new()
@@ -452,6 +501,7 @@ namespace HNTAS.Core.Api.Tests.Validators
             var submission = new KpiSubmission
             {
                 MetaData = new KpiMetadata { NetworkId = "NET1", PeriodStart = "2026-02" },
+                Elements = new List<NetworkElement> { new NetworkElement { ElementId = "0001", Type = HeatNetworkElementType.EnergyCentre } },
                 CarbonCalculatorInputs = new()
                 {
                     // Outside [90,110]
@@ -545,6 +595,7 @@ namespace HNTAS.Core.Api.Tests.Validators
             var submission = new KpiSubmission
             {
                 MetaData = new KpiMetadata { NetworkId = "NET1", PeriodStart = "2026-02" },
+                Elements = new List<NetworkElement> { new NetworkElement { ElementId = "0001", Type = HeatNetworkElementType.EnergyCentre } },
                 CarbonCalculatorInputs = new()
                 {
                     ["chp_totals"] = new()

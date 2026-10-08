@@ -43,7 +43,10 @@ namespace HNTAS.Core.Api.Validators.Arms
             // ==========================================================
             // 2. In-Memory Carbon Calculator Inputs Validation
             // ==========================================================
-            if (dataModel.CarbonCalculatorInputs != null)
+
+            bool hasEnergyCentre = dataModel.Elements?.Any(e => e.Type == HeatNetworkElementType.EnergyCentre) ?? false;
+
+            if (hasEnergyCentre && dataModel.CarbonCalculatorInputs != null)
             {
                 var carbonConfig = config.CarbonCalculator;
 

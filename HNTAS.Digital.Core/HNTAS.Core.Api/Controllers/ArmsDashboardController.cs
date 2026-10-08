@@ -6,12 +6,14 @@ using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
 using HNTAS.Core.Api.Models.Arms.Dashboard;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using MongoDB.Bson;
 
 namespace HNTAS.Core.Api.Controllers
 {
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class ArmsDashboardController : ControllerBase
@@ -23,6 +25,8 @@ namespace HNTAS.Core.Api.Controllers
         private readonly ILogger<ArmsDashboardController> _logger;
         private readonly ISuperUserService _superUserService;
         private readonly ArmsSettings _armsSettings;
+        private readonly IUnitService _unitService;
+
         public ArmsDashboardController(IUserService userService,
             IHeatNetworkService networkService,
             IArmsKpiService armsKpiService,
@@ -30,7 +34,8 @@ namespace HNTAS.Core.Api.Controllers
             IKpiSubmissionAuditService auditService,
             ILogger<ArmsDashboardController> logger,
             ISuperUserService superUserService,
-            IOptions<ArmsSettings> armsSettings)
+            IOptions<ArmsSettings> armsSettings,
+            IUnitService unitService)
         {
             _userService = userService;
             _networkService = networkService;
@@ -39,6 +44,7 @@ namespace HNTAS.Core.Api.Controllers
             _logger = logger;
             _superUserService = superUserService;
             _armsSettings = armsSettings.Value;
+            _unitService = unitService;
         }
 
         [HttpGet("get-kpi-networks-by-rp-user")]
@@ -57,13 +63,13 @@ namespace HNTAS.Core.Api.Controllers
             var userDetails = await _userService.GetUserWithDetailsAsync(userId);
             if (userDetails == null) return NotFound("User not found");
 
-            bool isRpUser = userDetails.Roles?.Contains(HNTAS.Core.Api.Enums.UserRole.ResponsiblePerson) ?? false;
+            bool isRpUser = userDetails.Roles?.Contains(HNTAS.Core.Api.Enums.UserRole.ResponsibleParty) ?? false;
             bool isSuperUser = _armsSettings.AllowSuperUserAccess && await _superUserService.IsSuperUserAsync(userDetails.EmailId);
             bool isAuthorized = isRpUser || isSuperUser;
 
             if (!isAuthorized)
             {
-                return BadRequest("Only Responsible Person can access this endpoint");
+                return BadRequest("Only Responsible Parties can access this endpoint");
             }
 
             // 2. Get the full list of Authorized Networks (The Master List)
@@ -202,7 +208,8 @@ namespace HNTAS.Core.Api.Controllers
                         Value = kvp.Value.Value,
                         Status = kvp.Value.AssessmentStatus.GetDescription(),
                         IsImputed = kvp.Value.IsKpiImputed,
-                        ImputationDetails = kvp.Value.KpiImputationDetails
+                        ImputationDetails = kvp.Value.KpiImputationDetails,
+                        Unit = _unitService.GetUnit(kvp.Key)
                     }).ToList()
                 })
             // Only include elements that actually have KPIs after filtering
@@ -225,7 +232,8 @@ namespace HNTAS.Core.Api.Controllers
                 {
                     KpiName = kvp.Key,
                     Value = kvp.Value.Value,
-                    Status = kvp.Value.AssessmentStatus.GetDescription()
+                    Status = kvp.Value.AssessmentStatus.GetDescription(),
+                    Unit = _unitService.GetUnit(kvp.Key)
                 }).ToList() ?? null;
 
             var carbonUiInputs = new Dictionary<string, CarbonInputUiDisplay>();
@@ -283,7 +291,8 @@ namespace HNTAS.Core.Api.Controllers
                         carbonUiInputs[target.Key] = new CarbonInputUiDisplay
                         {
                             Label = target.Label,
-                            Value = numericValue
+                            Value = numericValue,
+                            Unit = _unitService.GetUnit(target.Key)
                         };
                     }
                 }

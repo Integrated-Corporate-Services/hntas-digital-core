@@ -4,8 +4,6 @@ using MongoDB.Bson.Serialization.Attributes;
 using System.Diagnostics.CodeAnalysis;
 
 
-
-
 namespace HNTAS.Core.Api.Data.Models
 {
     [ExcludeFromCodeCoverage]
@@ -16,8 +14,7 @@ namespace HNTAS.Core.Api.Data.Models
         public string? Id { get; set; }
 
         [BsonElement("oneloginId")]
-        public string OneLoginId { get; set; }
-
+        public string OneLoginId { get; set; }        
         [BsonElement("orgId")]
         public string? OrgId { get; set; }
 
@@ -66,5 +63,11 @@ namespace HNTAS.Core.Api.Data.Models
         // New optional property: list of OrgIds this user "works for"
         [BsonElement("contributingOrganisations")]
         public List<string>? ContributingOrganisations { get; set; } = new List<string>();
+
+        [BsonElement("activeContributingOrgId")]
+        public string? ActiveContributingOrgId { get; set; }
+
+        [BsonElement("notificationStats")]
+        public NotificationStats? NotificationStats { get; set; }
     }
 }

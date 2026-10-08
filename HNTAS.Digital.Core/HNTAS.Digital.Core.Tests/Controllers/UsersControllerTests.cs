@@ -315,7 +315,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             string email1 = "contributor1@test.com";
             string email2 = "contributor2@test.com";
 
-            var rpUser = new UserDetailsResult { Id = rpUserId, FirstName = "rp", LastName = "user", Roles = new List<UserRole> { UserRole.ResponsiblePerson }, Status = UserStatus.Active, EmailId = "rpuser@test.com" };
+            var rpUser = new UserDetailsResult { Id = rpUserId, FirstName = "rp", LastName = "user", Roles = new List<UserRole> { UserRole.ResponsibleParty }, Status = UserStatus.Active, EmailId = "rpuser@test.com" };
 
             // 1. Registered Users (User 1)
             var registeredUsersDetail = new List<UserDetailsResult>
@@ -392,7 +392,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             var user = new User
             {
                 EmailId = email,
-                Roles = hasRole ? new List<UserRole> { UserRole.ResponsiblePerson } : new List<UserRole>()
+                Roles = hasRole ? new List<UserRole> { UserRole.ResponsibleParty } : new List<UserRole>()
             };
 
             _mockUserService.Setup(s => s.GetByEmailAsync(email))
@@ -570,7 +570,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
         };
             var mappedRp = new UserRoleDetailResponse { EmailId = "rp@test.com" };
 
-            _mockUserService.Setup(s => s.GetResponsiblePersonByHnIdAsync(hnId))
+            _mockUserService.Setup(s => s.GetResponsiblePartyByHnIdAsync(hnId))
                 .ReturnsAsync(rpUser);
             _mockUserService.Setup(s => s.GetHeatNetworkUsersWithRolesAsync(hnId))
                 .ReturnsAsync(otherUsers);
@@ -593,7 +593,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
         {
             // Arrange
             var hnId = "HN123";
-            _mockUserService.Setup(s => s.GetResponsiblePersonByHnIdAsync(hnId))
+            _mockUserService.Setup(s => s.GetResponsiblePartyByHnIdAsync(hnId))
                 .ReturnsAsync(new User());
             _mockUserService.Setup(s => s.GetHeatNetworkUsersWithRolesAsync(hnId))
                 .ReturnsAsync((List<UserRoleDetailResponse>)null); // Service returns null
@@ -614,7 +614,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
         {
             // Arrange
             var hnId = "HN123";
-            _mockUserService.Setup(s => s.GetResponsiblePersonByHnIdAsync(hnId))
+            _mockUserService.Setup(s => s.GetResponsiblePartyByHnIdAsync(hnId))
                 .ReturnsAsync((User)null);
 
             // Act
@@ -622,7 +622,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
 
             // Assert
             var notFoundResult = Assert.IsType<NotFoundObjectResult>(result.Result);
-            Assert.Contains("No Responsible Person found", notFoundResult.Value.ToString());
+            Assert.Contains("No Responsible Party found", notFoundResult.Value.ToString());
         }
         #endregion
 
@@ -865,7 +865,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             _mockMapper.Setup(m => m.Map<RegisteredAddress>(It.IsAny<RegisteredAddress>())).Returns(new RegisteredAddress {AddressLine1 = "test" });
             _mockUserService.Setup(u => u.UpdateAsync(It.IsAny<string>(), It.IsAny<User>())).Returns(Task.CompletedTask);
             _mockHeatNetworkService.Setup(h => h.GetByOfgemEmailIdAsync(It.IsAny<string>())).ReturnsAsync(new List<HeatNetwork> { new HeatNetwork { Id = "test", HnId = "test", OrgId = "test", CreatedBy = "test" } });
-            _mockUserService.Setup(u => u.UpdateUserNetwork(It.IsAny<string>(), It.IsAny<string>())).Returns(Task.CompletedTask);
+            _mockUserService.Setup(u => u.UpdateUserNetwork(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<ContributorRole>())).Returns(Task.CompletedTask);
             _mockEmailService.Setup(e => e.TrySendOrgCreatedEmailAsync(It.IsAny<User>(), It.IsAny<Organisation>())).Returns(Task.CompletedTask);
 
             var result = await _controller.UpdateUserAndOrgDetails("id", request);
@@ -894,7 +894,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             _mockMapper.Setup(m => m.Map<RegisteredAddress>(It.IsAny<RegisteredAddress>())).Returns(new RegisteredAddress { AddressLine1 = "test" });
             _mockUserService.Setup(u => u.UpdateAsync(It.IsAny<string>(), It.IsAny<User>())).Returns(Task.CompletedTask);
             _mockHeatNetworkService.Setup(h => h.GetByOfgemEmailIdAsync(It.IsAny<string>())).ReturnsAsync(new List<HeatNetwork> { new HeatNetwork { Id = "test", HnId = "test", OrgId = "test", CreatedBy = "test" } });
-            _mockUserService.Setup(u => u.UpdateUserNetwork(It.IsAny<string>(), It.IsAny<string>())).Returns(Task.CompletedTask);
+            _mockUserService.Setup(u => u.UpdateUserNetwork(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<ContributorRole>())).Returns(Task.CompletedTask);
             _mockEmailService.Setup(e => e.TrySendOrgCreatedEmailAsync(It.IsAny<User>(), It.IsAny<Organisation>())).Returns(Task.CompletedTask);
 
             var result = await _controller.UpdateUserAndOrgDetails("id", request);
@@ -983,8 +983,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             _mockUserService.Setup(u => u.GetByIdAsync(It.IsAny<string>())).ReturnsAsync(new User { Id = "test", EmailId = "test", Roles = new List<UserRole> { UserRole.NetworkManager } });
             _mockCounterService.Setup(o => o.GetNextSequenceValue(It.IsAny<string>())).ReturnsAsync(12);
             _mockInvitationService.Setup(i => i.GetByInvitedEmailAsync(It.IsAny<string>())).ReturnsAsync(new Invitation { Status = InvitationStatus.Accepted, InvitedEmail = "test", InviterUserId = "test" });
-            _mockOrgService.Setup(o => o.CreateAsync(It.IsAny<Organisation>())).Returns(Task.CompletedTask);
-            
+            _mockOrgService.Setup(o => o.CreateAsync(It.IsAny<Organisation>())).Returns(Task.CompletedTask);            
 
             var mockUpdateResult = new Mock<UpdateResult>();
             mockUpdateResult.Setup(r => r.IsAcknowledged).Returns(true);
@@ -1014,7 +1013,6 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             _mockCounterService.Setup(o => o.GetNextSequenceValue(It.IsAny<string>())).ReturnsAsync(12);
             _mockInvitationService.Setup(i => i.GetByInvitedEmailAsync(It.IsAny<string>())).ReturnsAsync(new Invitation { Status = InvitationStatus.Accepted, InvitedEmail = "test", InviterUserId = "test" });
             _mockOrgService.Setup(o => o.CreateAsync(It.IsAny<Organisation>())).Returns(Task.CompletedTask);
-
 
             var mockUpdateResult = new Mock<UpdateResult>();
             mockUpdateResult.Setup(r => r.IsAcknowledged).Returns(true);
@@ -1107,7 +1105,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
                 FirstName = "John",
                 PreferredContactType = PreferredContactType.Mobile,
                 MobileNumber = "1111122222",
-                Role = UserRole.ResponsiblePerson
+                Role = UserRole.ResponsibleParty
             };
 
             _mockUserService.Setup(u => u.GetByIdAsync(It.IsAny<string>())).ReturnsAsync(new User { Id = "test", EmailId = "test", Roles = new List<UserRole> { UserRole.NetworkManager } });
@@ -1126,7 +1124,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
                 FirstName = "John",
                 PreferredContactType = PreferredContactType.Mobile,
                 MobileNumber = "1111122222",
-                Role = UserRole.ResponsiblePerson
+                Role = UserRole.ResponsibleParty
             };
 
             _mockUserService.Setup(u => u.GetByIdAsync(It.IsAny<string>())).ReturnsAsync(new User { Id = "test", EmailId = "test", Roles = null! });
@@ -1145,7 +1143,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
                 FirstName = "John",
                 PreferredContactType = PreferredContactType.Mobile,
                 MobileNumber = "1111122222",
-                Role = UserRole.ResponsiblePerson
+                Role = UserRole.ResponsibleParty
             };
 
             _mockUserService.Setup(u => u.GetByIdAsync(It.IsAny<string>())).Throws(new Exception());
@@ -1164,7 +1162,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
                 FirstName = "John",
                 PreferredContactType = PreferredContactType.Mobile,
                 MobileNumber = "1111122222",
-                Role = UserRole.ResponsiblePerson
+                Role = UserRole.ResponsibleParty
             };
 
             _mockUserService.Setup(u => u.GetByIdAsync(It.IsAny<string>())).ReturnsAsync((User)null!);
@@ -1182,7 +1180,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
                 FirstName = "John",
                 PreferredContactType = PreferredContactType.Mobile,
                 MobileNumber = "1111122222",
-                Role = UserRole.ResponsiblePerson
+                Role = UserRole.ResponsibleParty
             };
 
             _controller.ModelState.AddModelError("EmailId", "Required");
@@ -1289,8 +1287,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
         [Fact]
         public async Task GetUsersByOrganisation_Ok()
         {
-            _mockUserService.Setup(u => u.GetUsersByOrgIdAsync(It.IsAny<string>())).ReturnsAsync(new List<User> { new User { Id = "test", EmailId = "test", Roles = new List<UserRole> { UserRole.NetworkManager } } });
-            
+            _mockUserService.Setup(u => u.GetUsersByOrgIdAsync(It.IsAny<string>())).ReturnsAsync(new List<User> { new User { Id = "test", EmailId = "test", Roles = new List<UserRole> { UserRole.NetworkManager } } });            
             _mockMapper.Setup(s => s.Map<List<UserResponse>>(It.IsAny<List<User>>())).Returns(new List<UserResponse>());
             var result = await _controller.GetUsersByOrganisation("uid");
             Assert.IsType<OkObjectResult>(result.Result);

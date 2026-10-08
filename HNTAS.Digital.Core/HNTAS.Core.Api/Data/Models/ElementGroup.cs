@@ -17,5 +17,8 @@ namespace HNTAS.Core.Api.Data.Models
 
         [BsonElement("soaStages")]
         public List<SoaStages>? SoaStages { get; set; } = [];
+
+        [BsonElement("soaMilestones")]
+        public List<SoaMilestone>? SoaMilestones { get; set; } = [];
     }
 }

@@ -5,11 +5,13 @@ using HNTAS.Core.Api.Extensions;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
 using HNTAS.Core.Api.Models.Users;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Net.Mime;
 
 namespace HNTAS.Core.Api.Controllers
 {
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class InvitationsController : ControllerBase
@@ -55,6 +57,7 @@ namespace HNTAS.Core.Api.Controllers
         /// 200 OK with the invitation details if found;  
         /// 404 Not Found if no invitation exists with the given ID.
         /// </returns>
+        [AllowAnonymous]
         [HttpGet("{id:length(24)}")]
         [ProducesResponseType(typeof(InvitedUserResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -123,6 +126,7 @@ namespace HNTAS.Core.Api.Controllers
                     return NotFound();
                 }
 
+                var invitedOrgId = existingUser.Roles.Contains(UserRole.ResponsibleParty) ? existingUser.OrgId : existingUser.ActiveContributingOrgId;
                 // Create a new Invitation document and save it to the new collection
                 var newInvitation = new Invitation
                 {
@@ -131,7 +135,7 @@ namespace HNTAS.Core.Api.Controllers
                     InviterUserId = existingUser.Id, // Link to the user who sent the invite
                     InvitedEmail = request.EmailAddress,
                     InvitedHnId = request.HnId,
-                    InvitedOrgId = request.OrgId,
+                    InvitedOrgId = invitedOrgId,
                     InvitedRoles = request.ContributorRoles,
                     Status = InvitationStatus.Invited, // Status should be 'Invited' for a new invitation
                     InvitedAt = DateTime.UtcNow,
@@ -144,7 +148,7 @@ namespace HNTAS.Core.Api.Controllers
                 _logger.LogInformation("Invitation sent by user {UserId}. New invitation ID: {InvitationId}", id.ToSafeLog(), newInvitation.Id);
 
 
-                if (request.ReplacedUserId != null && !(request.RolesToReplace.Contains(ContributorRole.ResponsiblePerson)
+                if (request.ReplacedUserId != null && !(request.RolesToReplace.Contains(ContributorRole.ResponsibleParty)
                     || request.RolesToReplace.Contains(ContributorRole.NetworkManager)))
                 {
                     var userToUpdate = await _userService.GetByIdAsync(request.ReplacedUserId);
@@ -214,6 +218,7 @@ namespace HNTAS.Core.Api.Controllers
             return NoContent();
         }
 
+        [AllowAnonymous]
         [HttpPatch("accept-invitation")]
         [Consumes(MediaTypeNames.Application.Json)]
         [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
@@ -239,6 +244,7 @@ namespace HNTAS.Core.Api.Controllers
         /// </summary>
         /// <param name="invitationId">The ID of the invitation to reject.</param>
         /// <returns>204 No Content if successful; 404 if not found; 400 if already accepted or rejected.</returns>
+        [AllowAnonymous]
         [HttpPost("{invitationId}/Reject")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -266,6 +272,29 @@ namespace HNTAS.Core.Api.Controllers
             return NoContent();
         }
 
+
+        /// <summary>
+        /// Retrieves a list of invitations by invitedEmail and invitedOrgId.
+        /// </summary>        
+        /// <returns>
+        /// 200 OK with the invitations list if found;  
+        /// 404 Not Found if no invitation exists with the given invitedEmail and invitedOrgId.
+        /// </returns>
+        [AllowAnonymous]
+        [HttpGet("user-invitations")]
+        [ProducesResponseType(typeof(List<Invitation>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]        
+        public async Task<ActionResult<List<Invitation>>> GetInvitationByEmailAndOrg(string invitedEmail, string invitedOrgId)
+        {
+            var invitation = await _invitationService.GetAcceptedInvitationsByInvitedEmailAndOrg(invitedEmail, invitedOrgId);
+            if (invitation == null || !invitation.Any())
+            {
+                _logger.LogInformation("Invitation not found for the invitedOrgId: {InvitedOrgId}", invitedOrgId.ToSafeLog());
+                return NotFound();
+            }            
+            return Ok(invitation);
+        }
+
         private async Task NotificationHistoryForAddInvite(User user, Invitation invitation)
         {
             var subject = string.Empty;
@@ -281,11 +310,11 @@ namespace HNTAS.Core.Api.Controllers
             var invitedPerson = $"{invitation.FirstName} {invitation.LastName}".Trim();
             description = $"Email to {invitedPerson}";
             var actorIds = new List<string> { invitation.InviterUserId };
-            if (inviterRole == UserRole.ResponsiblePerson)
+            if (inviterRole == UserRole.ResponsibleParty)
             {
                 eligibleRoles = new List<string>
                 {
-                    ContributorRole.ResponsiblePerson.ToString(),
+                    ContributorRole.ResponsibleParty.ToString(),
                 };
 
                 if (invitedRole == ContributorRole.DesignatedDutyHolder)
@@ -306,7 +335,7 @@ namespace HNTAS.Core.Api.Controllers
             }
             else if (inviterRole == UserRole.NetworkManager) // Network Manager
             {
-                // Add the Responsible Person as an actor for the notification
+                // Add the Responsible Party as an actor for the notification
                 var nmInvitation = await _invitationService.GetByInvitedEmailAsync(user.EmailId);
                 var rpId = nmInvitation?.InviterUserId;
                 if (rpId != null && !actorIds.Contains(rpId))
@@ -315,7 +344,7 @@ namespace HNTAS.Core.Api.Controllers
                 }
                 eligibleRoles = new List<string>
                 {
-                    ContributorRole.ResponsiblePerson.ToString(),
+                    ContributorRole.ResponsibleParty.ToString(),
                     ContributorRole.NetworkManager.ToString()
                 };
 
@@ -336,7 +365,7 @@ namespace HNTAS.Core.Api.Controllers
 
                 eligibleRoles = new List<string>
                 {
-                    ContributorRole.ResponsiblePerson.ToString(),
+                    ContributorRole.ResponsibleParty.ToString(),
                     ContributorRole.NetworkManager.ToString(),
                 };
                 notificationType = NotificationHistoryType.DdhInvitesContributorToHeatNetwork;
@@ -370,7 +399,7 @@ namespace HNTAS.Core.Api.Controllers
             var date = DateTime.UtcNow;
             var action = string.Empty;
             var heatNetworkId = invitation.InvitedHnId;
-            var eligibleRoles = new List<string> { ContributorRole.ResponsiblePerson.ToString() };
+            var eligibleRoles = new List<string> { ContributorRole.ResponsibleParty.ToString() };
             NotificationHistoryType notificationType = NotificationHistoryType.NA;
             var invitedRole = invitation.InvitedRoles.FirstOrDefault();
             var invitedPerson = $"{invitation.FirstName} {invitation.LastName}".Trim();

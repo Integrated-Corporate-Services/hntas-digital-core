@@ -36,7 +36,7 @@ namespace HNTAS.Digital.Core.Tests.Services
             _mockSettings = new Mock<IOptions<AWSDocDbSettings>>();
             var settings = new AWSDocDbSettings
             {
-                HeatNetworksCollectionName = "Invitations"
+                HeatNetworksCollectionName = "invitations"
             };
 
             _mockSettings.Setup(s => s.Value).Returns(settings);

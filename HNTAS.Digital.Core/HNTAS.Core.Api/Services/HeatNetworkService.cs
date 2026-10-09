@@ -576,7 +576,7 @@ namespace HNTAS.Core.Api.Services
                 // 2. Lookup Organisation (linked via hnId in the hnIds array)
                 new BsonDocument("$lookup", new BsonDocument
                 {
-                    { "from", "Organisations" },
+                    { "from", "organisations" },
                     { "localField", "hnId" },
                     { "foreignField", "hnIds" },
                     { "as", "rpDocs" }
@@ -592,7 +592,7 @@ namespace HNTAS.Core.Api.Services
                 // This is where we get the emailId from
                 new BsonDocument("$lookup", new BsonDocument
                 {
-                    { "from", "Users" },
+                    { "from", "users" },
                     { "localField", "rpDocs.rpUserId" },
                     { "foreignField", "_id" },
                     { "as", "userDocs" }

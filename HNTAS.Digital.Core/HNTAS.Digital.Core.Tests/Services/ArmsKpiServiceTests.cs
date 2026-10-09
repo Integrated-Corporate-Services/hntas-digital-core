@@ -30,8 +30,8 @@ namespace HNTAS.Digital.Core.Tests.Services
 
             var settings = new AWSDocDbSettings
             {
-                KPI_DataCollectionName = "KPI_Data",
-                KPI_ConfigurationsCollectionName = "KPI_Configurations",
+                KPI_DataCollectionName = "kpi_data",
+                KPI_ConfigurationsCollectionName = "kpi_configurations",
             };
 
             _mockDbSettings.Setup(s => s.Value).Returns(settings);

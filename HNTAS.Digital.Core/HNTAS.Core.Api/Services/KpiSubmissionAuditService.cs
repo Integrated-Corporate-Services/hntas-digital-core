@@ -1,7 +1,9 @@
-﻿using HNTAS.Core.Api.Data.Models;
+﻿using HNTAS.Core.Api.Configuration;
+using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Data.Models.Arms.Submission;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models.Arms.Dashboard;
+using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 
 namespace HNTAS.Core.Api.Services
@@ -10,9 +12,9 @@ namespace HNTAS.Core.Api.Services
     {
         private readonly IMongoCollection<KpiSubmissionAudit> _auditCollection;
 
-        public KpiSubmissionAuditService(IMongoDatabase mongoDatabase)
+        public KpiSubmissionAuditService(IMongoDatabase mongoDatabase, IOptions<AWSDocDbSettings> dbSettings)
         {
-            _auditCollection = mongoDatabase.GetCollection<KpiSubmissionAudit>("Audit_KpiSubmission");
+            _auditCollection = mongoDatabase.GetCollection<KpiSubmissionAudit>(dbSettings.Value.AuditKpiSubmissionCollectionName);
         }
 
 

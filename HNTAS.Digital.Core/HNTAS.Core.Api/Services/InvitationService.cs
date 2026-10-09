@@ -154,7 +154,7 @@ namespace HNTAS.Core.Api.Services
                 // Lookup heat network name using invitedHnId
                 new BsonDocument("$lookup", new BsonDocument
                 {
-                    { "from", "HeatNetworks" },
+                    { "from", "heat_networks" },
                     { "localField", "invitedHnId" },
                     { "foreignField", "hnId" },
                     { "as", "heatNetworkDetails" }

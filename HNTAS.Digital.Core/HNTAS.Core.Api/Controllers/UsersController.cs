@@ -6,12 +6,14 @@ using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
 using HNTAS.Core.Api.Models.Users;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Bson;
 using System.Net.Mime;
 
 namespace HNTAS.Core.Api.Controllers;
 
+[Authorize]
 [Route("api/[controller]")]
 [ApiController]
 public class UsersController : ControllerBase
@@ -75,6 +77,7 @@ public class UsersController : ControllerBase
     /// Retrieves a list of all users.
     /// </summary>
     /// <returns>A list of user objects.</returns>
+    [AllowAnonymous]
     [HttpGet("user-details-by-id")]
     [ProducesResponseType(typeof(UserDetailsResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(UserDetailsResponse))]
@@ -187,7 +190,7 @@ public class UsersController : ControllerBase
 
 
     /// <summary>
-    /// Check if a user is a Responsible Person by their email ID
+    /// Check if a user is a Responsible Party by their email ID
     /// </summary>
     /// <remarks>
     /// Validates whether the user associated with the given email ID has the RegulatoryContact role.
@@ -215,12 +218,12 @@ public class UsersController : ControllerBase
 
             userId = user.Id; // Store user ID for logging in case of an error
 
-            bool isRegulatoryContact = user.Roles.Contains(UserRole.ResponsiblePerson);
+            bool isRegulatoryContact = user.Roles.Contains(UserRole.ResponsibleParty);
             return Ok(isRegulatoryContact);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error occurred while checking Responsible Person role for user Id : {UserId}", userId);
+            _logger.LogError(ex, "Error occurred while checking Responsible Party role for user Id : {UserId}", userId);
             return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while checking the user's role.");
         }
     }
@@ -514,7 +517,7 @@ public class UsersController : ControllerBase
                     if (invitaions != null)
                         newOrganisation.RpUserId = invitaions.InviterUserId;
                 }
-                else if (existingUser.Roles.Contains(UserRole.ResponsiblePerson))
+                else if (existingUser.Roles.Contains(UserRole.ResponsibleParty))
                 {
                     newOrganisation.RpUserId = existingUser.Id;
                 }                
@@ -805,6 +808,52 @@ public class UsersController : ControllerBase
     }
     #endregion
 
+    [HttpGet("ddh-and-contributors-paginated")]
+    [ProducesResponseType(typeof(PagedResult<ManagedUserResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [Produces("application/json")]
+    public async Task<ActionResult<PagedResult<ManagedUserResponse>>> GetDdhAndContributorsPaginated(
+        string userId,         
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] string sortBy = "firstName",
+        [FromQuery] string sortDirection = "asc")
+    {
+        var user = await _userService.GetUserWithDetailsAsync(userId);
+        if (user == null)
+        {
+            _logger.LogWarning("User with ID {UserId} not found.", userId.ToSafeLog());
+            return NotFound();
+        }
+        var managedUsers = new List<ManagedUserResponse>();
+
+        var orgId = user.Roles!.Contains(UserRole.ResponsibleParty) ? user.Organisation!.OrgId : user.ActiveContributingOrgId;
+        var invitedRoles = user.Roles.Contains(UserRole.DesignatedDutyHolder) ? new List<string> { ContributorRole.Contributor.ToString() } : new List<string> { ContributorRole.DesignatedDutyHolder.ToString(), ContributorRole.Contributor.ToString() };
+        var (invitations, totalCount) = await _invitationService.GetInvitedUsersDdhAndContributorsAsync(orgId!, invitedRoles, pageNumber, pageSize, sortBy, sortDirection);
+        
+        // get the invitations where the status is accepted
+        var acceptedInvitations = invitations.Where(i => i.Status == InvitationStatus.Accepted.ToString()).ToList();
+
+        var usersStatusFromAcceptedInvitation = await _userService.GetActiveUsers(acceptedInvitations);
+
+        foreach (var userStatus in usersStatusFromAcceptedInvitation)
+        {
+            var invitation = invitations.FirstOrDefault(i => i.EmailId == userStatus.EmailId && i.HeatNetworks!.Any(hn => hn.HnId == (userStatus.HeatNetworks!.FirstOrDefault()?.HnId)));
+            if (invitation != null)
+            {
+                invitation.Status = userStatus.Status;
+            }
+        }
+
+        _logger.LogInformation("Managed users retrieved successfully for user ID: {UserId}", userId.ToSafeLog());
+        return Ok(new PagedResult<ManagedUserResponse>
+        {
+            Items = invitations,
+            TotalCount =  (int)totalCount,
+            TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize)
+        });
+    }
+
     [HttpGet("network-managers")]
     [ProducesResponseType(typeof(List<InvitedUserResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -875,11 +924,11 @@ public class UsersController : ControllerBase
             return BadRequest("Heat Network ID must be provided.");
         }
 
-        // Get Responsible Person
-        var rpUser = await _userService.GetResponsiblePersonByHnIdAsync(hnId);
+        // Get Responsible Party
+        var rpUser = await _userService.GetResponsiblePartyByHnIdAsync(hnId);
         if (rpUser == null)
         {
-            return NotFound($"No Responsible Person found for Heat Network ID: {hnId.ToSafeLog()}");
+            return NotFound($"No Responsible Party found for Heat Network ID: {hnId.ToSafeLog()}");
         }
 
         // Get other users with roles

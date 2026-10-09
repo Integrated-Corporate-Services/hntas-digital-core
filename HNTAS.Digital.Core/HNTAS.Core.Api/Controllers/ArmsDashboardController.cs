@@ -6,12 +6,14 @@ using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
 using HNTAS.Core.Api.Models.Arms.Dashboard;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using MongoDB.Bson;
 
 namespace HNTAS.Core.Api.Controllers
 {
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class ArmsDashboardController : ControllerBase
@@ -61,13 +63,13 @@ namespace HNTAS.Core.Api.Controllers
             var userDetails = await _userService.GetUserWithDetailsAsync(userId);
             if (userDetails == null) return NotFound("User not found");
 
-            bool isRpUser = userDetails.Roles?.Contains(HNTAS.Core.Api.Enums.UserRole.ResponsiblePerson) ?? false;
+            bool isRpUser = userDetails.Roles?.Contains(HNTAS.Core.Api.Enums.UserRole.ResponsibleParty) ?? false;
             bool isSuperUser = _armsSettings.AllowSuperUserAccess && await _superUserService.IsSuperUserAsync(userDetails.EmailId);
             bool isAuthorized = isRpUser || isSuperUser;
 
             if (!isAuthorized)
             {
-                return BadRequest("Only Responsible Person can access this endpoint");
+                return BadRequest("Only Responsible Parties can access this endpoint");
             }
 
             // 2. Get the full list of Authorized Networks (The Master List)

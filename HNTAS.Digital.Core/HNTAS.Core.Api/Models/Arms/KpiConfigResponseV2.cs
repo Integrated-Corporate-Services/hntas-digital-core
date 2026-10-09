@@ -1,6 +1,6 @@
 ﻿using HNTAS.Core.Api.Data.Models.Arms.Configuration;
+using HNTAS.Core.Api.Models.Arms.V2;
 using System.Diagnostics.CodeAnalysis;
-using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace HNTAS.Core.Api.Models.Arms
@@ -25,7 +25,7 @@ namespace HNTAS.Core.Api.Models.Arms
         public Dictionary<string, KpiRule>? Rules { get; set; } = new();
 
         [JsonPropertyName("defaults")]
-        public Dictionary<string, JsonElement>? Defaults { get; set; } = new();
+        public Dictionary<string, ConfigDefault>? Defaults { get; set; } = new();
     }
 
 }

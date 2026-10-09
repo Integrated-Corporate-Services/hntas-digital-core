@@ -77,7 +77,7 @@ namespace HNTAS.Core.Api.Services
             return await _usersCollection.Find(filter).ToListAsync();
         }
 
-        public async Task<User?> GetResponsiblePersonByHnIdAsync(string hnId)
+        public async Task<User?> GetResponsiblePartyByHnIdAsync(string hnId)
         {
 
             // Filter to find the Organisation whose HnIds array contains the target hnId
@@ -102,8 +102,8 @@ namespace HNTAS.Core.Api.Services
             // Filter by the RpUserId from the organisation
             var userFilter = Builders<User>.Filter.Eq(u => u.Id, organisation.RpUserId);
 
-            // *Optional secondary check*: Ensure the user also has the ResponsiblePerson role
-            var roleCheck = Builders<User>.Filter.AnyEq(u => u.Roles, UserRole.ResponsiblePerson);
+            // *Optional secondary check*: Ensure the user also has the ResponsibleParty role
+            var roleCheck = Builders<User>.Filter.AnyEq(u => u.Roles, UserRole.ResponsibleParty);
 
             var finalFilter = Builders<User>.Filter.And(userFilter, roleCheck);
 
@@ -163,7 +163,7 @@ namespace HNTAS.Core.Api.Services
                         {
             var filter = Builders<User>.Filter.Eq(u => u.Id, userId);
 
-            var update = Builders<User>.Update.Set(u => u.OrgId, orgId);
+            var update = Builders<User>.Update.Set(u => u.ActiveContributingOrgId, orgId);
 
             return await _usersCollection.UpdateOneAsync(filter, update);
         }
@@ -171,7 +171,7 @@ namespace HNTAS.Core.Api.Services
 
         public async Task<List<User>> GetUsersByOrgIdAsync(string organisationId)
         {
-            var filter = Builders<User>.Filter.Eq(u => u.OrgId, organisationId);
+            var filter = Builders<User>.Filter.Eq(u => u.ActiveContributingOrgId, organisationId);
 
             return await _usersCollection
                 .Find(filter)
@@ -227,7 +227,7 @@ namespace HNTAS.Core.Api.Services
             }
         }
 
-        public async Task UpdateUserNetwork(string userId, string hnId, ContributorRole role = ContributorRole.ResponsiblePerson)
+        public async Task UpdateUserNetwork(string userId, string hnId, ContributorRole role = ContributorRole.ResponsibleParty)
         {
             var filter = Builders<User>.Filter.Eq(u => u.Id, userId);
             // update hnRoleMappings array by adding a new mapping with the provided hnId and a default role (e.g., RP)
@@ -244,6 +244,79 @@ namespace HNTAS.Core.Api.Services
                 result.ModifiedCount);
         }
 
+        // Check if the users have active status against Users collection, if not then update the status to Invited in the response object
+        public async Task<List<ManagedUserResponse>> GetActiveUsers(List<ManagedUserResponse> users)
+        {
+            if (users == null || users.Count == 0)
+            {
+                return new List<ManagedUserResponse>();
+            }
+
+            var emails = users
+                .Where(u => !string.IsNullOrWhiteSpace(u.EmailId))
+                .Select(u => u.EmailId)
+                .Distinct()
+                .ToList();
+
+            if (emails.Count == 0)
+            {
+                return users;
+            }
+
+            var activeEmails = await _usersCollection
+                .Find(u => emails.Contains(u.EmailId) && u.Status == UserStatus.Active)
+                .Project(u => u.EmailId)
+                .ToListAsync();
+
+            var activeEmailSet = new HashSet<string>(activeEmails, StringComparer.OrdinalIgnoreCase);
+
+            foreach (var user in users)
+            {
+                if (string.IsNullOrWhiteSpace(user.EmailId) || !activeEmailSet.Contains(user.EmailId))
+                {
+                    user.Status = InvitationStatus.Invited.ToString();
+                }
+                else
+                {
+                    user.Status = UserStatus.Active.ToString();
+                }
+            }
+
+            return users;
+        }
+
+        public async Task UpdateNotificationHistoryCountAsync(string userId, int notificationHistoryCount)
+        {
+            var filter = Builders<User>.Filter.Eq(u => u.Id, userId);
+
+            var missingNotificationStatsFilter = Builders<User>.Filter.And(
+                filter,
+                Builders<User>.Filter.Or(
+                    Builders<User>.Filter.Eq(u => u.NotificationStats, null),
+                    Builders<User>.Filter.Exists("notificationStats", false)
+                )
+            );
+
+            await _usersCollection.UpdateOneAsync(
+                missingNotificationStatsFilter,
+                Builders<User>.Update.Set(u => u.NotificationStats, new NotificationStats())
+            );
+
+            var update = Builders<User>.Update
+                .Set(u => u.NotificationStats!.NotificationHistoryCount, notificationHistoryCount)
+                .Set(u => u.NotificationStats!.LastVisitedAt, DateTime.UtcNow);
+
+            await _usersCollection.UpdateOneAsync(filter, update);
+        }
+
+        public async Task<int> GetNotificationHistoryCountAsync(string userId)
+        {
+            var filter = Builders<User>.Filter.Eq(u => u.Id, userId);
+            var projection = Builders<User>.Projection.Include(u => u.NotificationStats.NotificationHistoryCount);
+            var user = await _usersCollection.Find(filter).Project<User>(projection).FirstOrDefaultAsync();
+            return user?.NotificationStats?.NotificationHistoryCount ?? 0;
+        }
+
         // --- Private Helper Method for Reusable Pipeline ---
 
         /// <summary>
@@ -256,10 +329,21 @@ namespace HNTAS.Core.Api.Services
                 // The dynamic filter stage
                 matchStage,
 
+                new BsonDocument("$addFields", new BsonDocument
+                {
+                    { "organisationLookupId", new BsonDocument("$cond", new BsonDocument
+                        {
+                            { "if", new BsonDocument("$in", new BsonArray { UserRole.ResponsibleParty.ToString(), "$roles" }) },
+                            { "then", "$orgId" },
+                            { "else", "$activeContributingOrgId" }
+                        })
+                    }
+                }),
+
                 new BsonDocument("$lookup", new BsonDocument
                 {
                     { "from", "organisations" },
-                    { "localField", "orgId" },
+                    { "localField", "organisationLookupId" },
                     { "foreignField", "orgId" },
                     { "as", "organisationDetails" }
                 }),
@@ -301,6 +385,8 @@ namespace HNTAS.Core.Api.Services
                     { "mobileNumber", new BsonDocument("$ifNull", new BsonArray { "$mobileNumber", BsonNull.Value }) },
                     { "roles", 1 },
                     { "status", 1 },
+                    { "contributingOrganisations", 1},
+                    { "activeContributingOrgId", 1 },
 
                     // Organisation projection
                     { "organisation", new BsonDocument("$cond", new BsonDocument
@@ -327,7 +413,7 @@ namespace HNTAS.Core.Api.Services
                                             {
                                                 { "hnId", "$$hn.hnId" },
                                                 { "name", "$$hn.name" },
-                                                { "location", "$$hn.location" }
+                                                { "location", "$$hn.location" }                                                
                                             }
                                         }
                                     })
@@ -343,7 +429,7 @@ namespace HNTAS.Core.Api.Services
                             { "as", "mapping" },
                             { "in", new BsonDocument
                                 {
-                                    { "role", "$$mapping.role" },
+                                    { "role", "$$mapping.role" },                                
                                     { "heatNetwork", new BsonDocument("$let", new BsonDocument
                                         {
                                             { "vars", new BsonDocument("matchedHn", new BsonDocument("$arrayElemAt", new BsonArray
@@ -365,7 +451,8 @@ namespace HNTAS.Core.Api.Services
                                                         {
                                                             { "hnId", "$$matchedHn.hnId" },
                                                             { "name", "$$matchedHn.name" },
-                                                            { "location", "$$matchedHn.location" }
+                                                            { "location", "$$matchedHn.location" },
+                                                            { "orgId", "$$matchedHn.orgId" }
                                                         }
                                                 })
                                             }

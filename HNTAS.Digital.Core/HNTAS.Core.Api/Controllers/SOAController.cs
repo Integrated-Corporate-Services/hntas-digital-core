@@ -5,10 +5,12 @@ using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
 using HNTAS.Core.Api.Models.Soa;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HNTAS.Core.Api.Controllers
 {
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class SOAController : ControllerBase
@@ -278,7 +280,7 @@ namespace HNTAS.Core.Api.Controllers
             var currentUser = await _userService.GetUserWithDetailsAsync(request.UpdatedBy);
             var rpUserId = "";
             var nmUserId = "";
-            if (currentUser.Roles!.Contains(UserRole.ResponsiblePerson))
+            if (currentUser.Roles!.Contains(UserRole.ResponsibleParty))
             {
                 rpUserId = currentUser.Id!;
             }
@@ -313,7 +315,7 @@ namespace HNTAS.Core.Api.Controllers
                 description = $"{assessor?.AssessorFirstName} {assessor?.AssessorLastName} Assigned to {heatNetwork.HnId}-{heatNetwork.Name}";
             }
 
-            var eligibleRoles = new List<string> { ContributorRole.ResponsiblePerson.ToString()
+            var eligibleRoles = new List<string> { ContributorRole.ResponsibleParty.ToString()
                 , ContributorRole.NetworkManager.ToString(),
                 ContributorRole.DesignatedDutyHolder.ToString(),
                 ContributorRole.Contributor.ToString()};

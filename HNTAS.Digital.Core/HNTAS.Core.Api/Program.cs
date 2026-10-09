@@ -7,9 +7,15 @@ using HNTAS.Core.Api.MappingProfiles;
 using HNTAS.Core.Api.Services;
 using HNTAS.Core.Api.Validators.Arms;
 using HNTAS.Core.Api.Validators.Extensions;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 using MongoDB.Driver;
+using System.Security.Claims;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -37,6 +43,92 @@ builder.Services.AddControllers()
     options.ClientErrorMapping[StatusCodes.Status500InternalServerError].Link = null;
     options.ClientErrorMapping[StatusCodes.Status503ServiceUnavailable].Link = null;
     // This stops the RFC link from appearing for 400 errors
+});
+
+builder.Services
+.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+.AddJwtBearer(options =>
+{
+    var jwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET");
+
+    if (string.IsNullOrWhiteSpace(jwtSecret))
+    {
+        throw new InvalidOperationException("JWT_SECRET environment variable is not configured.");
+    }
+
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+
+        ValidIssuer = builder.Configuration["Jwt:Issuer"],
+        ValidAudience = builder.Configuration["Jwt:Audience"],
+
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret))
+    };
+
+    options.Events = new JwtBearerEvents
+    {
+        OnAuthenticationFailed = context =>
+        {
+            Console.WriteLine($"AUTH FAILED: {context.Exception.ToString()}");
+
+            return Task.CompletedTask;
+        },
+
+        OnTokenValidated = async context =>
+        {
+            var oneLoginId = context.Principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrWhiteSpace(oneLoginId))
+            {
+                context.Fail("Missing sub claim.");
+            }
+
+            //Todo: Add roles and other claims to the identity
+            //var userService = context.HttpContext.RequestServices.GetRequiredService<IUserService>();
+
+            //var user = await userService.GetByUserOneLoginIdAsync(oneLoginId);
+
+            // Allow unregistered users through for registration journeys
+            //if (user == null)
+            //{
+            //    return;
+            //}
+
+            //foreach (var role in user.Roles)
+            //{
+            //    identity.AddClaim(
+            //    new Claim(ClaimTypes.Role, role.ToString()));
+            //}
+
+            //if (!string.IsNullOrEmpty(user.OrgId))
+            //{
+            //    identity.AddClaim(
+            //    new Claim("OrgId", user.OrgId));
+            //}
+
+            //if (!string.IsNullOrEmpty(user.Id))
+            //{
+            //    identity.AddClaim(
+            //    new Claim("UserId", user.Id));
+            //}
+
+            return;
+
+
+           
+        },
+
+        OnChallenge = context =>
+        {
+            Console.WriteLine($"CHALLENGE: {context.Error} {context.ErrorDescription}");
+
+            return Task.CompletedTask;
+        }
+    };
 });
 
 // Register AutoMapper, scan for profiles, and apply global recursion protection
@@ -71,7 +163,6 @@ builder.Services.AddScoped<INotificationHistoryService, NotificationHistoryServi
 builder.Services.AddScoped<IKpiRuleValidator, KpiRuleValidator>();
 builder.Services.AddScoped<IHeatNetworkValidator, HeatNetworkValidator>();
 builder.Services.AddScoped<IKpiSubmissionAuditService, KpiSubmissionAuditService>();
-builder.Services.AddScoped<IUserStatsService, UserStatsService>();
 builder.Services.AddScoped<ISuperUserService, SuperUserService>();
 builder.Services.AddScoped<IArmsPowerBiService, ArmsPowerBiService>();
 builder.Services.AddSingleton<IUnitService, UnitService>();
@@ -195,7 +286,56 @@ builder.Services.AddControllers()
 builder.Services.UseJsonPropertyNames();
 
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi("HNTAS.Core.Api");
+builder.Services.AddOpenApi("HNTAS.Core.Api", options =>
+{
+    options.AddDocumentTransformer((document, context, cancellationToken) =>
+    {
+        document.Components ??= new OpenApiComponents();
+
+        // 1. Define Bearer Token security scheme for Swagger UI
+        document.Components.SecuritySchemes.Add("Bearer", new OpenApiSecurityScheme
+        {
+            Type = SecuritySchemeType.Http,
+            Scheme = JwtBearerDefaults.AuthenticationScheme,
+            BearerFormat = "JWT",
+            In = ParameterLocation.Header,
+            Name = "Authorization",
+            Description = "Enter your Bearer token"
+        });
+
+        return Task.CompletedTask;
+    });
+
+    // 2. Apply security requirement ONLY to endpoints requiring authorization
+    options.AddOperationTransformer((operation, context, cancellationToken) =>
+    {
+        var metadata = context.Description.ActionDescriptor.EndpointMetadata;
+
+        var hasAuthorize = metadata.OfType<IAuthorizeData>().Any();
+        var hasAllowAnonymous = metadata.OfType<IAllowAnonymous>().Any();
+
+        if (hasAuthorize && !hasAllowAnonymous)
+        {
+            operation.Security ??= new List<OpenApiSecurityRequirement>();
+            operation.Security.Add(new OpenApiSecurityRequirement
+            {
+                {
+                    new OpenApiSecurityScheme
+                    {
+                        Reference = new OpenApiReference
+                        {
+                            Type = ReferenceType.SecurityScheme,
+                            Id = "Bearer"
+                        }
+                    },
+                    Array.Empty<string>()
+                }
+            });
+        }
+
+        return Task.CompletedTask;
+    });
+});
 
 
 var app = builder.Build();
@@ -228,6 +368,7 @@ using (var scope = app.Services.CreateScope())
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+
     app.UseSwaggerUI(options =>
     {
         options.SwaggerEndpoint("/openapi/HNTAS.Core.Api.json", "HNTAS Core API v1");
@@ -236,6 +377,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();

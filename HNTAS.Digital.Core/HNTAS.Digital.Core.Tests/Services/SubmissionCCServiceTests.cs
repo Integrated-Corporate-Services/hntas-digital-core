@@ -412,22 +412,22 @@ public class SubmissionCCServiceTests
             {
                 ["chp_totals"] = new()
                 {
-                    ["EC-DATA-47"] = new() { Value = JsonValue(100) },
+                    ["EC-DATA-47"] = new() { Value = JsonValue(100.999) },
                     ["EC-DATA-52"] = new() { Value = JsonValue("2026-05-29") },
-                    ["EC-DATA-53"] = new() { Value = JsonValue(100) },
-                    ["EC-DATA-55"] = new() { Value = JsonValue(100) },
+                    ["EC-DATA-53"] = new() { Value = JsonValue(100.88) },
+                    ["EC-DATA-55"] = new() { Value = JsonValue(100.1) },
                     ["EC-DATA-57"] = new() { Value = JsonValue(1000) }
                 },
 
                 ["hpm_totals"] = new()
                 {
-                    ["EC-DATA-66"] = new() { Value = JsonValue(1000) },
+                    ["EC-DATA-66"] = new() { Value = JsonValue(1000.99) },
                     ["EC-DATA-68"] = new() { Value = JsonValue(1000) }
                 },
 
                 ["blr_totals"] = new()
                 {
-                    ["EC-DATA-84"] = new() { Value = JsonValue(1000) },
+                    ["EC-DATA-84"] = new() { Value = JsonValue(1000.678) },
                     ["EC-DATA-86"] = new() { Value = JsonValue(1000) }
                 }
             }

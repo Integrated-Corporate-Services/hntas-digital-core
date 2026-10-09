@@ -136,6 +136,79 @@ namespace HNTAS.Core.Api.Services
                 .ToListAsync();
         }
 
+        public async Task<(List<ManagedUserResponse> items, long totalCount)> GetInvitedUsersDdhAndContributorsAsync(string inviterOrgId, List<string> invitedRoles, int pageNumber,
+            int pageSize,
+            string sortBy,
+            string sortDirection)
+        {           
+
+            var pipeline = new[]
+            {
+                // Match invitations sent by the specified user and the invited roles are either DesignatedDutyHolder or Contributor
+                new BsonDocument("$match", new BsonDocument
+                {
+                    { "invitedOrgId", inviterOrgId },
+                    { "invitedRoles", new BsonDocument("$in", new BsonArray(invitedRoles)) }
+                }),
+
+                // Lookup heat network name using invitedHnId
+                new BsonDocument("$lookup", new BsonDocument
+                {
+                    { "from", "HeatNetworks" },
+                    { "localField", "invitedHnId" },
+                    { "foreignField", "hnId" },
+                    { "as", "heatNetworkDetails" }
+                }),
+
+                // Sort by invitedAt descending
+                new BsonDocument("$sort", new BsonDocument(sortBy, sortDirection == "asc" ? 1 : -1)),
+
+                new BsonDocument("$skip", (pageNumber - 1) * pageSize),
+                new BsonDocument("$limit", pageSize),
+
+                // Project into RegisteredUserResponse shape
+                new BsonDocument("$project", new BsonDocument
+                {
+                    { "_id", new BsonDocument("$toString", "$_id") },
+                    { "name", new BsonDocument("$concat", new BsonArray { "$firstName", " ", "$lastName" }) },
+                    { "emailId", "$invitedEmail" },
+                    { "invitedAt", "$invitedAt" },
+                    { "status", new BsonDocument("$toString", "$status") },
+                    { "roles", new BsonDocument("$map", new BsonDocument
+                        {
+                            { "input", "$invitedRoles" },
+                            { "as", "role" },
+                            { "in", new BsonDocument("$toString", "$$role") }
+                        })
+                    },
+                    { "heatNetworks", new BsonDocument("$map", new BsonDocument
+                        {
+                            { "input", "$heatNetworkDetails" },
+                            { "as", "hn" },
+                            { "in", new BsonDocument
+                                {
+                                    { "hnId", "$$hn.hnId" },
+                                    { "name", "$$hn.name" }
+                                }
+                            }
+                        })
+                    }
+                })
+            };
+
+            
+            
+            var totalCountResult = await _invitationsCollection.CountDocumentsAsync(new BsonDocument
+            {
+                { "invitedOrgId", inviterOrgId },
+                { "invitedRoles", new BsonDocument("$in", new BsonArray(invitedRoles)) }
+            });                
+
+            return (await _invitationsCollection
+                .Aggregate<ManagedUserResponse>(pipeline)
+                .ToListAsync(), totalCountResult);
+        }
+
         // Get invitation by invitedEmailId, invitedHnId, invitedRole
         public async Task<Invitation> GetByInvitedDetailsAsync(string invitedEmailId, string invitedHnId, ContributorRole invitedRole) =>
             await _invitationsCollection.Find(invitation => invitation.InvitedEmail == invitedEmailId && invitation.InvitedHnId == invitedHnId && invitation.InvitedRoles.Contains(invitedRole) && invitation.Status == Enums.InvitationStatus.Accepted).FirstOrDefaultAsync();
@@ -167,9 +240,11 @@ namespace HNTAS.Core.Api.Services
             var heatNetwork = await _heatNetworkService.GetByHnIdAsync(invitation.InvitedHnId!);
             // HnId can be null in case of network manager, they will have invited orgId - check and fix
 
+           
             // User exists
             if (invitedUser != null)
             {
+                invitedUser.ActiveContributingOrgId = invitation.InvitedOrgId;
                 await UpdateExistingUser(invitedUser, invitation, heatNetwork);
                 // update invitation after user is successfully updated
                 await UpdateAsync(invitation.Id, invitation);
@@ -202,7 +277,7 @@ namespace HNTAS.Core.Api.Services
         HeatNetwork heatNetwork)
         {
             AddRoles(user, invitation);
-            AddHnMapping(user, invitation);
+            await AddHnMapping(user, invitation);
             AddOrganisation(user, invitation);
 
             await _userService.UpdateAsync(user.Id!, user);
@@ -210,7 +285,7 @@ namespace HNTAS.Core.Api.Services
             await PostActions(invitation, user, heatNetwork);
         }
 
-        public async void AddHnMapping(User user, Invitation invitation)
+        public async Task AddHnMapping(User user, Invitation invitation)
         {
             // Two cases to handle
             // If accepted as an NM - then all the hns that the inviter (RP - only possible option) owns will be mapped
@@ -300,6 +375,7 @@ namespace HNTAS.Core.Api.Services
                 LastName = invitation.LastName,
                 JobTitle = null,
                 Status = UserStatus.Active,
+                ActiveContributingOrgId = invitation.InvitedOrgId,
                 ContributingOrganisations = new List<string> { invitation.InvitedOrgId }
             };
 
@@ -347,7 +423,7 @@ namespace HNTAS.Core.Api.Services
             { ContributorRole.Assessor, UserRole.Assessor },
             { ContributorRole.Certifier, UserRole.Certifier },
             { ContributorRole.NetworkManager, UserRole.NetworkManager },
-            { ContributorRole.ResponsiblePerson, UserRole.ResponsiblePerson }
+            { ContributorRole.ResponsibleParty, UserRole.ResponsibleParty }
         };
 
 
@@ -406,7 +482,7 @@ namespace HNTAS.Core.Api.Services
         public async Task NotificationHistoryForAcceptingInvite(Invitation invitation, User user, HeatNetwork heatNetwork)
         {
             var invitedRole = invitation.InvitedRoles.FirstOrDefault();
-            var eligibleRoles = new List<string>() { ContributorRole.ResponsiblePerson.ToString() };
+            var eligibleRoles = new List<string>() { ContributorRole.ResponsibleParty.ToString() };
             var subject = string.Empty;
             var action = string.Empty;
             var description = string.Empty;
@@ -506,5 +582,22 @@ namespace HNTAS.Core.Api.Services
             }
 
         }
+
+        public async Task<List<Invitation>> GetAcceptedInvitationsByInvitedEmail(string invitedEmail)
+        {
+            var acceptedInvitations = await _invitationsCollection
+                .Find(invitation => invitation.InvitedEmail == invitedEmail && invitation.Status == InvitationStatus.Accepted)
+                .ToListAsync();
+            return acceptedInvitations;
+        }
+
+        public async Task<List<Invitation>> GetAcceptedInvitationsByInvitedEmailAndOrg(string invitedEmail, string invitedOrgId)
+        {
+            var acceptedInvitations = await _invitationsCollection
+                .Find(invitation => invitation.InvitedEmail == invitedEmail && invitation.InvitedOrgId == invitedOrgId && invitation.Status == InvitationStatus.Accepted)
+                .ToListAsync();
+            return acceptedInvitations;
+        }
+
     }
 }

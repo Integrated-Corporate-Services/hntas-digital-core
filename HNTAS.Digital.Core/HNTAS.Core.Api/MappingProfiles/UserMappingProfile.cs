@@ -44,7 +44,7 @@ namespace HNTAS.Core.Api.MappingProfiles
                     src.Status
                 )).ForMember(dest => dest.ContributingOrganisations, opt => opt.MapFrom(src =>
                     src.ContributingOrganisations
-                ));
+                )).ForMember(dest => dest.ActiveContributingOrgId, opt => opt.MapFrom(src => src.ActiveContributingOrgId));
 
 
             // Mapping for an Invitation document to an InvitedUserResponse DTO
@@ -130,7 +130,7 @@ namespace HNTAS.Core.Api.MappingProfiles
             CreateMap<User, UserRoleDetailResponse>()
                 .ForMember(dest => dest.FullName, opt => opt.MapFrom(src => $"{src.FirstName} {src.LastName}".Trim()))
                 .ForMember(dest => dest.UserId, opt => opt.MapFrom(src => src.Id))
-                .ForMember(dest => dest.RoleDescription, opt => opt.MapFrom(src => UserRole.ResponsiblePerson.GetDescription()));
+                .ForMember(dest => dest.RoleDescription, opt => opt.MapFrom(src => UserRole.ResponsibleParty.GetDescription()));
 
 
             CreateMap<UserDetailsResult, UserDetailsResponse>();

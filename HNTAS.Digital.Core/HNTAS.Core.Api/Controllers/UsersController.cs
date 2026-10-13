@@ -828,7 +828,7 @@ public class UsersController : ControllerBase
         var managedUsers = new List<ManagedUserResponse>();
 
         var orgId = user.Roles!.Contains(UserRole.ResponsibleParty) ? user.Organisation!.OrgId : user.ActiveContributingOrgId;
-        var invitedRoles = user.Roles.Contains(UserRole.DesignatedDutyHolder) ? new List<string> { ContributorRole.Contributor.ToString() } : new List<string> { ContributorRole.DesignatedDutyHolder.ToString(), ContributorRole.Contributor.ToString() };
+        var invitedRoles = user.InvitedRoles!.Contains(ContributorRole.DesignatedDutyHolder) ? new List<string> { ContributorRole.Contributor.ToString() } : new List<string> { ContributorRole.DesignatedDutyHolder.ToString(), ContributorRole.Contributor.ToString() };
         var (invitations, totalCount) = await _invitationService.GetInvitedUsersDdhAndContributorsAsync(orgId!, invitedRoles, pageNumber, pageSize, sortBy, sortDirection);
         
         // get the invitations where the status is accepted
@@ -891,7 +891,8 @@ public class UsersController : ControllerBase
 
         _logger.LogInformation("Attempting to retrieve managed contributors for user ID: {UserId}", userId.ToSafeLog());
 
-        var invitations = await _invitationService.GetByInviterUserIdAsync(user.Id);
+        var orgId = user.Roles!.Contains(UserRole.ResponsibleParty) ? user!.OrgId : user.ActiveContributingOrgId;
+        var invitations = await _invitationService.GetInvitedDdhAndContributorsForOrgAsync(orgId);
         var invitedEmails = invitations.Select(i => i.InvitedEmail).Distinct().ToList();
 
         var registeredUsers = await _userService.GetRegisteredUsers(invitedEmails);

@@ -370,6 +370,28 @@ namespace HNTAS.Core.Api.Services
                     { "as", "mappedHeatNetworks" }
                 }),
 
+                new BsonDocument("$lookup", new BsonDocument
+                {
+                    { "from", "invitations" },
+                    { "let", new BsonDocument
+                        {
+                            { "userEmail", "$emailId" },
+                            { "userOrgId", "$organisationLookupId" }
+                        }
+                    },
+                    { "pipeline", new BsonArray
+                        {
+                            new BsonDocument("$match", new BsonDocument("$expr", new BsonDocument("$and", new BsonArray
+                            {
+                                new BsonDocument("$eq", new BsonArray { "$invitedEmail", "$$userEmail" }),
+                                new BsonDocument("$eq", new BsonArray { "$invitedOrgId", "$$userOrgId" }),
+                                new BsonDocument("$eq", new BsonArray { "$status", "Accepted" })
+                            })))
+                        }
+                    },
+                    { "as", "userInvitations" }
+                }),
+
                 // Final projection into DTO shape (unchanged)
                 new BsonDocument("$project", new BsonDocument
                 {
@@ -387,6 +409,22 @@ namespace HNTAS.Core.Api.Services
                     { "status", 1 },
                     { "contributingOrganisations", 1},
                     { "activeContributingOrgId", 1 },
+                    { "invitedRoles", new BsonDocument("$setUnion", new BsonArray
+                    {
+                        new BsonDocument("$reduce", new BsonDocument
+                        {
+                            { "input", new BsonDocument("$ifNull", new BsonArray { "$userInvitations.invitedRoles", new BsonArray() }) },
+                            { "initialValue", new BsonArray() },
+                            { "in", new BsonDocument("$concatArrays", new BsonArray
+                                {
+                                    "$$value",
+                                    new BsonDocument("$ifNull", new BsonArray { "$$this", new BsonArray() })
+                                })
+                            }
+                            }),
+                            new BsonArray()
+                        })
+                    },
 
                     // Organisation projection
                     { "organisation", new BsonDocument("$cond", new BsonDocument

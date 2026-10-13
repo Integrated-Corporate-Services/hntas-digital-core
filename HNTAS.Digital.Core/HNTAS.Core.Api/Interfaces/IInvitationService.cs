@@ -34,5 +34,6 @@ namespace HNTAS.Core.Api.Interfaces
         Task<(List<ManagedUserResponse> items, long totalCount)> GetInvitedUsersDdhAndContributorsAsync(string inviterOrgId, List<string> invitedRoles, int pageNumber, int pageSize, string sortBy, string sortDirection);
         Task<List<Invitation>> GetAcceptedInvitationsByInvitedEmail(string invitedEmail);
         Task<List<Invitation>> GetAcceptedInvitationsByInvitedEmailAndOrg(string invitedEmail, string invitedOrgId);
+        Task<List<Invitation>> GetInvitedDdhAndContributorsForOrgAsync(string invitedOrgId);
     }
 }

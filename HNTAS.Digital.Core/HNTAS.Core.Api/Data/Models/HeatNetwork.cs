@@ -25,6 +25,14 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonRepresentation(BsonType.String)]
         public bool SuppliesSixOrMoreUnits { get; set; }
 
+        [BsonElement("networkBuildStatus")]
+        [BsonRepresentation(BsonType.String)]
+        public NetworkBuildStatus? NetworkBuildStatus { get; set; }
+
+        [BsonElement("energyCentreType")]
+        [BsonRepresentation(BsonType.String)]
+        public EnergyCentreType? EnergyCentreType { get; set; }
+
         [BsonElement("name")]
         public string Name { get; set; } = string.Empty;
         [BsonElement("additionalDescription")]
@@ -57,10 +65,17 @@ namespace HNTAS.Core.Api.Data.Models
 
         [BsonElement("ecSuppliesOneCommunalBuilding")]
         [BsonRepresentation(BsonType.String)]
-        public bool EcSuppliesOneCommunalBuilding { get; set; }
+        public bool? EcSuppliesOneCommunalBuilding { get; set; }
 
         [BsonElement("heatNetworkConnections")]
         public HeatNetworkConnections? HeatNetworkConnections { get; set; }
+
+        // --- Responsibility Questions ---
+        [BsonElement("noOfResponsibleCommunalBuilding")]
+        public int? NoOfResponsibleCommunalBuilding { get; set; }
+
+        [BsonElement("noOfResponsibleDistrictNetwork")]
+        public int? NoOfResponsibleDistrictNetwork { get; set; }
 
         [BsonElement("networkElements")]
         public NetworkElements? NetworkElements { get; set; }

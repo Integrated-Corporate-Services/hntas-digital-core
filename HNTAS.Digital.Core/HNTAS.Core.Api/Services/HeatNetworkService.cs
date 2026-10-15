@@ -398,7 +398,7 @@ namespace HNTAS.Core.Api.Services
                 .Skip((pageNumber - 1) * pageSize)
                 .Limit(pageSize)
                 .Lookup(
-                    foreignCollectionName: "Organisations",
+                    foreignCollectionName: "organisations",
                     localField: "orgId",
                     foreignField: "orgId",
                     @as: "orgDocs"

@@ -17,5 +17,12 @@ namespace HNTAS.Core.Api.Data.Models
 
         [BsonElement("soaMilestones")]
         public List<SoaMilestone>? SoaMilestones { get; set; }
+
+        [BsonElement("elementName")]
+        public string? ElementName { get; set; }
+        [BsonElement("isMainEnergyCentre")]
+        public bool? IsMainEnergyCentre { get; set; }
+        [BsonElement("isSupplyNewBuildings")]
+        public bool? IsSupplyNewBuildings { get; set; }
     }    
 }

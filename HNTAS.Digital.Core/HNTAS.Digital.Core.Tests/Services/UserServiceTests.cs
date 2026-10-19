@@ -37,8 +37,8 @@ namespace HNTAS.Digital.Core.Tests.Services
             // Setup the mock settings to return a dummy connection string
             var settings = new AWSDocDbSettings
             {
-                UsersCollectionName = "Users" ,
-                OrganisationsCollectionName = "Organisations"
+                UsersCollectionName = "users" ,
+                OrganisationsCollectionName = "organisations"
             };
 
             _mockSettings.Setup(s => s.Value).Returns(settings);

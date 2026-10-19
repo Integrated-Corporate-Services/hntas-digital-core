@@ -51,6 +51,9 @@ namespace HNTAS.Core.Api.Services
         public async Task<List<Invitation>> GetByInviterUserIdAsync(string inviterUserId) =>
             await _invitationsCollection.Find(invitation => invitation.InviterUserId == inviterUserId).ToListAsync();
 
+        public async Task<List<Invitation>> GetInvitedDdhAndContributorsForOrgAsync(string invitedOrgId) =>
+            await _invitationsCollection.Find(invitation => invitation.InvitedOrgId == invitedOrgId && invitation.Status == InvitationStatus.Accepted && (invitation.InvitedRoles.Contains(ContributorRole.DesignatedDutyHolder) || invitation.InvitedRoles.Contains(ContributorRole.Contributor))).ToListAsync();
+
         // Create a new invitation
         public async Task CreateAsync(Invitation newInvitation) =>
             await _invitationsCollection.InsertOneAsync(newInvitation);
@@ -92,7 +95,7 @@ namespace HNTAS.Core.Api.Services
                 // Lookup heat network name using invitedHnId
                 new BsonDocument("$lookup", new BsonDocument
                 {
-                    { "from", "HeatNetworks" },
+                    { "from", "heat_networks" },
                     { "localField", "invitedHnId" },
                     { "foreignField", "hnId" },
                     { "as", "heatNetworkDetails" }
@@ -154,7 +157,7 @@ namespace HNTAS.Core.Api.Services
                 // Lookup heat network name using invitedHnId
                 new BsonDocument("$lookup", new BsonDocument
                 {
-                    { "from", "HeatNetworks" },
+                    { "from", "heat_networks" },
                     { "localField", "invitedHnId" },
                     { "foreignField", "hnId" },
                     { "as", "heatNetworkDetails" }

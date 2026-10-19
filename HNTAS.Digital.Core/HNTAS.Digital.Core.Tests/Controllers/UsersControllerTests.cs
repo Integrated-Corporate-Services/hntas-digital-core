@@ -1257,7 +1257,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
         public async Task GetRegisteredUsersAsync_Ok()
         {
             _mockUserService.Setup(u => u.GetByIdAsync(It.IsAny<string>())).ReturnsAsync(new User { Id = "test", EmailId = "test", Roles = new List<UserRole> { UserRole.NetworkManager } });
-            _mockInvitationService.Setup(u => u.GetByInviterUserIdAsync(It.IsAny<string>())).ReturnsAsync(new List<Invitation> { new Invitation { InvitedEmail = "test"} });
+            _mockInvitationService.Setup(u => u.GetInvitedDdhAndContributorsForOrgAsync(It.IsAny<string>())).ReturnsAsync(new List<Invitation> { new Invitation { InvitedEmail = "test"} });
             _mockUserService.Setup(u => u.GetRegisteredUsers(It.IsAny<List<string>>())).ReturnsAsync(new List<User> { new User { Id = "test", EmailId = "test", Roles = new List<UserRole> { UserRole.NetworkManager } } });
             _mockMapper.Setup(s => s.Map<List<UserResponse>>(It.IsAny<List<User>>())).Returns(new List<UserResponse>());
             var result = await _controller.GetRegisteredUsersAsync("uid");
@@ -1268,7 +1268,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
         public async Task GetRegisteredUsersAsync_EmptyResponse()
         {
             _mockUserService.Setup(u => u.GetByIdAsync(It.IsAny<string>())).ReturnsAsync(new User { Id = "test", EmailId = "test", Roles = new List<UserRole> { UserRole.NetworkManager } });
-            _mockInvitationService.Setup(u => u.GetByInviterUserIdAsync(It.IsAny<string>())).ReturnsAsync(new List<Invitation> { new Invitation { InvitedEmail = "test" } });
+            _mockInvitationService.Setup(u => u.GetInvitedDdhAndContributorsForOrgAsync(It.IsAny<string>())).ReturnsAsync(new List<Invitation> { new Invitation { InvitedEmail = "test" } });
             _mockUserService.Setup(u => u.GetRegisteredUsers(It.IsAny<List<string>>())).ReturnsAsync(new List<User>());
             _mockMapper.Setup(s => s.Map<List<UserResponse>>(It.IsAny<List<User>>())).Returns(new List<UserResponse>());
             var result = await _controller.GetRegisteredUsersAsync("uid");

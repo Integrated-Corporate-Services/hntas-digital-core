@@ -27,6 +27,7 @@ namespace HNTAS.Core.Api.Models.Soa
         public string? Phase { get; set; } = null;
         public HeatNetworkType? HeatNetworkType { get; set; }
         public NetworkBuildStatus? NetworkBuildStatus { get; set; }
+        public EnergyCentreType? EnergyCentreType { get; set; }
         public bool HasOwnEnergyCentre { get; set; }
         public HeatNetworkConnections? HeatNetworkConnections { get; set; } = new();
         public NetworkElementsResponse? NetworkElements { get; set; }

@@ -69,6 +69,8 @@ namespace HNTAS.Core.Api.Models
         public List<string>? ContributingOrganisations { get; set; }
         [BsonElement("activeContributingOrgId")]
         public string? ActiveContributingOrgId { get; set; }
+        [BsonElement("invitedRoles")]        
+        public List<ContributorRole>? InvitedRoles { get; set; }
     }
 
     [ExcludeFromCodeCoverage]

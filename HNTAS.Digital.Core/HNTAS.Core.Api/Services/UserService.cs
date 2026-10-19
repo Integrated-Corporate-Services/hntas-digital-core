@@ -342,7 +342,7 @@ namespace HNTAS.Core.Api.Services
 
                 new BsonDocument("$lookup", new BsonDocument
                 {
-                    { "from", "Organisations" },
+                    { "from", "organisations" },
                     { "localField", "organisationLookupId" },
                     { "foreignField", "orgId" },
                     { "as", "organisationDetails" }
@@ -356,7 +356,7 @@ namespace HNTAS.Core.Api.Services
 
                 new BsonDocument("$lookup", new BsonDocument
                 {
-                    { "from", "HeatNetworks" },
+                    { "from", "heat_networks" },
                     { "localField", "organisationDetails.hnIds" },
                     { "foreignField", "hnId" },
                     { "as", "organisationHeatNetworkDetails" }
@@ -364,10 +364,18 @@ namespace HNTAS.Core.Api.Services
 
                 new BsonDocument("$lookup", new BsonDocument
                 {
-                    { "from", "HeatNetworks" },
+                    { "from", "heat_networks" },
                     { "localField", "hnRoleMappings.hnId" },
                     { "foreignField", "hnId" },
                     { "as", "mappedHeatNetworks" }
+                }),
+
+                new BsonDocument("$lookup", new BsonDocument
+                {
+                    { "from", "invitations" },
+                    { "localField", "emailId" },
+                    { "foreignField", "invitedEmail" },
+                    { "as", "userInvitations" }
                 }),
 
                 // Final projection into DTO shape (unchanged)
@@ -387,6 +395,44 @@ namespace HNTAS.Core.Api.Services
                     { "status", 1 },
                     { "contributingOrganisations", 1},
                     { "activeContributingOrgId", 1 },
+                    { "invitedRoles", new BsonDocument("$setUnion", new BsonArray
+                    {
+                        new BsonDocument("$reduce", new BsonDocument
+                        {
+                            { "input", new BsonDocument("$ifNull", new BsonArray
+                                {
+                                    new BsonDocument("$map", new BsonDocument
+                                    {
+                                        { "input", new BsonDocument("$filter", new BsonDocument
+                                            {
+                                                { "input", "$userInvitations" },
+                                                { "as", "invitation" },
+                                                { "cond", new BsonDocument("$and", new BsonArray
+                                                    {
+                                                        new BsonDocument("$eq", new BsonArray { "$$invitation.invitedOrgId", "$organisationLookupId" }),
+                                                        new BsonDocument("$eq", new BsonArray { "$$invitation.status", "Accepted" })
+                                                    })
+                                                }
+                                            })
+                                        },
+                                        { "as", "invitation" },
+                                        { "in", "$$invitation.invitedRoles" }
+                                    })
+                                    ,
+                                    new BsonArray()
+                                })
+                            },
+                            { "initialValue", new BsonArray() },
+                            { "in", new BsonDocument("$concatArrays", new BsonArray
+                                {
+                                    "$$value",
+                                    new BsonDocument("$ifNull", new BsonArray { "$$this", new BsonArray() })
+                                })
+                            }
+                            }),
+                            new BsonArray()
+                        })
+                    },
 
                     // Organisation projection
                     { "organisation", new BsonDocument("$cond", new BsonDocument
@@ -430,32 +476,28 @@ namespace HNTAS.Core.Api.Services
                             { "in", new BsonDocument
                                 {
                                     { "role", "$$mapping.role" },                                
-                                    { "heatNetwork", new BsonDocument("$let", new BsonDocument
+                                    { "heatNetwork", new BsonDocument("$arrayElemAt", new BsonArray
                                         {
-                                            { "vars", new BsonDocument("matchedHn", new BsonDocument("$arrayElemAt", new BsonArray
-                                                {
-                                                    new BsonDocument("$filter", new BsonDocument
-                                                        {
-                                                            { "input", "$mappedHeatNetworks" },
-                                                            { "as", "details" },
-                                                            { "cond", new BsonDocument("$eq", new BsonArray { "$$details.hnId", "$$mapping.hnId" }) }
-                                                        }),
-                                                    0
-                                                }))
-                                            },
-                                            { "in", new BsonDocument("$cond", new BsonArray
-                                                {
-                                                    new BsonDocument("$not", new BsonArray { "$$matchedHn" }),
-                                                    BsonNull.Value,
-                                                    new BsonDocument
-                                                        {
-                                                            { "hnId", "$$matchedHn.hnId" },
-                                                            { "name", "$$matchedHn.name" },
-                                                            { "location", "$$matchedHn.location" },
-                                                            { "orgId", "$$matchedHn.orgId" }
-                                                        }
-                                                })
-                                            }
+                                            new BsonDocument("$map", new BsonDocument
+                                            {
+                                                { "input", new BsonDocument("$filter", new BsonDocument
+                                                    {
+                                                        { "input", "$mappedHeatNetworks" },
+                                                        { "as", "details" },
+                                                        { "cond", new BsonDocument("$eq", new BsonArray { "$$details.hnId", "$$mapping.hnId" }) }
+                                                    })
+                                                },
+                                                { "as", "matchedHn" },
+                                                { "in", new BsonDocument
+                                                    {
+                                                        { "hnId", "$$matchedHn.hnId" },
+                                                        { "name", "$$matchedHn.name" },
+                                                        { "location", "$$matchedHn.location" },
+                                                        { "orgId", "$$matchedHn.orgId" }
+                                                    }
+                                                }
+                                            }),
+                                            0
                                         })
                                     }
                                 }

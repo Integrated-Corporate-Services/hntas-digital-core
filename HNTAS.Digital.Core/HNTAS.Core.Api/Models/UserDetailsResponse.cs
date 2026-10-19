@@ -24,6 +24,7 @@ namespace HNTAS.Core.Api.Models
         public List<HeatNetworkUserResponse>? HeatNetworks { get; set; }
         public List<string>? ContributingOrganisations { get; set; }
         public string? ActiveContributingOrgId { get; set; }
+        public List<ContributorRole>? InvitedRoles { get; set; }
 
     }
 

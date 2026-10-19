@@ -1,9 +1,11 @@
-﻿using HNTAS.Core.Api.Data.Models;
+﻿using HNTAS.Core.Api.Configuration;
+using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Extensions;
 using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
+using Microsoft.Extensions.Options;
 using MongoDB.Bson;
 using MongoDB.Driver;
 
@@ -13,15 +15,17 @@ namespace HNTAS.Core.Api.Services
     {
         private readonly ILogger<AuditService> _logger;
         private readonly IMongoDatabase _mongoDatabase;
+        private readonly string _collectionName;
 
         private const int DefaultPageNumber = 1;
         private const int DefaultPageSize = 6;
         private const string DefaultSortBy = "timestamp";
 
-        public AuditService(ILogger<AuditService> logger, IMongoDatabase mongoDatabase)
+        public AuditService(ILogger<AuditService> logger, IMongoDatabase mongoDatabase, IOptions<AWSDocDbSettings> dbSettings)
         {
             _logger = logger;
             _mongoDatabase = mongoDatabase;
+            _collectionName = dbSettings.Value.AuditHeatNetworksCollectionName;
             _logger.LogInformation("AuditService (Per-Collection Pattern) initialized.");
         }
 
@@ -40,8 +44,8 @@ namespace HNTAS.Core.Api.Services
             try
             {
                 // Resolve collection name: e.g., "Audit_HeatNetworks" or "Audit_Assessors"
-                var collectionName = $"Audit_{typeof(T).Name}s";
-                var collection = _mongoDatabase.GetCollection<AuditEntry<T>>(collectionName);
+                //var collectionName = $"Audit_{typeof(T).Name}s";
+                var collection = _mongoDatabase.GetCollection<AuditEntry<T>>(_collectionName);
 
                 var entry = new AuditEntry<T>
                 {
@@ -58,7 +62,7 @@ namespace HNTAS.Core.Api.Services
                 };
 
                 await collection.InsertOneAsync(entry);
-                _logger.LogInformation("Audit event {EntryType} recorded in {Collection}", StringFormatter.Sanitize(entryType), StringFormatter.Sanitize(collectionName));
+                _logger.LogInformation("Audit event {EntryType} recorded in {Collection}", StringFormatter.Sanitize(entryType), StringFormatter.Sanitize(_collectionName));
             }
             catch (Exception ex)
             {
@@ -88,8 +92,8 @@ namespace HNTAS.Core.Api.Services
             if (auditLogRequest.PageSize < 1) auditLogRequest.PageSize = DefaultPageSize;
 
             // 1. Determine collection names
-            var collectionName = $"Audit_{typeof(T).Name}s";
-            var auditCollection = _mongoDatabase.GetCollection<BsonDocument>(collectionName);
+            //var collectionName = $"Audit_{typeof(T).Name}s";
+            var auditCollection = _mongoDatabase.GetCollection<BsonDocument>(_collectionName);
 
             // London Time Zone for UK compliance
             var londonTimeZone = TimeZoneInfo.FindSystemTimeZoneById("GMT Standard Time");
@@ -107,7 +111,7 @@ namespace HNTAS.Core.Api.Services
             var pipeline = auditCollection.Aggregate()
                 .Match(new BsonDocument("entityId", auditLogRequest.HnId))
                 // Join with Users collection
-                .Lookup("Users", "userId", "_id", "joinedUser")
+                .Lookup("users", "userId", "_id", "joinedUser")
                 // Flatten the joinedUser array (left outer join)
                 .Unwind("joinedUser", new AggregateUnwindOptions<BsonDocument> { PreserveNullAndEmptyArrays = true })
                 .Sort(sortDefinition)

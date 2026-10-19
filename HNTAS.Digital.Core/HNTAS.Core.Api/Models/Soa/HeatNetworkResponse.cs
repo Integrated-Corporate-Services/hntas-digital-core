@@ -1,7 +1,5 @@
 ﻿using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Enums;
-using MongoDB.Bson;
-using MongoDB.Bson.Serialization.Attributes;
 using System.Diagnostics.CodeAnalysis;
 
 namespace HNTAS.Core.Api.Models.Soa
@@ -14,6 +12,9 @@ namespace HNTAS.Core.Api.Models.Soa
         public string HnId { get; set; } = null!;
         public string? OrgId { get; set; }
         public bool SuppliesSixOrMoreUnits { get; set; }
+        public NetworkBuildStatus? NetworkBuildStatus { get; set; }
+        public int? NoOfResponsibleCommunalBuilding { get; set; }
+        public int? NoOfResponsibleDistrictNetwork { get; set; }
         public bool HasAddressAndPostcode { get; set; }
         public ECDetails? ECDetails { get; set; } = null!;
         public RegisteredAddress? Address { get; set; }

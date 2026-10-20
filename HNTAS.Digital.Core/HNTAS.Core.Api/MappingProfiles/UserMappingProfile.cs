@@ -73,6 +73,8 @@ namespace HNTAS.Core.Api.MappingProfiles
             .ForMember(dest => dest.AdditionalDescription, opt => opt.MapFrom(src => src.AdditionalDescription))
             .ForMember(dest => dest.Pathway, opt => opt.MapFrom(src => src.Pathway))
             .ForMember(dest => dest.HeatNetworkType, opt => opt.MapFrom(src => src.HeatNetworkType))
+            .ForMember(dest => dest.NetworkBuildStatus, opt => opt.MapFrom(src => src.NetworkBuildStatus))
+            .ForMember(dest => dest.EnergyCentreType, opt => opt.MapFrom(src => src.EnergyCentreType))
             .ForMember(dest => dest.HasOwnEnergyCentre, opt => opt.MapFrom(src => src.HasOwnEnergyCenter))
             .ForMember(dest => dest.HeatNetworkConnections, opt => opt.MapFrom(src => src.HeatNetworkConnections))
             .ForMember(dest => dest.Soa, opt => opt.MapFrom(src => src.Soa))
@@ -146,7 +148,9 @@ namespace HNTAS.Core.Api.MappingProfiles
                  src.Roles != null ? src.Roles.Select(r => r.ToString()).ToList() : null));            
 
             CreateMap<NetworkElements, NetworkElementsResponse>()
-                .ForMember(dest => dest.ElementsGroup, opt => opt.MapFrom(src => src.ElementsGroup))                
+                .ForMember(dest => dest.ElementsGroup, opt => opt.MapFrom(src => src.ElementsGroup))
+                .ForMember(dest => dest.Elements, opt => opt.MapFrom(src => src.Elements))
+                .ForMember(dest => dest.IsExistingEnergyCentreSupplyNewBuildings, opt => opt.MapFrom(src => src.IsExistingEnergyCentreSupplyNewBuildings))
                 .ForMember(dest => dest.NetworkElementStatus, opt => opt.MapFrom(src => src.NetworkElementStatus))
                 .ForMember(dest => dest.ElementSoaStatus, opt => opt.MapFrom(src => src.ElementSoaStatus));
 

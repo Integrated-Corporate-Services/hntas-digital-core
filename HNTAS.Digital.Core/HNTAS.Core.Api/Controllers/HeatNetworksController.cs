@@ -383,8 +383,7 @@ namespace HNTAS.Core.Api.Controllers
                     System.Text.Json.JsonSerializer.Serialize(existingHeatNetwork)
                 )!;
 
-                var requestWithInstances = GenerateElementsInstances(request);
-                existingHeatNetwork.NetworkElements = requestWithInstances;
+                existingHeatNetwork.NetworkElements = request;
 
                 await _hnService.UpdateAsync(hnId, existingHeatNetwork);
 

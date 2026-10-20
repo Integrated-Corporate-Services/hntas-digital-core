@@ -26,7 +26,8 @@ namespace HNTAS.Core.Api.Models.Soa
         public string CreatedBy { get; set; } = null!;
         public DateTime CreatedAt { get; set; }
         public string? Phase { get; set; } = null;
-        public HeatNetworkType? HeatNetworkType { get; set; }
+        public HeatNetworkType? HeatNetworkType { get; set; }        
+        public EnergyCentreType? EnergyCentreType { get; set; }
         public bool HasOwnEnergyCentre { get; set; }
         public HeatNetworkConnections? HeatNetworkConnections { get; set; } = new();
         public NetworkElementsResponse? NetworkElements { get; set; }
@@ -126,6 +127,8 @@ namespace HNTAS.Core.Api.Models.Soa
         public NetworkDetailsStatus ElementSoaStatus { get; set; }
         //public string? ElementType { get; set; }
         public List<ElementGroup> ElementsGroup { get; set; } = [];
+        public List<Element> Elements { get; set; } = [];
+        public bool IsExistingEnergyCentreSupplyNewBuildings { get; set; }
     }
 
     [ExcludeFromCodeCoverage]

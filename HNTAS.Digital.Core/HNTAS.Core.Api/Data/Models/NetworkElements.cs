@@ -20,5 +20,7 @@ namespace HNTAS.Core.Api.Data.Models
         public List<Element>? Elements { get; set; } = [];
         [BsonElement("elementsGroup")]
         public List<ElementGroup> ElementsGroup { get; set; } = [];
+        [BsonElement("isExistingEnergyCentreSupplyNewBuildings")]
+        public bool? IsExistingEnergyCentreSupplyNewBuildings { get; set; }
     }    
 }

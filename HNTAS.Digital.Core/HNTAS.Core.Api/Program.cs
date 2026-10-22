@@ -166,6 +166,8 @@ builder.Services.AddScoped<IKpiSubmissionAuditService, KpiSubmissionAuditService
 builder.Services.AddScoped<ISuperUserService, SuperUserService>();
 builder.Services.AddScoped<IArmsPowerBiService, ArmsPowerBiService>();
 builder.Services.AddSingleton<IUnitService, UnitService>();
+builder.Services.AddSingleton<IFuelTypeService, FuelTypeService>();
+builder.Services.AddSingleton<IChpOperationalModeService, ChpOperationalModeService>();
 
 //Data Migrations
 builder.Services.AddScoped<IDataMigration, SeedCountriesAndTerritories>();

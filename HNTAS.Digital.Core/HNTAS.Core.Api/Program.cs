@@ -169,8 +169,10 @@ builder.Services.AddSingleton<IUnitService, UnitService>();
 
 //Data Migrations
 builder.Services.AddScoped<IDataMigration, SeedCountriesAndTerritories>();
-builder.Services.AddScoped<IDataMigration, KpiSeedData>();
-builder.Services.AddScoped<IDataMigration, SeedAssessors>();
+if (!builder.Environment.IsEnvironment("prod"))
+{
+    builder.Services.AddScoped<IDataMigration, SeedAssessors>();
+}
 
 builder.Services.Configure<AWSDocDbSettings>(
     builder.Configuration.GetSection("AWSDocDbSettings"));

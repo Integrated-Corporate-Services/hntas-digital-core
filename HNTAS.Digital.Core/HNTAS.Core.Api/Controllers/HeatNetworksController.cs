@@ -427,16 +427,15 @@ namespace HNTAS.Core.Api.Controllers
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<HeatNetworkResponse>> UpdateEnergyCentrePlantData([FromBody] EcPlantDataRequest request)
         {
+            if (request == null)
+            {
+                _logger.LogWarning("UpdateEnergyCentrePlantData called without EcPlantDataRequest payload.");
+                return BadRequest("Please provide EcPlantDataRequest to update.");
+            }
             if (string.IsNullOrWhiteSpace(request.HnId))
             {
                 _logger.LogWarning("UpdateEnergyCentrePlantData called with empty HnId.");
                 return BadRequest("Please provide a valid heat network HnId.");
-            }
-
-            if (request == null)
-            {
-                _logger.LogWarning("UpdateEnergyCentrePlantData called without EcPlantDataRequest payload for HnId: {HnId}", StringFormatter.Sanitize(request!.HnId));
-                return BadRequest("Please provide EcPlantDataRequest to update.");
             }
 
             try

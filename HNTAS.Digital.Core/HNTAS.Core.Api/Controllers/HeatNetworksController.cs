@@ -6,6 +6,7 @@ using HNTAS.Core.Api.Extensions;
 using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
+using HNTAS.Core.Api.Models.EcPlantData;
 using HNTAS.Core.Api.Models.HeatNetwork;
 using HNTAS.Core.Api.Models.Soa;
 using HNTAS.Core.Api.Models.Users;
@@ -411,6 +412,71 @@ namespace HNTAS.Core.Api.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "An error occurred while updating NetworkElements for HnId: {HnId}", StringFormatter.Sanitize(hnId));
+                return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while updating the heat network.");
+            }
+        }
+
+        /// <summary>
+        /// Updates the EnergyCentrePlantData for a given heat network and element.
+        /// </summary>
+        [HttpPut("energy-centre-plant-data")]
+        [Consumes(MediaTypeNames.Application.Json)]
+        [ProducesResponseType(typeof(HeatNetworkResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<HeatNetworkResponse>> UpdateEnergyCentrePlantData([FromBody] EcPlantDataRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.HnId))
+            {
+                _logger.LogWarning("UpdateEnergyCentrePlantData called with empty HnId.");
+                return BadRequest("Please provide a valid heat network HnId.");
+            }
+
+            if (request == null)
+            {
+                _logger.LogWarning("UpdateEnergyCentrePlantData called without EcPlantDataRequest payload for HnId: {HnId}", StringFormatter.Sanitize(request!.HnId));
+                return BadRequest("Please provide EcPlantDataRequest to update.");
+            }
+
+            try
+            {
+                var existingHeatNetwork = await _hnService.GetByHnIdAsync(request.HnId);
+                if (existingHeatNetwork == null)
+                {
+                    _logger.LogInformation("No heat network found for HnId: {HnId}", StringFormatter.Sanitize(request.HnId));
+                    return NotFound($"No heat network found for HnId '{request.HnId}'.");
+                }                
+
+                var elementToUpdate = existingHeatNetwork.NetworkElements?.Elements?.FirstOrDefault(e => e.ElementId == request.ElementId);
+                var otherElements = existingHeatNetwork.NetworkElements?.Elements?.Where(e => e.ElementId != request.ElementId && e.ElementType == ElementTypeInShort.EC).ToList();
+
+                var isOtherElementsPlantDataNotCompleted = true;
+                if (otherElements != null)
+                {
+                    isOtherElementsPlantDataNotCompleted = otherElements.Any(e => e.EnergyCentrePlantData == null);
+                }
+
+                existingHeatNetwork.NetworkElements!.EcPlantDataStatus = isOtherElementsPlantDataNotCompleted ? NetworkDetailsStatus.InProgress : NetworkDetailsStatus.Complete;
+
+                if (elementToUpdate == null)
+                {
+                    _logger.LogInformation("No element found");
+                    return NotFound($"No element found");
+                }
+                request.EnergyCentrePlantData?.EnergyCentreStatus = NetworkDetailsStatus.Complete;
+
+                elementToUpdate.EnergyCentrePlantData = request.EnergyCentrePlantData;
+
+                await _hnService.UpdateAsync(request.HnId, existingHeatNetwork);                
+
+                _logger.LogInformation("Updated EnergyCentrePlantData for HnId: {HnId}", StringFormatter.Sanitize(request.HnId));
+                var response = CreatedAtAction(nameof(UpdateEnergyCentrePlantData), new { id = existingHeatNetwork.Id }, existingHeatNetwork);
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while updating EnergyCentrePlantData for HnId: {HnId}", StringFormatter.Sanitize(request.HnId));
                 return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while updating the heat network.");
             }
         }

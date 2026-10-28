@@ -168,6 +168,7 @@ builder.Services.AddScoped<IArmsPowerBiService, ArmsPowerBiService>();
 builder.Services.AddSingleton<IUnitService, UnitService>();
 builder.Services.AddSingleton<IFuelTypeService, FuelTypeService>();
 builder.Services.AddSingleton<IChpOperationalModeService, ChpOperationalModeService>();
+builder.Services.AddSingleton<IHeatRecoverySourceService, HeatRecoverySourceService>();
 
 //Data Migrations
 builder.Services.AddScoped<IDataMigration, SeedCountriesAndTerritories>();
@@ -175,6 +176,7 @@ builder.Services.AddScoped<IDataMigration, KpiSeedData>();
 builder.Services.AddScoped<IDataMigration, SeedAssessors>();
 builder.Services.AddScoped<IDataMigration, SeedFuelTypes>();
 builder.Services.AddScoped<IDataMigration, SeedChpOperationalModes>();
+builder.Services.AddScoped<IDataMigration, SeedHeatRecoverySources>();
 
 builder.Services.Configure<AWSDocDbSettings>(
     builder.Configuration.GetSection("AWSDocDbSettings"));

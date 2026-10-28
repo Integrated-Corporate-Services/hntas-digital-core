@@ -376,7 +376,7 @@ namespace HNTAS.Core.Api.Controllers
                 var existingHeatNetwork = await _hnService.GetByHnIdAsync(hnId);
                 if (existingHeatNetwork == null)
                 {
-                    _logger.LogInformation("No heat network found for HnId: {HnId}", StringFormatter.Sanitize(hnId));
+                    _logger.LogInformation("No heat network found for HnId: {HnId}", hnId.ToSafeLog());
                     return NotFound($"No heat network found for HnId '{hnId}'.");
                 }
 
@@ -443,7 +443,7 @@ namespace HNTAS.Core.Api.Controllers
                 var existingHeatNetwork = await _hnService.GetByHnIdAsync(request.HnId);
                 if (existingHeatNetwork == null)
                 {
-                    _logger.LogInformation("No heat network found for HnId: {HnId}", StringFormatter.Sanitize(request.HnId));
+                    _logger.LogInformation("No heat network found for HnId: {HnId}", request.HnId.ToSafeLog());
                     return NotFound($"No heat network found for HnId '{request.HnId}'.");
                 }                
 
@@ -469,13 +469,13 @@ namespace HNTAS.Core.Api.Controllers
 
                 await _hnService.UpdateAsync(request.HnId, existingHeatNetwork);                
 
-                _logger.LogInformation("Updated EnergyCentrePlantData for HnId: {HnId}", StringFormatter.Sanitize(request.HnId));
+                _logger.LogInformation("Updated EnergyCentrePlantData for HnId: {HnId}", request.HnId.ToSafeLog());
                 var response = CreatedAtAction(nameof(UpdateEnergyCentrePlantData), new { id = existingHeatNetwork.Id }, existingHeatNetwork);
                 return Ok(response);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An error occurred while updating EnergyCentrePlantData for HnId: {HnId}", StringFormatter.Sanitize(request.HnId));
+                _logger.LogError(ex, "An error occurred while updating EnergyCentrePlantData for HnId: {HnId}", request.HnId.ToSafeLog());
                 return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while updating the heat network.");
             }
         }

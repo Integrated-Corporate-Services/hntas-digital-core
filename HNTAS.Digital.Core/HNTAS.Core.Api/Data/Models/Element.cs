@@ -11,10 +11,6 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonElement("elementId")]
         public string? ElementId { get; set; }        
 
-        [BsonElement("networkElementInstanceName")]
-        [BsonRepresentation(BsonType.String)]
-        public string? NetworkElementInstanceName { get; set; }
-
         [BsonElement("soaMilestones")]
         public List<SoaMilestone>? SoaMilestones { get; set; }
 

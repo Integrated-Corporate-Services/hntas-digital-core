@@ -517,44 +517,7 @@ namespace HNTAS.Core.Api.Controllers
             };
 
             await _notificationHistoryService.CreateAsync(notificationHistory);
-        }
-
-        private NetworkElements GenerateElementsInstances(NetworkElements networkElements)
-        {
-            var elementGroups = networkElements.ElementsGroup;
-            var elementInstances = new List<Element>();
-            var instanceCounter = 1;
-            var index = 1;
-            foreach (var element in elementGroups!)
-            {
-
-                if (element.Count == 1)
-                {
-                    var ele = new Element();
-                    ele.ElementId = (index).ToString("D5");
-                    ele.ElementType = element.ElementType;
-                    ele.NetworkElementInstanceName = GetNetworkElementLabelByElementType(element.ElementDisplayType);
-                    elementInstances.Add(ele);
-                    index++;
-                    continue;
-                }
-                instanceCounter = 1;
-                for (int i = 0; i < element.Count; i++)
-                {
-                    elementInstances.Add(
-                        new Element
-                        {
-                            ElementId = (index).ToString("D5"),
-                            ElementType = element.ElementType,
-                            NetworkElementInstanceName = GetNetworkElementLabelByElementType(element.ElementDisplayType) + " - " + instanceCounter
-                        });
-                    index++;
-                    instanceCounter++;
-                }
-            }
-            networkElements.Elements = elementInstances;
-            return networkElements;
-        }
+        }        
 
         public static string GetNetworkElementLabelByElementType(HeatNetworkElementType elementType)
         {
@@ -567,19 +530,6 @@ namespace HNTAS.Core.Api.Controllers
                 HeatNetworkElementType.CommunalDistribution => "Communal Distribution Network",
                 _ => throw new ArgumentOutOfRangeException(nameof(elementType), $"Not expected heat network element ID value: {elementType}")
             };
-        }
-
-        //public static string GetNetworkElementLabelByElementType(string elementType)
-        //{
-        //    return elementType switch
-        //    {
-        //        "EC" => "Energy Centre",
-        //        "SS" => "Substation",
-        //        "DDN" => "District Distribution Network",
-        //        "CC" => "Consumer Connection",
-        //        "CDN" => "Communal Distribution Network",
-        //        _ => throw new ArgumentOutOfRangeException(nameof(elementType), $"Not expected heat network element ID value: {elementType}")
-        //    };
-        //}
+        }        
     }
 }

@@ -11,10 +11,6 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonElement("elementId")]
         public string? ElementId { get; set; }        
 
-        [BsonElement("networkElementInstanceName")]
-        [BsonRepresentation(BsonType.String)]
-        public string? NetworkElementInstanceName { get; set; }
-
         [BsonElement("soaMilestones")]
         public List<SoaMilestone>? SoaMilestones { get; set; }
 
@@ -24,5 +20,7 @@ namespace HNTAS.Core.Api.Data.Models
         public bool? IsMainEnergyCentre { get; set; }
         [BsonElement("isSupplyNewBuildings")]
         public bool? IsSupplyNewBuildings { get; set; }
+        [BsonElement("energyCentrePlantData")]
+        public EnergyCentrePlantData? EnergyCentrePlantData { get; set; }
     }    
 }

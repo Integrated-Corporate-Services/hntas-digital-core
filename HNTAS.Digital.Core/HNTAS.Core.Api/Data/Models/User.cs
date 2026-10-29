@@ -67,6 +67,9 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonElement("activeContributingOrgId")]
         public string? ActiveContributingOrgId { get; set; }
 
+        [BsonElement("workingOrgName")]
+        public string? WorkingOrgName { get; set; }
+
         [BsonElement("notificationStats")]
         public NotificationStats? NotificationStats { get; set; }
     }

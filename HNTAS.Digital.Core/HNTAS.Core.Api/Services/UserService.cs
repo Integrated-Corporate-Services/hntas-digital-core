@@ -395,6 +395,7 @@ namespace HNTAS.Core.Api.Services
                     { "status", 1 },
                     { "contributingOrganisations", 1},
                     { "activeContributingOrgId", 1 },
+                    { "workingOrgName", 1 },
                     { "invitedRoles", new BsonDocument("$setUnion", new BsonArray
                     {
                         new BsonDocument("$reduce", new BsonDocument

@@ -20,6 +20,8 @@ namespace HNTAS.Core.Api.Models.Users
 
         public string? OrgId { get; set; }
 
+        public string? InvitedOrgName { get; set; }
+
         public List<ContributorRole>? ContributorRoles { get; set; } = new();
 
         [Required(ErrorMessage = "Status is required.")]
@@ -28,5 +30,6 @@ namespace HNTAS.Core.Api.Models.Users
         public string? ReplacedUserId { get; set; }
 
         public List<ContributorRole>? RolesToReplace { get; set; } = new();
+        public string? JobTitle { get; set; }
     }
 }

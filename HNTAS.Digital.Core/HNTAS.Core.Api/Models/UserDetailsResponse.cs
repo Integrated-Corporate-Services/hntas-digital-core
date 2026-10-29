@@ -25,6 +25,7 @@ namespace HNTAS.Core.Api.Models
         public List<string>? ContributingOrganisations { get; set; }
         public string? ActiveContributingOrgId { get; set; }
         public List<ContributorRole>? InvitedRoles { get; set; }
+        public string? WorkingOrgName { get; set; }
 
     }
 

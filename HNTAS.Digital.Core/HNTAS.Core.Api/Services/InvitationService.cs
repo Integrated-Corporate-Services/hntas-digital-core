@@ -248,6 +248,9 @@ namespace HNTAS.Core.Api.Services
             if (invitedUser != null)
             {
                 invitedUser.ActiveContributingOrgId = invitation.InvitedOrgId;
+                invitedUser.WorkingOrgName = invitation.InvitedOrgName;
+                //invitedUser.OrgId = invitation.InvitedOrgId;
+
                 await UpdateExistingUser(invitedUser, invitation, heatNetwork);
                 // update invitation after user is successfully updated
                 await UpdateAsync(invitation.Id, invitation);
@@ -376,10 +379,13 @@ namespace HNTAS.Core.Api.Services
                 EmailId = invitation.InvitedEmail,
                 FirstName = invitation.FirstName,
                 LastName = invitation.LastName,
-                JobTitle = null,
+                JobTitle = invitation.JobTitle,
                 Status = UserStatus.Active,
                 ActiveContributingOrgId = invitation.InvitedOrgId,
-                ContributingOrganisations = new List<string> { invitation.InvitedOrgId }
+                ContributingOrganisations = new List<string> { invitation.InvitedOrgId },
+                //OrgId = invitation.InvitedOrgId,
+                WorkingOrgName = invitation.InvitedOrgName,
+                CreatedAt = DateTime.UtcNow
             };
 
             // In case of all roles except Network Manager

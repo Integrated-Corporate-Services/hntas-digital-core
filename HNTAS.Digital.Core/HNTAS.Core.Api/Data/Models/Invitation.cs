@@ -26,6 +26,9 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonElement("lastName")]
         public string LastName { get; set; } = null!;
 
+        [BsonElement("jobTitle")]
+        public string? JobTitle { get; set; }
+
         [BsonElement("permissions")]
         public List<string>? Permissions { get; set; }
 
@@ -39,6 +42,9 @@ namespace HNTAS.Core.Api.Data.Models
 
         [BsonElement("invitedOrgId")]
         public string? InvitedOrgId { get; set; }
+
+        [BsonElement("invitedOrgName")]
+        public string? InvitedOrgName { get; set; }
 
         [Required(ErrorMessage = "Invited roles are required.")]
         [BsonElement("invitedRoles")]

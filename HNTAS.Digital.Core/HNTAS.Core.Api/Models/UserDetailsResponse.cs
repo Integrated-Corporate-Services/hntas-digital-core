@@ -20,6 +20,7 @@ namespace HNTAS.Core.Api.Models
         public string? MobileNumber { get; set; }
         public UserStatus Status { get; set; }
         public List<UserRole>? Roles { get; set; }
+        public List<HnRoleMappingsUserResult>? HnRoleMappings { get; set; }
         public OrganisationResponse? Organisation { get; set; }
         public List<HeatNetworkUserResponse>? HeatNetworks { get; set; }
         public List<string>? ContributingOrganisations { get; set; }

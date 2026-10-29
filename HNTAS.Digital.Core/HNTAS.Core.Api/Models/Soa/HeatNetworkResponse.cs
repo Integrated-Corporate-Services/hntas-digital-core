@@ -123,9 +123,9 @@ namespace HNTAS.Core.Api.Models.Soa
 
     [ExcludeFromCodeCoverage]
     public class NetworkElementsResponse : NetworkDetailsResponseBase {
-        public NetworkDetailsStatus NetworkElementStatus { get; set; }
-        public NetworkDetailsStatus ElementSoaStatus { get; set; }
-        //public string? ElementType { get; set; }
+        public NetworkDetailsStatus? NetworkElementStatus { get; set; }
+        public NetworkDetailsStatus? ElementSoaStatus { get; set; }
+        public NetworkDetailsStatus? EcPlantDataStatus { get; set; }
         public List<ElementGroup> ElementsGroup { get; set; } = [];
         public List<Element> Elements { get; set; } = [];
         public bool IsExistingEnergyCentreSupplyNewBuildings { get; set; }

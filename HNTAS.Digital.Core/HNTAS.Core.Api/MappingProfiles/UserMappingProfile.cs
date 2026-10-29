@@ -152,6 +152,7 @@ namespace HNTAS.Core.Api.MappingProfiles
                 .ForMember(dest => dest.Elements, opt => opt.MapFrom(src => src.Elements))
                 .ForMember(dest => dest.IsExistingEnergyCentreSupplyNewBuildings, opt => opt.MapFrom(src => src.IsExistingEnergyCentreSupplyNewBuildings))
                 .ForMember(dest => dest.NetworkElementStatus, opt => opt.MapFrom(src => src.NetworkElementStatus))
+                .ForMember(dest => dest.EcPlantDataStatus, opt => opt.MapFrom(src => src.EcPlantDataStatus))
                 .ForMember(dest => dest.ElementSoaStatus, opt => opt.MapFrom(src => src.ElementSoaStatus));
 
             CreateMap<MeteringAndMonitoringStrategy, MeteringAndMonitoringStrategyResponse>()

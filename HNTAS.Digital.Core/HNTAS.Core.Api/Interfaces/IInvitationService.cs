@@ -1,6 +1,7 @@
 ﻿using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Models;
+using HNTAS.Core.Api.Models.Contributor;
 using HNTAS.Core.Api.Models.Users;
 
 namespace HNTAS.Core.Api.Interfaces
@@ -31,9 +32,16 @@ namespace HNTAS.Core.Api.Interfaces
         Task<Invitation> GetByInvitedDetailsAsync(string invitedEmailId, string invitedHnId, ContributorRole invitedRole);
         Task<List<Invitation>> GetByEmailsAndHnIdAsync(List<string> invitedEmails, string hnId);
         Task<Invitation> GetByInvitedEmailAsync(string invitedEmailId);
-        Task<(List<ManagedUserResponse> items, long totalCount)> GetInvitedUsersDdhAndContributorsAsync(string inviterOrgId, List<string> invitedRoles, int pageNumber, int pageSize, string sortBy, string sortDirection);
+        Task<(List<ManagedUserResponse> items, long totalCount)> GetInvitedUsersDdhAndContributorsAsync(string inviterOrgId, string invitedEmailId,List<string> invitedRoles, int pageNumber, int pageSize, string sortBy, string sortDirection);
         Task<List<Invitation>> GetAcceptedInvitationsByInvitedEmail(string invitedEmail);
         Task<List<Invitation>> GetAcceptedInvitationsByInvitedEmailAndOrg(string invitedEmail, string invitedOrgId);
         Task<List<Invitation>> GetInvitedDdhAndContributorsForOrgAsync(string invitedOrgId);
+
+        Task<PagedResult<ContributorResult>> GetGroupedDdhAndContributorsByOrganisationIdAsync(
+           string organisationId,
+           int pageNumber,
+           int pageSize,
+           string? sortBy = "name",
+           string sortDirection = "asc");
     }
 }

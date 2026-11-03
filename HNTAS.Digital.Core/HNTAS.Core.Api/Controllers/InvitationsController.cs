@@ -4,6 +4,7 @@ using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Extensions;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
+using HNTAS.Core.Api.Models.Contributor;
 using HNTAS.Core.Api.Models.Users;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -295,6 +296,25 @@ namespace HNTAS.Core.Api.Controllers
                 return NotFound();
             }            
             return Ok(invitation);
+        }
+
+
+        [HttpGet("organisations/{organisationId}/contributors")]
+        [ProducesResponseType(typeof(PagedResult<ContributorResult>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetGroupedDdhAndContributorsByOrganisationId(string organisationId,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] string sortBy = "name",
+        [FromQuery] string sortDirection = "asc")
+        {
+            var result = await _invitationService.GetGroupedDdhAndContributorsByOrganisationIdAsync(
+                organisationId,
+                pageNumber,
+                pageSize,
+                sortBy,
+                sortDirection);
+
+            return Ok(result);
         }
 
         private async Task NotificationHistoryForAddInvite(User user, Invitation invitation)

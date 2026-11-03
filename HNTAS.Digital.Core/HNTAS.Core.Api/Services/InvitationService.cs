@@ -4,9 +4,11 @@ using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
+using HNTAS.Core.Api.Models.Contributor;
 using HNTAS.Core.Api.Models.Users;
 using Microsoft.Extensions.Options;
 using MongoDB.Bson;
+using MongoDB.Bson.Serialization;
 using MongoDB.Driver;
 using System.Data;
 
@@ -139,7 +141,7 @@ namespace HNTAS.Core.Api.Services
                 .ToListAsync();
         }
 
-        public async Task<(List<ManagedUserResponse> items, long totalCount)> GetInvitedUsersDdhAndContributorsAsync(string inviterOrgId, List<string> invitedRoles, int pageNumber,
+        public async Task<(List<ManagedUserResponse> items, long totalCount)> GetInvitedUsersDdhAndContributorsAsync(string inviterOrgId,string invitedEmailId,List<string> invitedRoles, int pageNumber,
             int pageSize,
             string sortBy,
             string sortDirection)
@@ -151,6 +153,7 @@ namespace HNTAS.Core.Api.Services
                 new BsonDocument("$match", new BsonDocument
                 {
                     { "invitedOrgId", inviterOrgId },
+                    { "invitedEmail", invitedEmailId},
                     { "invitedRoles", new BsonDocument("$in", new BsonArray(invitedRoles)) }
                 }),
 
@@ -606,6 +609,98 @@ namespace HNTAS.Core.Api.Services
                 .Find(invitation => invitation.InvitedEmail == invitedEmail && invitation.InvitedOrgId == invitedOrgId && invitation.Status == InvitationStatus.Accepted)
                 .ToListAsync();
             return acceptedInvitations;
+        }
+
+
+        public async Task<PagedResult<ContributorResult>> GetGroupedDdhAndContributorsByOrganisationIdAsync(
+           string organisationId,
+           int pageNumber,
+           int pageSize,
+           string? sortBy = "name",
+           string sortDirection = "asc")
+            {
+                if (pageNumber < 1) pageNumber = 1;
+
+                // Step 1: Simplified sort mapping for name and email
+                var sortField = sortBy?.ToLower() switch
+                {
+                    "email" => "Email",
+                    _ => "Name"
+                };
+
+                // Step 2: Match invitations for this organisation where the role is DDH or Contributor
+                var matchStage = new BsonDocument("$match", new BsonDocument
+                {
+                    { "invitedOrgId", organisationId },
+                    { "invitedRoles", new BsonDocument("$elemMatch", new BsonDocument("$in", new BsonArray
+                        {
+                            UserRole.DesignatedDutyHolder.ToString(),
+                            UserRole.Contributor.ToString()
+                        }))
+                    }
+                });
+
+            // Step 3: Group by Name and Email to collapse duplicates into unique rows
+            var groupStage = new BsonDocument("$group", new BsonDocument
+            {
+                { "_id", new BsonDocument { { "firstName", "$firstName" }, { "lastName", "$lastName" }, { "email", "$invitedEmail" } } },
+                { "UserId", new BsonDocument("$first", new BsonDocument("$toString", "$_id")) },
+                { "Name", new BsonDocument("$first", new BsonDocument("$concat", new BsonArray { "$firstName", " ", "$lastName" })) },
+                { "Email", new BsonDocument("$first", "$invitedEmail") },
+                { "OrganisationId", new BsonDocument("$first", "$invitedOrgId") },
+                { "WorkingOrgName", new BsonDocument("$first", "$invitedOrgName") },
+            });
+
+            // Step 4: Clean up projection post-grouping
+            var projectStage = new BsonDocument("$project", new BsonDocument
+            {
+                { "_id", 0 },
+                { "UserId", 1 },
+                { "Name", 1 },
+                { "Email", 1 },
+                { "OrganisationId", 1 },
+                { "WorkingOrgName", 1 }
+            });
+
+            var sortStage = new BsonDocument("$sort", new BsonDocument(sortField, sortDirection.ToLower() == "asc" ? 1 : -1));
+            var skipStage = new BsonDocument("$skip", (pageNumber - 1) * pageSize);
+            var limitStage = new BsonDocument("$limit", pageSize);
+
+            // Step 5: Use $facet to grab total counts and paged records in a single database round-trip
+            var facetStage = new BsonDocument("$facet", new BsonDocument
+            {
+                { "metadata", new BsonArray { new BsonDocument("$count", "totalCount") } },
+                { "data", new BsonArray { sortStage, skipStage, limitStage } }
+            });
+
+            var pipeline = new[] { matchStage, groupStage, projectStage, facetStage };
+
+            var facetResult = await _invitationsCollection
+                .Aggregate<BsonDocument>(pipeline)
+                .FirstOrDefaultAsync();
+
+            var totalCount = 0;
+            var contributors = new List<ContributorResult>();
+
+            if (facetResult != null)
+            {
+                var metadata = facetResult["metadata"].AsBsonArray;
+                if (metadata.Count > 0)
+                {
+                    totalCount = metadata[0]["totalCount"].AsInt32;
+                }
+
+                var dataArray = facetResult["data"].AsBsonArray;
+                contributors = BsonSerializer.Deserialize<List<ContributorResult>>(dataArray.ToJson());
+            }
+
+            return new PagedResult<ContributorResult>
+            {
+                Items = contributors,
+                TotalCount = totalCount,
+                PageNumber = pageNumber,
+                PageSize = pageSize
+            };
         }
 
     }

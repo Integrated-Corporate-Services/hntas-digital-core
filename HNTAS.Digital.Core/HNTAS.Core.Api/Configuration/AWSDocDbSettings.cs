@@ -27,5 +27,7 @@
         public string FuelTypesCollectionName { get; set; } = null!;
         public string ChpOperationalModesCollectionName { get; set; } = null!;
         public string HeatRecoverySourcesCollectionName { get; set; } = null!;
+
+        public string FeedbackCollectionName { get; set; } = null!;
     }
 }

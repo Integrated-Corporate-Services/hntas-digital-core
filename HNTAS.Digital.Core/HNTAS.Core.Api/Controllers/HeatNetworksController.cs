@@ -260,12 +260,16 @@ namespace HNTAS.Core.Api.Controllers
                 await _hnService.CreateAsync(heatNetworkDetails, true);
                 _logger.LogInformation("New heat network initially registered: {HNID} (DB Id: {Id})", heatNetworkDetails.HnId.ToSafeLog(), heatNetworkDetails.Id.ToSafeLog());
 
-
-                ContributorRole role = user.Roles[0] switch
+                ContributorRole role;
+                if (user.Roles!.Contains(UserRole.ResponsibleParty))
                 {
-                    UserRole.ResponsibleParty => ContributorRole.ResponsibleParty,
-                    UserRole.NetworkManager => ContributorRole.NetworkManager
-                };
+                    role = ContributorRole.ResponsibleParty;
+                }
+                else
+                {
+                    role = ContributorRole.NetworkManager;
+                }
+                
 
                 // Add Hn Mapping to the user
                 User userWithUpdatedHnRoleMapping = await _userService.GetByIdAsync(heatNetworkDetails.CreatedBy);
@@ -482,7 +486,18 @@ namespace HNTAS.Core.Api.Controllers
 
         private async Task NotificationHistoryForAddingHeatNetwork(HeatNetwork heatNetwork, UserDetailsResult user)
         {
-            var userRole = user.Roles?.FirstOrDefault();
+            UserRole userRole;
+            var orgId = string.Empty;
+            if (user.Roles!.Contains(UserRole.ResponsibleParty))
+            {
+                userRole = UserRole.ResponsibleParty;
+                orgId = user.Organisation?.OrgId!;
+            }
+            else
+            {
+                userRole = UserRole.NetworkManager;
+                orgId = user.ActiveContributingOrgId!;
+            }
             var actorIds = new List<string>() { user.Id };
             var eligibleRoles = new List<string>();
             var description = $"{heatNetwork.HnId} - {heatNetwork.Name} registered";
@@ -495,7 +510,7 @@ namespace HNTAS.Core.Api.Controllers
             }
             else
             {
-                var invitation = await _invitationService.GetByInvitedEmailAsync(user.EmailId!);
+                var invitation = await _invitationService.GetByInvitedEmailAndOrgAsync(user.EmailId!, orgId);
                 if (invitation != null)
                     actorIds.Add(invitation.InviterUserId);
                 eligibleRoles.Add(UserRole.ResponsibleParty.ToString());
@@ -512,7 +527,8 @@ namespace HNTAS.Core.Api.Controllers
                 Action = NotificationHistoryActions.HeatNetworkDetails,
                 EligibleRoles = eligibleRoles,
                 HeatNetworkId = heatNetwork.HnId,
-                CreatedBy = user.Id
+                CreatedBy = user.Id,
+                OrgId = orgId
             };
 
             await _notificationHistoryService.CreateAsync(notificationHistory);

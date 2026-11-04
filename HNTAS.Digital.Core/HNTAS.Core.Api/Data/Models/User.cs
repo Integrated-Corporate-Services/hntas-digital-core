@@ -71,6 +71,6 @@ namespace HNTAS.Core.Api.Data.Models
         public string? WorkingOrgName { get; set; }
 
         [BsonElement("notificationStats")]
-        public NotificationStats? NotificationStats { get; set; }
+        public List<NotificationStats>? NotificationStats { get; set; }
     }
 }

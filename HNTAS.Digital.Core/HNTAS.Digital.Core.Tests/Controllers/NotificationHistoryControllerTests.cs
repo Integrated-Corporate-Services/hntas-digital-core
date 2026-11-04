@@ -1,4 +1,6 @@
 ﻿using HNTAS.Core.Api.Controllers;
+using HNTAS.Core.Api.Data.Models;
+using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models.NotificationHistory;
 using Microsoft.AspNetCore.Http;
@@ -34,7 +36,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             _mockNotificationSevice.Setup(n => n.GetNotificationHistoryCount(It.IsAny<string>()))
                 .ReturnsAsync(2);
 
-            _mockUserService.Setup(u => u.UpdateNotificationHistoryCountAsync(It.IsAny<string>(), It.IsAny<int>()))
+            _mockUserService.Setup(u => u.UpdateNotificationHistoryCountAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>()))
                 .Returns(Task.CompletedTask);
 
             var result = await _controller.GetNotificationHistory(request);
@@ -73,11 +75,13 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             var request = new NotificationHistoryRequest() { UserId = "test" };
             _mockNotificationSevice.Setup(n => n.GetNotificationHistory(It.IsAny<NotificationHistoryRequest>()))
                 .ReturnsAsync(new NotificationHistoryResponse());
+            var existingUser = new User { Id = "inviter-123", EmailId = "inviter@example.com", Roles = new List<UserRole> { UserRole.ResponsibleParty } };
+            _mockUserService.Setup(u => u.GetByIdAsync(It.IsAny<string>())).ReturnsAsync(existingUser);
 
             _mockNotificationSevice.Setup(n => n.GetNotificationHistoryCount(It.IsAny<string>()))
                 .ReturnsAsync(4);
 
-            _mockUserService.Setup(u => u.GetNotificationHistoryCountAsync(It.IsAny<string>()))
+            _mockUserService.Setup(u => u.GetNotificationHistoryCountAsync(It.IsAny<string>(), It.IsAny<string>()))
                 .ReturnsAsync(2);
 
             var result = await _controller.UnreadNotificationCount("userId", HNTAS.Core.Api.Enums.UserRole.NetworkManager);

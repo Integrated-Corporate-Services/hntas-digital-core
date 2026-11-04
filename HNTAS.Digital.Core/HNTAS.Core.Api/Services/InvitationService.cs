@@ -216,8 +216,14 @@ namespace HNTAS.Core.Api.Services
         public async Task<Invitation> GetByInvitedDetailsAsync(string invitedEmailId, string invitedHnId, ContributorRole invitedRole) =>
             await _invitationsCollection.Find(invitation => invitation.InvitedEmail == invitedEmailId && invitation.InvitedHnId == invitedHnId && invitation.InvitedRoles.Contains(invitedRole) && invitation.Status == Enums.InvitationStatus.Accepted).FirstOrDefaultAsync();
 
+        public async Task<Invitation> GetByInvitedDetailsAsync(string invitedEmailId, string invitedOrgId, string invitedHnId, ContributorRole invitedRole) =>
+            await _invitationsCollection.Find(invitation => invitation.InvitedEmail == invitedEmailId && invitation.InvitedOrgId == invitedOrgId && invitation.InvitedHnId == invitedHnId && invitation.InvitedRoles.Contains(invitedRole) && invitation.Status == Enums.InvitationStatus.Accepted).FirstOrDefaultAsync();
+
         public async Task<Invitation> GetByInvitedEmailAsync(string invitedEmailId) =>
             await _invitationsCollection.Find(invitation => invitation.InvitedEmail == invitedEmailId).FirstOrDefaultAsync();
+
+        public async Task<Invitation> GetByInvitedEmailAndOrgAsync(string invitedEmailId, string invitedOrgId) =>
+            await _invitationsCollection.Find(invitation => invitation.InvitedEmail == invitedEmailId && invitation.InvitedOrgId == invitedOrgId).FirstOrDefaultAsync();
 
         public async Task<AcceptInvitationResult> AcceptAsync(InvitedUserRequest request)
         {
@@ -509,11 +515,11 @@ namespace HNTAS.Core.Api.Services
             else if (invitedRole == ContributorRole.DesignatedDutyHolder)
             {
                 // check if the invitor is Network Manager, if yes then add RP to actorIds
-                var invitorDetailsOfNM = await _userService.GetByIdAsync(invitation.InviterUserId);
-                if (invitorDetailsOfNM != null && invitorDetailsOfNM.Roles.Contains(UserRole.NetworkManager))
+                var invitorDetailsOfNM = await _userService.GetUserWithDetailsAsync(invitation!.InviterUserId);
+                if (invitorDetailsOfNM != null && invitorDetailsOfNM.InvitedRoles!.Contains(ContributorRole.NetworkManager))
                 {
                     // Get the RP user details and add to actorIds
-                    var invitaions = await GetByInvitedEmailAsync(invitorDetailsOfNM.EmailId!);
+                    var invitaions = await GetByInvitedEmailAndOrgAsync(invitorDetailsOfNM.EmailId!, invitorDetailsOfNM.ActiveContributingOrgId!);
                     if (invitaions != null)
                         actorIds.AddRange(invitaions.InviterUserId);
                 }
@@ -545,6 +551,7 @@ namespace HNTAS.Core.Api.Services
                 Action = action,
                 EligibleRoles = eligibleRoles,
                 HeatNetworkId = invitation.InvitedHnId,
+                OrgId = invitation.InvitedOrgId,
                 CreatedBy = user.Id
             };
 
@@ -561,10 +568,9 @@ namespace HNTAS.Core.Api.Services
                 .Select(mapping => mapping.Role)
                 .FirstOrDefault();
 
-
             if (role == ContributorRole.NetworkManager)
             {
-                var invitaions = await GetByInvitedEmailAsync(invitorDetails.EmailId!);
+                var invitaions = await GetByInvitedEmailAndOrgAsync(invitorDetails.EmailId!, invitorDetails.ActiveContributingOrgId!);
                 if (invitaions != null)
                     actorIds.AddRange(invitaions.InviterUserId);
             }
@@ -572,6 +578,7 @@ namespace HNTAS.Core.Api.Services
             {
                 var superInvitorDetails = await GetByInvitedDetailsAsync(
                     invitorDetails.EmailId,
+                    invitorDetails.ActiveContributingOrgId!,
                     invitation.InvitedHnId!,
                     role);
 
@@ -579,17 +586,16 @@ namespace HNTAS.Core.Api.Services
                 {
                     actorIds.Add(superInvitorDetails.InviterUserId!);
                     // check if the invitor is Network Manager, if yes then add RP to actorIds
-                    var invitorDetailsOfNM = await _userService.GetByIdAsync(superInvitorDetails!.InviterUserId);
-                    if (invitorDetailsOfNM != null && invitorDetailsOfNM.Roles.Contains(UserRole.NetworkManager))
+                    var invitorDetailsOfNM = await _userService.GetUserWithDetailsAsync(superInvitorDetails!.InviterUserId);
+                    if (invitorDetailsOfNM != null && invitorDetailsOfNM.InvitedRoles!.Contains(ContributorRole.NetworkManager))
                     {
                         // Get the RP user details and add to actorIds
-                        var invitaions = await GetByInvitedEmailAsync(invitorDetailsOfNM.EmailId!);
+                        var invitaions = await GetByInvitedEmailAndOrgAsync(invitorDetailsOfNM.EmailId!, invitorDetailsOfNM.ActiveContributingOrgId!);
                         if (invitaions != null)
                             actorIds.AddRange(invitaions.InviterUserId);
                     }
                 }
             }
-
         }
 
         public async Task<List<Invitation>> GetAcceptedInvitationsByInvitedEmail(string invitedEmail)

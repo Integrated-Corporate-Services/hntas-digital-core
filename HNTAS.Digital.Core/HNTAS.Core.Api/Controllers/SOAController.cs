@@ -280,15 +280,18 @@ namespace HNTAS.Core.Api.Controllers
             var currentUser = await _userService.GetUserWithDetailsAsync(request.UpdatedBy);
             var rpUserId = "";
             var nmUserId = "";
+            var orgId = string.Empty;
             if (currentUser.Roles!.Contains(UserRole.ResponsibleParty))
             {
                 rpUserId = currentUser.Id!;
+                orgId = currentUser.Organisation!.OrgId;
             }
             else
             {
-                var invitaions = await _invitationService.GetByInvitedEmailAsync(currentUser.EmailId!);
+                var invitaions = await _invitationService.GetByInvitedEmailAndOrgAsync(currentUser.EmailId!, currentUser.ActiveContributingOrgId!);
                 nmUserId = currentUser.Id!;
                 rpUserId = invitaions.InviterUserId;
+                orgId = currentUser.ActiveContributingOrgId;
             }
 
             var users = await _userService.GetUsersAssociatedByHnIdAsync(request.HnId);
@@ -327,6 +330,7 @@ namespace HNTAS.Core.Api.Controllers
                 Description = description,
                 Timestamp = DateTime.UtcNow,
                 Action = NotificationHistoryActions.HeatNetworkDetails,
+                OrgId = orgId,
                 HeatNetworkId = heatNetwork.HnId,
                 CreatedBy = request.UpdatedBy,
                 EligibleRoles = eligibleRoles,

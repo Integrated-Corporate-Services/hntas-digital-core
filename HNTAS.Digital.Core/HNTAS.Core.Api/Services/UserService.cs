@@ -285,36 +285,71 @@ namespace HNTAS.Core.Api.Services
             return users;
         }
 
-        public async Task UpdateNotificationHistoryCountAsync(string userId, int notificationHistoryCount)
+        public async Task UpdateNotificationHistoryCountAsync(string userId, string orgId, int notificationHistoryCount)
         {
-            var filter = Builders<User>.Filter.Eq(u => u.Id, userId);
+            var userFilter = Builders<User>.Filter.Eq(u => u.Id, userId);
 
-            var missingNotificationStatsFilter = Builders<User>.Filter.And(
-                filter,
-                Builders<User>.Filter.Or(
-                    Builders<User>.Filter.Eq(u => u.NotificationStats, null),
-                    Builders<User>.Filter.Exists("notificationStats", false)
+            // Ensure NotificationStats array exists
+            await _usersCollection.UpdateOneAsync(
+                Builders<User>.Filter.And(
+                    userFilter,
+                    Builders<User>.Filter.Or(
+                        Builders<User>.Filter.Eq("notificationStats", BsonNull.Value),
+                        Builders<User>.Filter.Exists("notificationStats", false)
+                    )
+                ),
+                Builders<User>.Update.Set(u => u.NotificationStats, new List<NotificationStats>())
+            );
+
+            // Try update existing entry for this org
+            var existingEntryFilter = Builders<User>.Filter.And(
+                userFilter,
+                Builders<User>.Filter.ElemMatch(
+                    u => u.NotificationStats!,
+                    s => s.ContributingOrgId == orgId
                 )
             );
 
-            await _usersCollection.UpdateOneAsync(
-                missingNotificationStatsFilter,
-                Builders<User>.Update.Set(u => u.NotificationStats, new NotificationStats())
-            );
+            var updateExisting = Builders<User>.Update
+                .Set("notificationStats.$.notificationHistoryCount", notificationHistoryCount)
+                .Set("notificationStats.$.lastVisitedAt", DateTime.UtcNow);
 
-            var update = Builders<User>.Update
-                .Set(u => u.NotificationStats!.NotificationHistoryCount, notificationHistoryCount)
-                .Set(u => u.NotificationStats!.LastVisitedAt, DateTime.UtcNow);
+            var result = await _usersCollection.UpdateOneAsync(existingEntryFilter, updateExisting);
+                
+            // If no existing entry, append new one
+            if (result.MatchedCount == 0)
+            {
+                var addNew = Builders<User>.Update.Push(
+                    u => u.NotificationStats!,
+                    new NotificationStats
+                    {
+                        ContributingOrgId = orgId,
+                        NotificationHistoryCount = notificationHistoryCount,
+                        LastVisitedAt = DateTime.UtcNow
+                    });
 
-            await _usersCollection.UpdateOneAsync(filter, update);
+                await _usersCollection.UpdateOneAsync(userFilter, addNew);
+            }
         }
 
-        public async Task<int> GetNotificationHistoryCountAsync(string userId)
+        public async Task<int> GetNotificationHistoryCountAsync(string userId, string orgId)
         {
-            var filter = Builders<User>.Filter.Eq(u => u.Id, userId);
-            var projection = Builders<User>.Projection.Include(u => u.NotificationStats.NotificationHistoryCount);
-            var user = await _usersCollection.Find(filter).Project<User>(projection).FirstOrDefaultAsync();
-            return user?.NotificationStats?.NotificationHistoryCount ?? 0;
+            var filter = Builders<User>.Filter.And(
+                Builders<User>.Filter.Eq(u => u.Id, userId),
+                Builders<User>.Filter.ElemMatch(
+                    u => u.NotificationStats!,
+                    s => s.ContributingOrgId == orgId
+                )
+            );
+
+            var stats = await _usersCollection
+                .Find(filter)
+                .Project(u => u.NotificationStats)
+                .FirstOrDefaultAsync();
+
+            var orgStats = stats?.FirstOrDefault(s => s.ContributingOrgId == orgId);
+
+            return orgStats?.NotificationHistoryCount ?? 0;
         }
 
         // --- Private Helper Method for Reusable Pipeline ---

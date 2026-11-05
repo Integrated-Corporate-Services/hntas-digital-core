@@ -30,8 +30,10 @@ namespace HNTAS.Core.Api.Interfaces
         Task NotificationHistoryForAcceptingInvite(Invitation invitation, User user, HeatNetwork heatNetwork);
         Task AddAssociatedNetworkManagerAndRpIds(Invitation invitation, List<string> actorIds);
         Task<Invitation> GetByInvitedDetailsAsync(string invitedEmailId, string invitedHnId, ContributorRole invitedRole);
+        Task<Invitation> GetByInvitedDetailsAsync(string invitedEmailId, string invitedOrgId, string invitedHnId, ContributorRole invitedRole);
         Task<List<Invitation>> GetByEmailsAndHnIdAsync(List<string> invitedEmails, string hnId);
         Task<Invitation> GetByInvitedEmailAsync(string invitedEmailId);
+        Task<Invitation> GetByInvitedEmailAndOrgAsync(string invitedEmailId, string invitedOrgId);
         Task<(List<ManagedUserResponse> items, long totalCount)> GetInvitedUsersDdhAndContributorsAsync(string inviterOrgId, string invitedEmailId,List<string> invitedRoles, int pageNumber, int pageSize, string sortBy, string sortDirection);
         Task<List<Invitation>> GetAcceptedInvitationsByInvitedEmail(string invitedEmail);
         Task<List<Invitation>> GetAcceptedInvitationsByInvitedEmailAndOrg(string invitedEmail, string invitedOrgId);

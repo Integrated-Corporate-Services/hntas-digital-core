@@ -7,6 +7,9 @@ namespace HNTAS.Core.Api.Data.Models
     [ExcludeFromCodeCoverage]
     public class NotificationStats
     {
+        [BsonElement("contributingOrgId")]
+        [BsonRepresentation(BsonType.String)]
+        public string? ContributingOrgId { get; set; }
         [BsonElement("notificationHistoryCount")]
         public int NotificationHistoryCount { get; set; }
         [BsonElement("lastVisitedAt")]

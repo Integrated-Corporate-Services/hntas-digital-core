@@ -328,7 +328,7 @@ public class UsersController : ControllerBase
             var newUser = new User
             {
                 OneLoginId = registrationData.OneLoginId,
-                EmailId = registrationData.EmailId,
+                EmailId = registrationData.EmailId.ToLower(),
                 Status = registrationData.Status,
                 CreatedAt = DateTime.UtcNow,
             };

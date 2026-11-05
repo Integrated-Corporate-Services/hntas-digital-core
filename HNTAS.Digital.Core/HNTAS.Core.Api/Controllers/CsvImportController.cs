@@ -52,7 +52,7 @@ namespace HNTAS.Core.Api.Controllers
                     // update the associated network managers with new heat network data if any heat networks were inserted or updated                
                     foreach(var item in result.DataForExistingOrgOrUser)
                     {
-                        var rpEmailId = item.UserEmailId;
+                        var rpEmailId = item.UserEmailId.ToLower();
                         var heatNetworkIds = item.HeatNetworkIds;
                         var rpUser = await _userService.GetByEmailAsync(rpEmailId);
                         var networkManagers = await _userService.GetActiveNetworkManagersByRpUserIdAsync(rpUser.Id);

@@ -260,16 +260,11 @@ namespace HNTAS.Core.Api.Controllers
                 await _hnService.CreateAsync(heatNetworkDetails, true);
                 _logger.LogInformation("New heat network initially registered: {HNID} (DB Id: {Id})", heatNetworkDetails.HnId.ToSafeLog(), heatNetworkDetails.Id.ToSafeLog());
 
-                ContributorRole role;
+                ContributorRole role = ContributorRole.NetworkManager;
                 if (user.Roles!.Contains(UserRole.ResponsibleParty))
                 {
                     role = ContributorRole.ResponsibleParty;
                 }
-                else
-                {
-                    role = ContributorRole.NetworkManager;
-                }
-                
 
                 // Add Hn Mapping to the user
                 User userWithUpdatedHnRoleMapping = await _userService.GetByIdAsync(heatNetworkDetails.CreatedBy);

@@ -287,6 +287,10 @@ namespace HNTAS.Core.Api.Services
         public async Task UpdateNotificationHistoryCountAsync(string userId, string orgId, int notificationHistoryCount)
         {
             var userFilter = Builders<User>.Filter.Eq(u => u.Id, userId);
+            var orgEntryFilter = Builders<User>.Filter.ElemMatch(
+                u => u.NotificationStats!,
+                s => s.ContributingOrgId == orgId
+            );
 
             // Ensure NotificationStats array exists
             await _usersCollection.UpdateOneAsync(
@@ -303,31 +307,40 @@ namespace HNTAS.Core.Api.Services
             // Try update existing entry for this org
             var existingEntryFilter = Builders<User>.Filter.And(
                 userFilter,
-                Builders<User>.Filter.ElemMatch(
-                    u => u.NotificationStats!,
-                    s => s.ContributingOrgId == orgId
-                )
+                orgEntryFilter
             );
+
+            var now = DateTime.UtcNow;
 
             var updateExisting = Builders<User>.Update
                 .Set("notificationStats.$.notificationHistoryCount", notificationHistoryCount)
-                .Set("notificationStats.$.lastVisitedAt", DateTime.UtcNow);
+                .Set("notificationStats.$.lastVisitedAt", now);
 
             var result = await _usersCollection.UpdateOneAsync(existingEntryFilter, updateExisting);
                 
-            // If no existing entry, append new one
+            // If no existing entry, append only when this org is still absent
             if (result.MatchedCount == 0)
             {
+                var missingOrgEntryFilter = Builders<User>.Filter.And(
+                    userFilter,
+                    Builders<User>.Filter.Not(orgEntryFilter)
+                );
+
                 var addNew = Builders<User>.Update.Push(
                     u => u.NotificationStats!,
                     new NotificationStats
                     {
                         ContributingOrgId = orgId,
                         NotificationHistoryCount = notificationHistoryCount,
-                        LastVisitedAt = DateTime.UtcNow
+                        LastVisitedAt = now
                     });
 
-                await _usersCollection.UpdateOneAsync(userFilter, addNew);
+                var appendResult = await _usersCollection.UpdateOneAsync(missingOrgEntryFilter, addNew);
+
+                if (appendResult.ModifiedCount == 0)
+                {
+                    await _usersCollection.UpdateOneAsync(existingEntryFilter, updateExisting);
+                }
             }
         }
 

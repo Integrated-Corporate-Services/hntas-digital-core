@@ -112,8 +112,8 @@ namespace HNTAS.Digital.Core.Tests.Controllers
         {
             // Arrange
             var inviterId = "inviter-123";
-            var existingUser = new User { Id = inviterId, EmailId = "inviter@example.com" };
-            _mockUserService.Setup(u => u.GetByIdAsync(inviterId)).ReturnsAsync(existingUser);
+            var existingUser = new UserDetailsResult { Id = inviterId, EmailId = "inviter@example.com", InvitedRoles = new List<ContributorRole> { ContributorRole.ResponsibleParty }, Roles = new List<UserRole> { UserRole.ResponsibleParty } };
+            _mockUserService.Setup(u => u.GetUserWithDetailsAsync(inviterId)).ReturnsAsync(existingUser);
 
             var request = new AddInvitationRequest
             {
@@ -122,7 +122,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
                 LastName = "User",
                 HnId = null,
                 OrgId = null,
-                ContributorRoles = new List<ContributorRole> { ContributorRole.Certifier },
+                ContributorRoles = new List<ContributorRole> { ContributorRole.ResponsibleParty },
                 RolesToReplace = new List<ContributorRole>()
             };
 
@@ -145,7 +145,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             Assert.Equal(201, createdResult.StatusCode);
             Assert.Equal("new-invite-id", createdResult.Value);
             _mockInvitationService.Verify(i => i.CreateAsync(It.IsAny<Invitation>()), Times.Once);
-            _mockUserService.Verify(u => u.GetByIdAsync(inviterId), Times.Once);
+            _mockUserService.Verify(u => u.GetUserWithDetailsAsync(inviterId), Times.Once);
         }
 
         [Fact]
@@ -232,9 +232,8 @@ namespace HNTAS.Digital.Core.Tests.Controllers
         public async Task AddUserInvitation_ThrowException()
         {
             // Arrange
-            var inviterId = "inviter-123";
-            var existingUser = new User { Id = inviterId, EmailId = "inviter@example.com" };
-            _mockUserService.Setup(u => u.GetByIdAsync(inviterId)).Throws(new Exception());
+            var inviterId = "inviter-123";            
+            _mockUserService.Setup(u => u.GetUserWithDetailsAsync(inviterId)).Throws(new Exception());
 
             var request = new AddInvitationRequest
             {
@@ -269,8 +268,8 @@ namespace HNTAS.Digital.Core.Tests.Controllers
         {
             // Arrange
             var inviterId = "inviter-123";
-            var existingUser = new User { Id = inviterId, EmailId = "inviter@example.com" };
-            _mockUserService.Setup(u => u.GetByIdAsync(inviterId)).ReturnsAsync(existingUser);
+            var existingUser = new UserDetailsResult { Id = inviterId, EmailId = "inviter@example.com", InvitedRoles = new List<ContributorRole> { ContributorRole.ResponsibleParty }, Roles = new List<UserRole> { invitorRole } };
+            _mockUserService.Setup(u => u.GetUserWithDetailsAsync(inviterId)).ReturnsAsync(existingUser);
 
             var request = new AddInvitationRequest
             {

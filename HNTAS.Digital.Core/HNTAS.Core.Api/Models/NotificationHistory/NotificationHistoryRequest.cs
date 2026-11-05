@@ -6,6 +6,7 @@ namespace HNTAS.Core.Api.Models.NotificationHistory
     public class NotificationHistoryRequest
     {
         public string? UserId { get; set; }
+        public string? OrgId { get; set; }
         public string? SortBy { get; set; }
         public string? SortDirection { get; set; }
         public int Page { get; set; }

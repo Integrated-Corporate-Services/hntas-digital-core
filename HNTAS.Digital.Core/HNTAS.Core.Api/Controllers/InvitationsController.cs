@@ -134,7 +134,7 @@ namespace HNTAS.Core.Api.Controllers
                     FirstName = request.FirstName,
                     LastName = request.LastName,
                     InviterUserId = existingUser.Id, // Link to the user who sent the invite
-                    InvitedEmail = request.EmailAddress,
+                    InvitedEmail = request.EmailAddress.ToLower(),
                     InvitedHnId = request.HnId,
                     InvitedOrgId = request.OrgId,
                     InvitedRoles = request.ContributorRoles,

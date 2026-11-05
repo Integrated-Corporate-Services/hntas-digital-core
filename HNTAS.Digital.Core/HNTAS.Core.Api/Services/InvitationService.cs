@@ -4,9 +4,11 @@ using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
+using HNTAS.Core.Api.Models.Contributor;
 using HNTAS.Core.Api.Models.Users;
 using Microsoft.Extensions.Options;
 using MongoDB.Bson;
+using MongoDB.Bson.Serialization;
 using MongoDB.Driver;
 using System.Data;
 
@@ -139,7 +141,7 @@ namespace HNTAS.Core.Api.Services
                 .ToListAsync();
         }
 
-        public async Task<(List<ManagedUserResponse> items, long totalCount)> GetInvitedUsersDdhAndContributorsAsync(string inviterOrgId, List<string> invitedRoles, int pageNumber,
+        public async Task<(List<ManagedUserResponse> items, long totalCount)> GetInvitedUsersDdhAndContributorsAsync(string inviterOrgId,string invitedEmailId,List<string> invitedRoles, int pageNumber,
             int pageSize,
             string sortBy,
             string sortDirection)
@@ -151,6 +153,7 @@ namespace HNTAS.Core.Api.Services
                 new BsonDocument("$match", new BsonDocument
                 {
                     { "invitedOrgId", inviterOrgId },
+                    { "invitedEmail", invitedEmailId},
                     { "invitedRoles", new BsonDocument("$in", new BsonArray(invitedRoles)) }
                 }),
 
@@ -216,8 +219,14 @@ namespace HNTAS.Core.Api.Services
         public async Task<Invitation> GetByInvitedDetailsAsync(string invitedEmailId, string invitedHnId, ContributorRole invitedRole) =>
             await _invitationsCollection.Find(invitation => invitation.InvitedEmail == invitedEmailId && invitation.InvitedHnId == invitedHnId && invitation.InvitedRoles.Contains(invitedRole) && invitation.Status == Enums.InvitationStatus.Accepted).FirstOrDefaultAsync();
 
+        public async Task<Invitation> GetByInvitedDetailsAsync(string invitedEmailId, string invitedOrgId, string invitedHnId, ContributorRole invitedRole) =>
+            await _invitationsCollection.Find(invitation => invitation.InvitedEmail == invitedEmailId && invitation.InvitedOrgId == invitedOrgId && invitation.InvitedHnId == invitedHnId && invitation.InvitedRoles.Contains(invitedRole) && invitation.Status == Enums.InvitationStatus.Accepted).FirstOrDefaultAsync();
+
         public async Task<Invitation> GetByInvitedEmailAsync(string invitedEmailId) =>
             await _invitationsCollection.Find(invitation => invitation.InvitedEmail == invitedEmailId).FirstOrDefaultAsync();
+
+        public async Task<Invitation> GetByInvitedEmailAndOrgAsync(string invitedEmailId, string invitedOrgId) =>
+            await _invitationsCollection.Find(invitation => invitation.InvitedEmail == invitedEmailId && invitation.InvitedOrgId == invitedOrgId).FirstOrDefaultAsync();
 
         public async Task<AcceptInvitationResult> AcceptAsync(InvitedUserRequest request)
         {
@@ -509,11 +518,11 @@ namespace HNTAS.Core.Api.Services
             else if (invitedRole == ContributorRole.DesignatedDutyHolder)
             {
                 // check if the invitor is Network Manager, if yes then add RP to actorIds
-                var invitorDetailsOfNM = await _userService.GetByIdAsync(invitation.InviterUserId);
-                if (invitorDetailsOfNM != null && invitorDetailsOfNM.Roles.Contains(UserRole.NetworkManager))
+                var invitorDetailsOfNM = await _userService.GetUserWithDetailsAsync(invitation!.InviterUserId);
+                if (invitorDetailsOfNM != null && invitorDetailsOfNM.InvitedRoles!.Contains(ContributorRole.NetworkManager))
                 {
                     // Get the RP user details and add to actorIds
-                    var invitaions = await GetByInvitedEmailAsync(invitorDetailsOfNM.EmailId!);
+                    var invitaions = await GetByInvitedEmailAndOrgAsync(invitorDetailsOfNM.EmailId!, invitorDetailsOfNM.ActiveContributingOrgId!);
                     if (invitaions != null)
                         actorIds.AddRange(invitaions.InviterUserId);
                 }
@@ -545,6 +554,7 @@ namespace HNTAS.Core.Api.Services
                 Action = action,
                 EligibleRoles = eligibleRoles,
                 HeatNetworkId = invitation.InvitedHnId,
+                OrgId = invitation.InvitedOrgId,
                 CreatedBy = user.Id
             };
 
@@ -561,10 +571,9 @@ namespace HNTAS.Core.Api.Services
                 .Select(mapping => mapping.Role)
                 .FirstOrDefault();
 
-
             if (role == ContributorRole.NetworkManager)
             {
-                var invitaions = await GetByInvitedEmailAsync(invitorDetails.EmailId!);
+                var invitaions = await GetByInvitedEmailAndOrgAsync(invitorDetails.EmailId!, invitorDetails.ActiveContributingOrgId!);
                 if (invitaions != null)
                     actorIds.AddRange(invitaions.InviterUserId);
             }
@@ -572,6 +581,7 @@ namespace HNTAS.Core.Api.Services
             {
                 var superInvitorDetails = await GetByInvitedDetailsAsync(
                     invitorDetails.EmailId,
+                    invitorDetails.ActiveContributingOrgId!,
                     invitation.InvitedHnId!,
                     role);
 
@@ -579,17 +589,16 @@ namespace HNTAS.Core.Api.Services
                 {
                     actorIds.Add(superInvitorDetails.InviterUserId!);
                     // check if the invitor is Network Manager, if yes then add RP to actorIds
-                    var invitorDetailsOfNM = await _userService.GetByIdAsync(superInvitorDetails!.InviterUserId);
-                    if (invitorDetailsOfNM != null && invitorDetailsOfNM.Roles.Contains(UserRole.NetworkManager))
+                    var invitorDetailsOfNM = await _userService.GetUserWithDetailsAsync(superInvitorDetails!.InviterUserId);
+                    if (invitorDetailsOfNM != null && invitorDetailsOfNM.InvitedRoles!.Contains(ContributorRole.NetworkManager))
                     {
                         // Get the RP user details and add to actorIds
-                        var invitaions = await GetByInvitedEmailAsync(invitorDetailsOfNM.EmailId!);
+                        var invitaions = await GetByInvitedEmailAndOrgAsync(invitorDetailsOfNM.EmailId!, invitorDetailsOfNM.ActiveContributingOrgId!);
                         if (invitaions != null)
                             actorIds.AddRange(invitaions.InviterUserId);
                     }
                 }
             }
-
         }
 
         public async Task<List<Invitation>> GetAcceptedInvitationsByInvitedEmail(string invitedEmail)
@@ -608,5 +617,118 @@ namespace HNTAS.Core.Api.Services
             return acceptedInvitations;
         }
 
-    }
+
+        public async Task<PagedResult<ContributorResult>> GetGroupedDdhAndContributorsByOrganisationIdAsync(
+        string organisationId,
+        int pageNumber,
+        int pageSize,
+        string? sortBy = "name",
+        string sortDirection = "asc")
+        {
+                if (pageNumber < 1) pageNumber = 1;
+
+                var sortField = sortBy?.ToLower() switch
+                {
+                    "email" => "Email",
+                    _ => "Name"
+                };
+
+                var matchStage = new BsonDocument("$match", new BsonDocument
+                {
+                    { "invitedOrgId", organisationId },
+                    {
+                        "invitedRoles",
+                        new BsonDocument("$elemMatch",
+                            new BsonDocument("$in", new BsonArray
+                            {
+                                UserRole.DesignatedDutyHolder.ToString(),
+                                UserRole.Contributor.ToString()
+                            }))
+                    }
+                });
+
+                var groupStage = new BsonDocument("$group", new BsonDocument
+                {
+                    {
+                        "_id", new BsonDocument
+                        {
+                            { "firstName", "$firstName" },
+                            { "lastName", "$lastName" },
+                            { "email", "$invitedEmail" }
+                        }
+                    },
+                    {
+                        "UserId",
+                        new BsonDocument("$first",
+                            new BsonDocument("$toString", "$_id"))
+                    },
+                    {
+                        "Name",
+                        new BsonDocument("$first",
+                            new BsonDocument("$concat",
+                                new BsonArray
+                                {
+                                    "$firstName",
+                                    " ",
+                                    "$lastName"
+                                }))
+                    },
+                    { "Email", new BsonDocument("$first", "$invitedEmail") },
+                    { "OrganisationId", new BsonDocument("$first", "$invitedOrgId") },
+                    { "WorkingOrgName", new BsonDocument("$first", "$invitedOrgName") }
+                });
+
+                var projectStage = new BsonDocument("$project", new BsonDocument
+                {
+                    { "_id", 0 },
+                    { "UserId", 1 },
+                    { "Name", 1 },
+                    { "Email", 1 },
+                    { "OrganisationId", 1 },
+                    { "WorkingOrgName", 1 }
+                });
+
+                var sortStage = new BsonDocument("$sort",
+                    new BsonDocument(sortField, sortDirection.ToLower() == "asc" ? 1 : -1));
+
+                var skipStage = new BsonDocument("$skip", (pageNumber - 1) * pageSize);
+
+                var limitStage = new BsonDocument("$limit", pageSize);
+
+                // Count query
+                var countPipeline = new[]
+                {
+                    matchStage,
+                    groupStage
+                };
+
+                var totalCount = (await _invitationsCollection
+                    .Aggregate<BsonDocument>(countPipeline)
+                    .ToListAsync())
+                    .Count;
+
+                // Data query
+                var dataPipeline = new[]
+                {
+                    matchStage,
+                    groupStage,
+                    projectStage,
+                    sortStage,
+                    skipStage,
+                    limitStage
+                };
+
+                var contributors = await _invitationsCollection
+                    .Aggregate<ContributorResult>(dataPipeline)
+                    .ToListAsync();
+
+                return new PagedResult<ContributorResult>
+                {
+                    Items = contributors,
+                    TotalCount = totalCount,
+                    PageNumber = pageNumber,
+                    PageSize = pageSize
+                };
+            }
+        }
 }

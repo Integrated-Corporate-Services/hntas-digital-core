@@ -13,6 +13,9 @@ namespace HNTAS.Core.Api.Models
         [BsonElement("name")]
         public string Name { get; set; } = string.Empty;
 
+        [BsonElement("role")]
+        public string Role { get; set; } = string.Empty;
+
         // Expose EC details in the response DTO
         [BsonElement("ecDetails")]
         public ECDetails? ECDetails { get; set; }

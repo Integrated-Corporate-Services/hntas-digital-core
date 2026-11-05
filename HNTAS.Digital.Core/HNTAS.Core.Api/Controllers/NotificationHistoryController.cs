@@ -41,9 +41,9 @@ namespace HNTAS.Core.Api.Controllers
                     return NotFound();
                 }
 
-                var notificationHistoryCount = await _notificationHistoryService.GetNotificationHistoryCount(request.UserId!);
+                var notificationHistoryCount = await _notificationHistoryService.GetNotificationHistoryCount(request.UserId!, request.OrgId!);
                 
-                await _userService.UpdateNotificationHistoryCountAsync(request.UserId!, notificationHistoryCount);
+                await _userService.UpdateNotificationHistoryCountAsync(request.UserId!, request.OrgId!, notificationHistoryCount);
 
                 _logger.LogInformation("Notification history(s) are retrieved successfully for the user: {userId}", StringFormatter.Sanitize(request.UserId!));
                 return Ok(result);
@@ -63,8 +63,19 @@ namespace HNTAS.Core.Api.Controllers
         {
             try
             {
-                var notificationHistoryCount = await _notificationHistoryService.GetNotificationHistoryCount(userId);
-                var userStatsNotificatonCount = await _userService.GetNotificationHistoryCountAsync(userId);
+                var user = await _userService.GetByIdAsync(userId);
+                var orgId = string.Empty;
+                if (user.Roles.Contains(UserRole.ResponsibleParty))
+                {
+                    orgId = user.OrgId!;
+                }
+                else
+                {
+                    orgId = user.ActiveContributingOrgId;
+                }
+                
+                var notificationHistoryCount = await _notificationHistoryService.GetNotificationHistoryCount(userId, orgId!);
+                var userStatsNotificatonCount = await _userService.GetNotificationHistoryCountAsync(userId, orgId!);
                 var unreadNotificationCount = notificationHistoryCount - userStatsNotificatonCount;
                 _logger.LogInformation("Unread Notification Count is retrieved successfully for the user: {userId}", StringFormatter.Sanitize(userId));
                 return Ok(unreadNotificationCount);

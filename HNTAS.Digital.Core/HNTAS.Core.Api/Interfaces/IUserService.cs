@@ -29,7 +29,7 @@ namespace HNTAS.Core.Api.Interfaces
         Task UpdateUserNetwork(string userId, string hnId, ContributorRole role = ContributorRole.ResponsibleParty);
         Task<List<User>> GetActiveNetworkManagersByRpUserIdAsync(string rpUserId);
         Task<List<ManagedUserResponse>> GetActiveUsers(List<ManagedUserResponse> users);
-        Task UpdateNotificationHistoryCountAsync(string userId, int notificationHistoryCount);
-        Task<int> GetNotificationHistoryCountAsync(string userId);
+        Task UpdateNotificationHistoryCountAsync(string userId, string orgId, int notificationHistoryCount);
+        Task<int> GetNotificationHistoryCountAsync(string userId, string orgId);
     }
 }

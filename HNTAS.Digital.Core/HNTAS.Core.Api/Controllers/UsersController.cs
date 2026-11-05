@@ -5,6 +5,7 @@ using HNTAS.Core.Api.Extensions;
 using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
+using HNTAS.Core.Api.Models.Contributor;
 using HNTAS.Core.Api.Models.Users;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -327,7 +328,7 @@ public class UsersController : ControllerBase
             var newUser = new User
             {
                 OneLoginId = registrationData.OneLoginId,
-                EmailId = registrationData.EmailId,
+                EmailId = registrationData.EmailId.ToLower(),
                 Status = registrationData.Status,
                 CreatedAt = DateTime.UtcNow,
             };
@@ -813,23 +814,31 @@ public class UsersController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [Produces("application/json")]
     public async Task<ActionResult<PagedResult<ManagedUserResponse>>> GetDdhAndContributorsPaginated(
-        string userId,         
+        string invitationId,
+        string OrganisationId,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,
         [FromQuery] string sortBy = "firstName",
         [FromQuery] string sortDirection = "asc")
     {
-        var user = await _userService.GetUserWithDetailsAsync(userId);
-        if (user == null)
-        {
-            _logger.LogWarning("User with ID {UserId} not found.", userId.ToSafeLog());
-            return NotFound();
-        }
+        var userInvitation = await _invitationService.GetByIdAsync(invitationId);
+
+        //var user = await _userService.GetUserWithDetailsAsync(userId);
+        //if (user == null)
+        //{
+        //    _logger.LogWarning("User with ID {UserId} not found.", userId.ToSafeLog());
+        //    return NotFound();
+        //}
         var managedUsers = new List<ManagedUserResponse>();
 
-        var orgId = user.Roles!.Contains(UserRole.ResponsibleParty) ? user.Organisation!.OrgId : user.ActiveContributingOrgId;
-        var invitedRoles = user.InvitedRoles!.Contains(ContributorRole.DesignatedDutyHolder) ? new List<string> { ContributorRole.Contributor.ToString() } : new List<string> { ContributorRole.DesignatedDutyHolder.ToString(), ContributorRole.Contributor.ToString() };
-        var (invitations, totalCount) = await _invitationService.GetInvitedUsersDdhAndContributorsAsync(orgId!, invitedRoles, pageNumber, pageSize, sortBy, sortDirection);
+        //var orgId = user.Roles!.Contains(UserRole.ResponsibleParty) ? user.Organisation!.OrgId : user.ActiveContributingOrgId;
+        //var invitedRoles = user.InvitedRoles!.Contains(ContributorRole.DesignatedDutyHolder) ? 
+        //    new List<string> { ContributorRole.DesignatedDutyHolder.ToString() } : 
+        //    new List<string> { ContributorRole.Contributor.ToString() };
+
+        var invitedRoles = new List<string> { ContributorRole.DesignatedDutyHolder.ToString(), ContributorRole.Contributor.ToString() };
+
+        var (invitations, totalCount) = await _invitationService.GetInvitedUsersDdhAndContributorsAsync(OrganisationId, userInvitation.InvitedEmail, invitedRoles, pageNumber, pageSize, sortBy, sortDirection);
         
         // get the invitations where the status is accepted
         var acceptedInvitations = invitations.Where(i => i.Status == InvitationStatus.Accepted.ToString()).ToList();
@@ -845,7 +854,8 @@ public class UsersController : ControllerBase
             }
         }
 
-        _logger.LogInformation("Managed users retrieved successfully for user ID: {UserId}", userId.ToSafeLog());
+        _logger.LogInformation("Managed users retrieved successfully for invitation ID: {InvitationId}", userInvitation.Id.ToSafeLog());
+
         return Ok(new PagedResult<ManagedUserResponse>
         {
             Items = invitations,
@@ -1003,6 +1013,8 @@ public class UsersController : ControllerBase
 
         return Ok(usersResponse);
     }
+
+
 
     private static List<HeatNetworkInfo> MapHeatNetworks(UserDetailsResult user)
     {

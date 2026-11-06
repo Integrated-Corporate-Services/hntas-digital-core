@@ -270,6 +270,7 @@ namespace HNTAS.Core.Api.Services
             var newUser = await CreateUser(request, invitation, heatNetwork);
             // update invitation after user is successfully created
             await UpdateAsync(invitation.Id, invitation);
+
             return AcceptInvitationResult.Created(newUser.Id!);
         }
 

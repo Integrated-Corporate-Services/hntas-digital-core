@@ -258,7 +258,9 @@ namespace HNTAS.Core.Api.Services
             {
                 invitedUser.ActiveContributingOrgId = invitation.InvitedOrgId;
                 invitedUser.WorkingOrgName = invitation.InvitedOrgName;
-                //invitedUser.OrgId = invitation.InvitedOrgId;
+                invitedUser.FirstName = string.IsNullOrEmpty(invitedUser.FirstName) ? invitation.FirstName : invitedUser.FirstName;
+                invitedUser.LastName = string.IsNullOrEmpty(invitedUser.LastName) ? invitation.LastName : invitedUser.LastName;
+                invitedUser.JobTitle = string.IsNullOrEmpty(invitedUser.JobTitle) ? invitation.JobTitle : invitedUser.JobTitle;
 
                 await UpdateExistingUser(invitedUser, invitation, heatNetwork);
                 // update invitation after user is successfully updated
@@ -412,7 +414,7 @@ namespace HNTAS.Core.Api.Services
             }
             else
             {
-                AddHnMapping(user, invitation);
+                await AddHnMapping(user, invitation);
             }
 
             user.Roles = MapAndFilterRoles(invitation.InvitedRoles);

@@ -14,5 +14,7 @@ namespace HNTAS.Core.Api.Interfaces
         Task<Organisation> GetByCompanyHouseNumberAsync(string companyHouseNumber);
         Task UpdateAsync(string orgId, string hnId);
         Task<List<Organisation>> GetOrganisationsByOrgIds(List<string> orgIds);
+
+        Task<Organisation> GetOrganisationByHnId(string hnId);
     }
 }

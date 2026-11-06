@@ -293,7 +293,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             _mockInvitationService.Setup(i => i.GetNetworkManagersByInviterUserId(It.IsAny<string>())).ReturnsAsync(new List<Invitation>() { new Invitation { Status = InvitationStatus.Accepted, InvitedEmail = "test" } });
             _mockUserService.Setup(u => u.GetByEmailAsync(It.IsAny<string>())).ReturnsAsync(new User { Id = "user1", EmailId = "test" });
             _mockUserService.Setup(u => u.UpdateAsync(It.IsAny<string>(), It.IsAny<User>())).Returns(Task.CompletedTask);
-            _mockEmailService.Setup(e => e.TrySendHeatNetworkRegistrationEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>())).Returns(Task.CompletedTask);
+            _mockEmailService.Setup(e => e.TrySendHeatNetworkRegistrationEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>())).Returns(Task.CompletedTask);
             // Act
             var result = await _controller.AddHeatNetwork(input);
 
@@ -334,7 +334,7 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             _mockUserService.Setup(s => s.UpdateAsync(It.IsAny<string>(), It.IsAny<User>())).Returns(Task.CompletedTask);
             _mockInvitationService.Setup(i => i.GetNetworkManagersByInviterUserId(It.IsAny<string>())).ReturnsAsync(new List<Invitation>() { new Invitation { Status = InvitationStatus.Accepted, InvitedEmail = "test" } });
             _mockOrganisationService.Setup(o => o.GetByOrgIdAsync(It.IsAny<string>())).ReturnsAsync(new Organisation { Id = "org1", Name = "Org 1", RpUserId = "rpid" });
-            _mockEmailService.Setup(e => e.TrySendHeatNetworkRegistrationEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>())).Returns(Task.CompletedTask);
+            _mockEmailService.Setup(e => e.TrySendHeatNetworkRegistrationEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>())).Returns(Task.CompletedTask);
             // Act
             var result = await _controller.AddHeatNetwork(input);
 

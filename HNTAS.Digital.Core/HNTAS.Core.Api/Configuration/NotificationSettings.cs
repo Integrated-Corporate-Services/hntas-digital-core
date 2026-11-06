@@ -13,5 +13,8 @@
         public string CertificationCompleteNotificationTemplatedId { get; set; } = null!;
         public string OfgemDataForExistingOrgOrRpTemplateId { get; set; } = null!;
         public string OfgemDataForNewRpTemplateId { get; set; } = null!;
+
+        public string InvitationRejectionTemplatedId { get; set; } = null!;
+        public string NetworkManagerAcceptedToRPTemplateId { get; set; } = null!;
     }
 }

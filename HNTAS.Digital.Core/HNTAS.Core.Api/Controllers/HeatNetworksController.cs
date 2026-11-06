@@ -270,13 +270,14 @@ namespace HNTAS.Core.Api.Controllers
                 User userWithUpdatedHnRoleMapping = await _userService.GetByIdAsync(heatNetworkDetails.CreatedBy);
                 userWithUpdatedHnRoleMapping.HnRoleMappings.Add(new HnRoleMapping { HnId = heatNetworkDetails.HnId, Role = role });
                 await _userService.UpdateAsync(heatNetworkDetails.CreatedBy, userWithUpdatedHnRoleMapping);
+                string oranisationName = string.Empty;
 
                 if (role == ContributorRole.ResponsibleParty)
                 {
                     //find the network managers
                     var allNetworkManagers = await _invitationService.GetNetworkManagersByInviterUserId(heatNetworkDetails.CreatedBy);
                     var acceptedNetworkManagers = allNetworkManagers.Where(nm => nm.Status == InvitationStatus.Accepted).ToList();
-
+                    oranisationName = user.Organisation?.Name ?? string.Empty;
                     // All networks managers reporting to the rp can access all heat networks the rp adds
                     foreach (var nm in acceptedNetworkManagers)
                     {
@@ -294,6 +295,7 @@ namespace HNTAS.Core.Api.Controllers
                     var orgDetails = await _organisationService.GetByOrgIdAsync(heatNetworkDetails.OrgId);
                     var rpUserId = orgDetails.RpUserId;
                     var rpUser = await _userService.GetByIdAsync(rpUserId);
+                    oranisationName = orgDetails.Name;
                     rpUser.HnRoleMappings.Add(new HnRoleMapping { HnId = heatNetworkDetails.HnId, Role = ContributorRole.ResponsibleParty });
                     await _userService.UpdateAsync(rpUser.Id, rpUser);
                 }
@@ -303,7 +305,7 @@ namespace HNTAS.Core.Api.Controllers
                 string fullName = user.FullName;
                 string hnId = heatNetworkDetails.HnId;
                 string hnName = heatNetworkDetails.Name;
-                await _emailService.TrySendHeatNetworkRegistrationEmailAsync(userEmail, fullName, hnId, hnName);
+                await _emailService.TrySendHeatNetworkRegistrationEmailAsync(userEmail, fullName, hnId, hnName, oranisationName );
                 await NotificationHistoryForAddingHeatNetwork(heatNetworkDetails, user);
                 return CreatedAtAction(nameof(AddHeatNetwork), new { id = heatNetworkDetails.Id }, heatNetworkDetails);
             }

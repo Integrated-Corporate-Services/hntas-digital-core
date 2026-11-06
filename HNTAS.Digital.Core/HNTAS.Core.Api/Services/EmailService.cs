@@ -60,10 +60,11 @@ namespace HNTAS.Core.Api.Services
                 _notificationSettings.OrgCreatedEmailTemplateId,
                 new Dictionary<string, dynamic>
                 {
-                { "orgName", orgName },
-                { "orgId", user.OrgId },
-                { "fullName", fullName },
-                { "address", formattedAddress }
+                    { "orgName", orgName },
+                    { "orgId", user.OrgId },
+                    { "fullName", fullName },
+                    { "address", formattedAddress },
+                    { "digital-link" , _webBaseUrl.TrimEnd('/') + _hntasServiceSettings.HomePath }
                 }
             );
 
@@ -96,14 +97,15 @@ namespace HNTAS.Core.Api.Services
                 _logger.LogWarning("Organisation-updated email failed to send to {User}", fullName);
         }
 
-        public async Task TrySendHeatNetworkRegistrationEmailAsync(string userEmail, string fullName, string hnId, string hnName)
+        public async Task TrySendHeatNetworkRegistrationEmailAsync(string userEmail, string fullName, string hnId, string hnName, string orgName)
         {
             var personalisation = new Dictionary<string, dynamic>
             {
                 { "full_name", fullName },
                 { "hn_name", hnName },
                 { "hn_id", hnId },
-                { "digital_service_link", "https://signin.integration.account.gov.uk/sign-in-or-create" }
+                { "org_name", orgName },
+                { "digital-link" , _webBaseUrl.TrimEnd('/') + _hntasServiceSettings.HomePath }
             };
 
             var emailSent = await _govUkNotifyService.SendEmailAsync(
@@ -119,7 +121,7 @@ namespace HNTAS.Core.Api.Services
         }
 
         // --- Private Helper Method ---
-        public async Task TrySendHeatNetworkInvitationEmailAsync(Invitation invitation, string token, string heatNetworkName)
+        public async Task TrySendHeatNetworkInvitationEmailAsync(Invitation invitation, string token, string heatNetworkName, string organisationName)
         {
             if (invitation == null || string.IsNullOrWhiteSpace(invitation.InvitedEmail))
             {
@@ -134,8 +136,12 @@ namespace HNTAS.Core.Api.Services
                 _notificationSettings.ContributorInvitationTemplatedId,
                 new Dictionary<string, dynamic>
                 {
-                { "subject_name", heatNetworkName ?? string.Empty },
-                { "hntas-digital-service-link", fullUrl },
+                    { "full_name", StringFormatter.ToTitleCaseSingleWord(invitation.FirstName) + " " + StringFormatter.ToTitleCaseSingleWord(invitation.LastName) },
+                    { "hn_name", heatNetworkName ?? string.Empty },
+                    { "hn_id", invitation.InvitedHnId ?? string.Empty },
+                    { "org_name", organisationName ?? string.Empty },
+                    { "is_ddh", invitation.InvitedRoles.Contains(ContributorRole.DesignatedDutyHolder)},
+                    { "digital-link", fullUrl },
                 }
             );
 
@@ -161,8 +167,8 @@ namespace HNTAS.Core.Api.Services
                 new Dictionary<string, dynamic>
                 {
                     { "org_name", organisationName ?? string.Empty },
-                    { "rp_name" , inviterName },
-                    { "link-to-register", fullUrl },
+                    { "full_name", StringFormatter.ToTitleCaseSingleWord(invitation.FirstName) + " " + StringFormatter.ToTitleCaseSingleWord(invitation.LastName) },
+                    { "digital-link", fullUrl },
                 }
             );
 
@@ -272,6 +278,58 @@ namespace HNTAS.Core.Api.Services
                     { "hntas-digital-link", startUrl }
                }
            );
+        }
+
+        public async Task TrySendRejectionInvitationEmailAsync(Invitation invitation, string inviter_full_name, string inviterEmail, string invited_org_name)
+        {
+            if (invitation == null || string.IsNullOrWhiteSpace(invitation.InvitedEmail))
+            {
+                _logger.LogWarning("Skipping email: missing Invitation or InvitedEmail for invitation {InvitationId}", invitation?.Id);
+                return;
+            }
+
+            var emailSent = await _govUkNotifyService.SendEmailAsync(
+                inviterEmail,
+                _notificationSettings.InvitationRejectionTemplatedId,
+                new Dictionary<string, dynamic>
+                {
+                    { "full_name", inviter_full_name },
+                    { "org_name", invited_org_name ?? string.Empty },
+                    { "invitee_full_name", StringFormatter.ToTitleCaseSingleWord(invitation.FirstName) + " " + StringFormatter.ToTitleCaseSingleWord(invitation.LastName) },
+                    { "invited_role", invitation.InvitedRoles.FirstOrDefault().GetDescription() ?? string.Empty },
+                    { "digital-link" , _webBaseUrl.TrimEnd('/') + _hntasServiceSettings.HomePath }
+                }
+            );
+
+            if (emailSent)
+                _logger.LogInformation("Email sent successfully to {EmailId} for InviterUserId {UserId}", MaskEmail(invitation.InvitedEmail), invitation.InviterUserId);
+            else
+                _logger.LogWarning("Email failed to send to {EmailId} for InviterUserId {UserId}", MaskEmail(invitation.InvitedEmail), invitation.InviterUserId);
+        }
+
+        public async Task TrySendNetworkManagerAcceptedToRPEmailAsync(Invitation invitation, string inviter_full_name, string inviter_emailId, string orgName)
+        {
+            if (invitation == null || string.IsNullOrWhiteSpace(invitation.InvitedEmail))
+            {
+                _logger.LogWarning("Skipping email: missing Invitation or InvitedEmail for invitation {InvitationId}", invitation?.Id);
+                return;
+            }
+
+            var emailSent = await _govUkNotifyService.SendEmailAsync(
+                inviter_emailId,
+                _notificationSettings.NetworkManagerAcceptedToRPTemplateId,
+                new Dictionary<string, dynamic>
+                {
+                    { "full_name", inviter_full_name },
+                    { "org_name", orgName ?? string.Empty },
+                    { "invitee_full_name", StringFormatter.ToTitleCaseSingleWord(invitation.FirstName) + " " + StringFormatter.ToTitleCaseSingleWord(invitation.LastName) }
+                }
+            );
+
+            if (emailSent)
+                _logger.LogInformation("Email sent successfully to {EmailId} for InviterUserId {UserId}", MaskEmail(invitation.InvitedEmail), invitation.InviterUserId);
+            else
+                _logger.LogWarning("Email failed to send to {EmailId} for InviterUserId {UserId}", MaskEmail(invitation.InvitedEmail), invitation.InviterUserId);
         }
     }
 }

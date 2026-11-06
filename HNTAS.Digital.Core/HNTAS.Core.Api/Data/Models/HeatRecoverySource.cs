@@ -6,7 +6,7 @@ namespace HNTAS.Core.Api.Data.Models
     {
         [BsonElement("maximumHeatOutput")]
         public int? MaximumHeatOutput { get; set; }
-        [BsonElement("fuelOrHeatSource")]
-        public string? FuelOrHeatSource { get; set; }
+        [BsonElement("heatSource")]
+        public string? HeatSource { get; set; }
     }
 }

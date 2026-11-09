@@ -26,5 +26,6 @@ namespace HNTAS.Core.Api.Models.Users
         public List<HnRoleMapping>? HnRoleMappings { get; set; }
         public List<string>? ContributingOrganisations { get; set; }
         public string? ActiveContributingOrgId { get; set; }
+        public ContributorRole? InvitedRole { get; set; }
     }
 }

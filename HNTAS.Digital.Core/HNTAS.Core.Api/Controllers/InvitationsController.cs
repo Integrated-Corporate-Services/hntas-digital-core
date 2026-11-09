@@ -2,6 +2,7 @@
 using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Extensions;
+using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
 using HNTAS.Core.Api.Models.Contributor;
@@ -206,7 +207,9 @@ namespace HNTAS.Core.Api.Controllers
             if (invitation?.InvitedHnId != null)
             {
                 var hn = await _hnService.GetByHnIdAsync(invitation.InvitedHnId);
-                await _emailService.TrySendHeatNetworkInvitationEmailAsync(invitation, request.Token, hn?.Name!);
+                var inviterUser = await _userService.GetByIdAsync(invitation.InviterUserId);
+                var organisation = await _organisationService.GetByOrgIdAsync(inviterUser.OrgId ?? inviterUser.ActiveContributingOrgId);
+                await _emailService.TrySendHeatNetworkInvitationEmailAsync(invitation, request.Token, hn?.Name!, organisation.Name);
             }
             else if (invitation?.InvitedOrgId != null)
             {
@@ -236,6 +239,20 @@ namespace HNTAS.Core.Api.Controllers
 
             if (result.IsNotFound)
                 return NotFound();
+
+            //send an email to the inviter that the invitation is accepted
+            //get inviter user details
+            var invitation = await _invitationService.GetByIdAsync(request.InvitationId);
+            
+            if(invitation?.InvitedRoles != null && invitation.InvitedRoles.Contains(ContributorRole.NetworkManager))
+            {
+                var inviterUser = await _userService.GetByIdAsync(invitation.InviterUserId);
+                var inviter_full_name = $"{StringFormatter.ToTitleCaseSingleWord(inviterUser.FirstName)} {StringFormatter.ToTitleCaseSingleWord(inviterUser.LastName)}".Trim();
+                var invitedOrg = await _organisationService.GetByOrgIdAsync(invitation.InvitedOrgId);
+
+                await _emailService.TrySendNetworkManagerAcceptedToRPEmailAsync(invitation, inviter_full_name, inviterUser.EmailId, invitedOrg.Name);
+            }
+
 
             return result.IsCreated
                 ? StatusCode(201, result.UserId)
@@ -271,7 +288,27 @@ namespace HNTAS.Core.Api.Controllers
 
             await _invitationService.UpdateAsync(invitationId, invitation);
             await NotificationHistoryForRejectInvite(invitation);
-            _logger.LogInformation("Invitation {InvitationId} was rejected.", invitationId.ToSafeLog());
+
+            //get inviter user details
+            var inviterUser = await _userService.GetByIdAsync(invitation.InviterUserId);
+            var inviter_full_name = $"{StringFormatter.ToTitleCaseSingleWord(inviterUser.FirstName)} {StringFormatter.ToTitleCaseSingleWord(inviterUser.LastName)}".Trim();
+
+            //find invited organisation name
+            string invited_org_name = string.Empty;
+            if(invitation.InvitedOrgId != null)
+            {
+                var invitedOrg = await _organisationService.GetByOrgIdAsync(invitation.InvitedOrgId);
+                invited_org_name = invitedOrg?.Name ?? string.Empty;
+            }
+            else
+            {
+                var invitedOrg = await _organisationService.GetOrganisationByHnId(invitation.InvitedHnId);
+                invited_org_name = invitedOrg?.Name ?? string.Empty;
+            }
+
+            await _emailService.TrySendRejectionInvitationEmailAsync(invitation, inviter_full_name, inviterUser.EmailId, invited_org_name);
+
+            _logger.LogInformation("Invitation {InvitationId} was rejected and email sent.", invitationId.ToSafeLog());
             return NoContent();
         }
 

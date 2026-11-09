@@ -28,6 +28,7 @@ namespace HNTAS.Core.Api.Models
         }
         public string? InvitedHnId { get; set; }
         public string? InvitedOrgId { get; set; }
+        public string? InvitedOrgName { get; set; }
         public List<ContributorRole> Roles { get; set; }
         public InvitationStatus Status { get; set; }
         public DateTime InvitedAt { get; set; }

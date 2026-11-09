@@ -20,5 +20,7 @@ namespace HNTAS.Core.Api.Enums
 
         [Description("Consumer connection")]
         CC = 5,
+        [Description("Non-Domestic consumer connection")]
+        NDCC = 6,
     }
 }

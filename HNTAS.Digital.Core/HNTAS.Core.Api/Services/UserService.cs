@@ -10,7 +10,6 @@ using MongoDB.Bson;
 using MongoDB.Driver;
 using MongoDB.Driver.Linq;
 using System.Data;
-using System.Formats.Asn1;
 
 namespace HNTAS.Core.Api.Services
 {
@@ -40,7 +39,7 @@ namespace HNTAS.Core.Api.Services
             await _usersCollection.Find(u => u.Id == id).FirstOrDefaultAsync();
 
         public async Task<User?> GetByEmailAsync(string emailId) =>
-          await _usersCollection.Find(u => u.EmailId == emailId).FirstOrDefaultAsync();
+        await _usersCollection.Find(u => u.EmailId == emailId.ToLower() && (u.OrgId != null || u.ActiveContributingOrgId != null)).FirstOrDefaultAsync();
 
         public async Task<User?> GetByUserOneLoginIdAsync(string oneLoginId) =>
             await _usersCollection.Find(u => u.OneLoginId == oneLoginId).FirstOrDefaultAsync();
@@ -285,36 +284,84 @@ namespace HNTAS.Core.Api.Services
             return users;
         }
 
-        public async Task UpdateNotificationHistoryCountAsync(string userId, int notificationHistoryCount)
+        public async Task UpdateNotificationHistoryCountAsync(string userId, string orgId, int notificationHistoryCount)
         {
-            var filter = Builders<User>.Filter.Eq(u => u.Id, userId);
+            var userFilter = Builders<User>.Filter.Eq(u => u.Id, userId);
+            var orgEntryFilter = Builders<User>.Filter.ElemMatch(
+                u => u.NotificationStats!,
+                s => s.ContributingOrgId == orgId
+            );
 
-            var missingNotificationStatsFilter = Builders<User>.Filter.And(
-                filter,
-                Builders<User>.Filter.Or(
-                    Builders<User>.Filter.Eq(u => u.NotificationStats, null),
-                    Builders<User>.Filter.Exists("notificationStats", false)
+            // Ensure NotificationStats array exists
+            await _usersCollection.UpdateOneAsync(
+                Builders<User>.Filter.And(
+                    userFilter,
+                    Builders<User>.Filter.Or(
+                        Builders<User>.Filter.Eq("notificationStats", BsonNull.Value),
+                        Builders<User>.Filter.Exists("notificationStats", false)
+                    )
+                ),
+                Builders<User>.Update.Set(u => u.NotificationStats, new List<NotificationStats>())
+            );
+
+            // Try update existing entry for this org
+            var existingEntryFilter = Builders<User>.Filter.And(
+                userFilter,
+                orgEntryFilter
+            );
+
+            var now = DateTime.UtcNow;
+
+            var updateExisting = Builders<User>.Update
+                .Set("notificationStats.$.notificationHistoryCount", notificationHistoryCount)
+                .Set("notificationStats.$.lastVisitedAt", now);
+
+            var result = await _usersCollection.UpdateOneAsync(existingEntryFilter, updateExisting);
+                
+            // If no existing entry, append only when this org is still absent
+            if (result.MatchedCount == 0)
+            {
+                var missingOrgEntryFilter = Builders<User>.Filter.And(
+                    userFilter,
+                    Builders<User>.Filter.Not(orgEntryFilter)
+                );
+
+                var addNew = Builders<User>.Update.Push(
+                    u => u.NotificationStats!,
+                    new NotificationStats
+                    {
+                        ContributingOrgId = orgId,
+                        NotificationHistoryCount = notificationHistoryCount,
+                        LastVisitedAt = now
+                    });
+
+                var appendResult = await _usersCollection.UpdateOneAsync(missingOrgEntryFilter, addNew);
+
+                if (appendResult.ModifiedCount == 0)
+                {
+                    await _usersCollection.UpdateOneAsync(existingEntryFilter, updateExisting);
+                }
+            }
+        }
+
+        public async Task<int> GetNotificationHistoryCountAsync(string userId, string orgId)
+        {
+            var filter = Builders<User>.Filter.And(
+                Builders<User>.Filter.Eq(u => u.Id, userId),
+                Builders<User>.Filter.ElemMatch(
+                    u => u.NotificationStats!,
+                    s => s.ContributingOrgId == orgId
                 )
             );
 
-            await _usersCollection.UpdateOneAsync(
-                missingNotificationStatsFilter,
-                Builders<User>.Update.Set(u => u.NotificationStats, new NotificationStats())
-            );
+            var stats = await _usersCollection
+                .Find(filter)
+                .Project(u => u.NotificationStats)
+                .FirstOrDefaultAsync();
 
-            var update = Builders<User>.Update
-                .Set(u => u.NotificationStats!.NotificationHistoryCount, notificationHistoryCount)
-                .Set(u => u.NotificationStats!.LastVisitedAt, DateTime.UtcNow);
+            var orgStats = stats?.FirstOrDefault(s => s.ContributingOrgId == orgId);
 
-            await _usersCollection.UpdateOneAsync(filter, update);
-        }
-
-        public async Task<int> GetNotificationHistoryCountAsync(string userId)
-        {
-            var filter = Builders<User>.Filter.Eq(u => u.Id, userId);
-            var projection = Builders<User>.Projection.Include(u => u.NotificationStats.NotificationHistoryCount);
-            var user = await _usersCollection.Find(filter).Project<User>(projection).FirstOrDefaultAsync();
-            return user?.NotificationStats?.NotificationHistoryCount ?? 0;
+            return orgStats?.NotificationHistoryCount ?? 0;
         }
 
         // --- Private Helper Method for Reusable Pipeline ---
@@ -395,6 +442,7 @@ namespace HNTAS.Core.Api.Services
                     { "status", 1 },
                     { "contributingOrganisations", 1},
                     { "activeContributingOrgId", 1 },
+                    { "workingOrgName", 1 },
                     { "invitedRoles", new BsonDocument("$setUnion", new BsonArray
                     {
                         new BsonDocument("$reduce", new BsonDocument

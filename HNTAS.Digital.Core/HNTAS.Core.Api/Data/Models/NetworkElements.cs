@@ -11,14 +11,19 @@ namespace HNTAS.Core.Api.Data.Models
     {
         [BsonElement("networkElementStatus")]
         [BsonRepresentation(BsonType.String)]
-        public NetworkDetailsStatus NetworkElementStatus { get; set; }
+        public NetworkDetailsStatus? NetworkElementStatus { get; set; }
+        [BsonElement("ecPlantDataStatus")]
+        [BsonRepresentation(BsonType.String)]
+        public NetworkDetailsStatus? EcPlantDataStatus { get; set; }
         [BsonElement("elementSoaStatus")]
         [BsonRepresentation(BsonType.String)]
-        public NetworkDetailsStatus ElementSoaStatus { get; set; }
+        public NetworkDetailsStatus? ElementSoaStatus { get; set; }
 
         [BsonElement("elements")]
         public List<Element>? Elements { get; set; } = [];
         [BsonElement("elementsGroup")]
         public List<ElementGroup> ElementsGroup { get; set; } = [];
+        [BsonElement("isExistingEnergyCentreSupplyNewBuildings")]
+        public bool? IsExistingEnergyCentreSupplyNewBuildings { get; set; }
     }    
 }

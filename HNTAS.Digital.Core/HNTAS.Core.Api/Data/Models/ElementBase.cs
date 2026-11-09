@@ -11,5 +11,9 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonElement("elementType")]
         [BsonRepresentation(BsonType.String)]
         public ElementTypeInShort ElementType { get; set; }
+
+        [BsonElement("buildType")]
+        [BsonRepresentation(BsonType.String)]
+        public NetworkBuildStatus BuildType { get; set; }
     }
 }

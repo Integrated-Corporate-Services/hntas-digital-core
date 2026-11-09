@@ -8,8 +8,8 @@ namespace HNTAS.Core.Api.Interfaces
     {
         Task TrySendOrgCreatedEmailAsync(User user, Organisation organisation);
         Task TrySendOrgUpdatedEmailAsync(string fullName, string userEmail, string oldNameAndAddress, string newNameAndAddress);
-        Task TrySendHeatNetworkRegistrationEmailAsync(string userEmail, string fullName, string hnId, string hnName);
-        Task TrySendHeatNetworkInvitationEmailAsync(Invitation invitation, string token, string heatNetworkName);
+        Task TrySendHeatNetworkRegistrationEmailAsync(string userEmail, string fullName, string hnId, string hnName, string orgName);
+        Task TrySendHeatNetworkInvitationEmailAsync(Invitation invitation, string token, string heatNetworkName, string organisationName);
         Task TrySendOrganisationInvitationEmailAsync(Invitation invitation, string token, string organisationName, string inviterName);
         Task TrySendAssessorEmailAsync(string emailAddress, string hnName, string hnId, string contributorName);
         Task TrySendAssessorAssessmentEmailAsync(string emailAddress, string hnName, string hnId, string assessmentResult);
@@ -17,5 +17,7 @@ namespace HNTAS.Core.Api.Interfaces
         Task TrySendHNDiscontinedEmailAsync(User userToUpdate, string name, ContributorRole contributorRole);
         Task TrySendOfgemDataForExistingOrgOrRpEmailAsync(OfgemDataModelForNotification ofgemData);
         Task TrySendOfgemDataForNewRpEmailAsync(OfgemDataModelForNotification ofgemData);
+        Task TrySendRejectionInvitationEmailAsync(Invitation invitation, string inviter_full_name, string inviterEmail, string invited_org_name);
+        Task TrySendNetworkManagerAcceptedToRPEmailAsync(Invitation invitation, string inviter_full_name, string inviter_emailId, string orgName);
     }
 }

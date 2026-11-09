@@ -24,5 +24,10 @@
         public string AuditHeatNetworksCollectionName { get; set; } = null!;
 
         public string AuditKpiSubmissionCollectionName { get; set; } = null!;
+        public string FuelTypesCollectionName { get; set; } = null!;
+        public string ChpOperationalModesCollectionName { get; set; } = null!;
+        public string HeatRecoverySourcesCollectionName { get; set; } = null!;
+
+        public string FeedbackCollectionName { get; set; } = null!;
     }
 }

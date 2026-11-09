@@ -38,6 +38,9 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonElement("heatNetworkId")]
         [BsonRepresentation(BsonType.String)]
         public string? HeatNetworkId { get; set; }
+        [BsonElement("orgId")]
+        [BsonRepresentation(BsonType.String)]
+        public string? OrgId { get; set; }
         [BsonElement("stage")]
         [BsonRepresentation(BsonType.String)]
         public SoaStage? Stage { get; set; }

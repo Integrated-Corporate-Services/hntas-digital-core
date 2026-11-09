@@ -20,8 +20,16 @@ namespace HNTAS.Core.Api.Helpers
             if (userDetails.HnRoleMappings?.Count > 0)
             {
                 return userDetails.HnRoleMappings
-                    .Select(m => m.HeatNetwork)
-                    .Where(hn => hn != null)
+                    .Where(m => m.HeatNetwork != null)
+                    .Select(m => new HeatNetworkUserResponse
+                    {
+                        HnId = m.HeatNetwork!.HnId,
+                        Name = m.HeatNetwork.Name,
+                        Role = m.Role,
+                        ECDetails = m.HeatNetwork.ECDetails,
+                        Address = m.HeatNetwork.Address,
+                        OrgId = m.HeatNetwork.OrgId
+                    })
                     .ToList();
             }
 

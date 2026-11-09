@@ -36,8 +36,11 @@ namespace HNTAS.Core.Api.Services
         {
             try
             {
-                var filter = Builders<NotificationHistory>.Filter.AnyEq(nh => nh.ActorsId, notificatoinHistoryRequest.UserId);
-                
+                var filter = Builders<NotificationHistory>.Filter.And(
+                    Builders<NotificationHistory>.Filter.AnyEq(nh => nh.ActorsId, notificatoinHistoryRequest.UserId),
+                    Builders<NotificationHistory>.Filter.Eq(nh => nh.OrgId, notificatoinHistoryRequest.OrgId)
+                );
+
                 var totalCount = await _notificationHistoryCollection.CountDocumentsAsync(filter);
 
                 var sortDirection = notificatoinHistoryRequest.SortDirection?.ToLowerInvariant() ?? "desc";
@@ -94,8 +97,18 @@ namespace HNTAS.Core.Api.Services
         {
             var filter = Builders<NotificationHistory>.Filter.AnyEq(nh => nh.ActorsId, userId);            
             var count = await _notificationHistoryCollection.CountDocumentsAsync(filter);
-            _logger.LogInformation("Retrieved notification history count for user ID: {UserId}, Count: {Count}",
-                StringFormatter.Sanitize(userId), count);
+            _logger.LogInformation("Retrieved notification history count");
+            return (int)count;
+        }
+
+        public async Task<int> GetNotificationHistoryCount(string userId, string orgId)
+        {
+            var filter = Builders<NotificationHistory>.Filter.And(
+                Builders<NotificationHistory>.Filter.AnyEq(nh => nh.ActorsId, userId),
+                Builders<NotificationHistory>.Filter.Eq(nh => nh.OrgId, orgId)
+            );
+            var count = await _notificationHistoryCollection.CountDocumentsAsync(filter);
+            _logger.LogInformation("Retrieved notification history count");
             return (int)count;
         }
     }

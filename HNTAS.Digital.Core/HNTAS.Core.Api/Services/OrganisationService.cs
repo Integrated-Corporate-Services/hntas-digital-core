@@ -112,5 +112,11 @@ namespace HNTAS.Core.Api.Services
             var filter = Builders<Organisation>.Filter.In(o => o.OrgId, orgIds);
             return await _organizationsCollection.Find(filter).ToListAsync();
         }
+
+        public async Task<Organisation> GetOrganisationByHnId(string hnId)
+        {
+            var filter = Builders<Organisation>.Filter.AnyEq(o => o.HnIds, hnId);
+            return await _organizationsCollection.Find(filter).FirstOrDefaultAsync();
+        }
     }
 }

@@ -6,6 +6,7 @@ using HNTAS.Core.Api.Extensions;
 using HNTAS.Core.Api.Helpers;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
+using HNTAS.Core.Api.Models.EcPlantData;
 using HNTAS.Core.Api.Models.HeatNetwork;
 using HNTAS.Core.Api.Models.Soa;
 using HNTAS.Core.Api.Models.Users;
@@ -259,24 +260,24 @@ namespace HNTAS.Core.Api.Controllers
                 await _hnService.CreateAsync(heatNetworkDetails, true);
                 _logger.LogInformation("New heat network initially registered: {HNID} (DB Id: {Id})", heatNetworkDetails.HnId.ToSafeLog(), heatNetworkDetails.Id.ToSafeLog());
 
-
-                ContributorRole role = user.Roles[0] switch
+                ContributorRole role = ContributorRole.NetworkManager;
+                if (user.Roles!.Contains(UserRole.ResponsibleParty))
                 {
-                    UserRole.ResponsibleParty => ContributorRole.ResponsibleParty,
-                    UserRole.NetworkManager => ContributorRole.NetworkManager
-                };
+                    role = ContributorRole.ResponsibleParty;
+                }
 
                 // Add Hn Mapping to the user
                 User userWithUpdatedHnRoleMapping = await _userService.GetByIdAsync(heatNetworkDetails.CreatedBy);
                 userWithUpdatedHnRoleMapping.HnRoleMappings.Add(new HnRoleMapping { HnId = heatNetworkDetails.HnId, Role = role });
                 await _userService.UpdateAsync(heatNetworkDetails.CreatedBy, userWithUpdatedHnRoleMapping);
+                string oranisationName = string.Empty;
 
                 if (role == ContributorRole.ResponsibleParty)
                 {
                     //find the network managers
                     var allNetworkManagers = await _invitationService.GetNetworkManagersByInviterUserId(heatNetworkDetails.CreatedBy);
                     var acceptedNetworkManagers = allNetworkManagers.Where(nm => nm.Status == InvitationStatus.Accepted).ToList();
-
+                    oranisationName = user.Organisation?.Name ?? string.Empty;
                     // All networks managers reporting to the rp can access all heat networks the rp adds
                     foreach (var nm in acceptedNetworkManagers)
                     {
@@ -294,6 +295,7 @@ namespace HNTAS.Core.Api.Controllers
                     var orgDetails = await _organisationService.GetByOrgIdAsync(heatNetworkDetails.OrgId);
                     var rpUserId = orgDetails.RpUserId;
                     var rpUser = await _userService.GetByIdAsync(rpUserId);
+                    oranisationName = orgDetails.Name;
                     rpUser.HnRoleMappings.Add(new HnRoleMapping { HnId = heatNetworkDetails.HnId, Role = ContributorRole.ResponsibleParty });
                     await _userService.UpdateAsync(rpUser.Id, rpUser);
                 }
@@ -303,7 +305,7 @@ namespace HNTAS.Core.Api.Controllers
                 string fullName = user.FullName;
                 string hnId = heatNetworkDetails.HnId;
                 string hnName = heatNetworkDetails.Name;
-                await _emailService.TrySendHeatNetworkRegistrationEmailAsync(userEmail, fullName, hnId, hnName);
+                await _emailService.TrySendHeatNetworkRegistrationEmailAsync(userEmail, fullName, hnId, hnName, oranisationName );
                 await NotificationHistoryForAddingHeatNetwork(heatNetworkDetails, user);
                 return CreatedAtAction(nameof(AddHeatNetwork), new { id = heatNetworkDetails.Id }, heatNetworkDetails);
             }
@@ -375,7 +377,7 @@ namespace HNTAS.Core.Api.Controllers
                 var existingHeatNetwork = await _hnService.GetByHnIdAsync(hnId);
                 if (existingHeatNetwork == null)
                 {
-                    _logger.LogInformation("No heat network found for HnId: {HnId}", StringFormatter.Sanitize(hnId));
+                    _logger.LogInformation("No heat network found for HnId: {HnId}", hnId.ToSafeLog());
                     return NotFound($"No heat network found for HnId '{hnId}'.");
                 }
 
@@ -383,8 +385,7 @@ namespace HNTAS.Core.Api.Controllers
                     System.Text.Json.JsonSerializer.Serialize(existingHeatNetwork)
                 )!;
 
-                var requestWithInstances = GenerateElementsInstances(request);
-                existingHeatNetwork.NetworkElements = requestWithInstances;
+                existingHeatNetwork.NetworkElements = request;
 
                 await _hnService.UpdateAsync(hnId, existingHeatNetwork);
 
@@ -416,9 +417,84 @@ namespace HNTAS.Core.Api.Controllers
             }
         }
 
+        /// <summary>
+        /// Updates the EnergyCentrePlantData for a given heat network and element.
+        /// </summary>
+        [HttpPut("energy-centre-plant-data")]
+        [Consumes(MediaTypeNames.Application.Json)]
+        [ProducesResponseType(typeof(HeatNetworkResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<HeatNetworkResponse>> UpdateEnergyCentrePlantData([FromBody] EcPlantDataRequest request)
+        {
+            if (request == null)
+            {
+                _logger.LogWarning("UpdateEnergyCentrePlantData called without EcPlantDataRequest payload.");
+                return BadRequest("Please provide EcPlantDataRequest to update.");
+            }
+            if (string.IsNullOrWhiteSpace(request.HnId))
+            {
+                _logger.LogWarning("UpdateEnergyCentrePlantData called with empty HnId.");
+                return BadRequest("Please provide a valid heat network HnId.");
+            }
+
+            try
+            {
+                var existingHeatNetwork = await _hnService.GetByHnIdAsync(request.HnId);
+                if (existingHeatNetwork == null)
+                {
+                    _logger.LogInformation("No heat network found for HnId: {HnId}", request.HnId.ToSafeLog());
+                    return NotFound($"No heat network found for HnId '{request.HnId}'.");
+                }                
+
+                var elementToUpdate = existingHeatNetwork.NetworkElements?.Elements?.FirstOrDefault(e => e.ElementId == request.ElementId);
+                var otherElements = existingHeatNetwork.NetworkElements?.Elements?.Where(e => e.ElementId != request.ElementId && e.ElementType == ElementTypeInShort.EC).ToList();
+
+                var isOtherElementsPlantDataNotCompleted = true;
+                if (otherElements != null)
+                {
+                    isOtherElementsPlantDataNotCompleted = otherElements.Any(e => e.EnergyCentrePlantData == null);
+                }
+
+                existingHeatNetwork.NetworkElements!.EcPlantDataStatus = isOtherElementsPlantDataNotCompleted ? NetworkDetailsStatus.InProgress : NetworkDetailsStatus.Complete;
+
+                if (elementToUpdate == null)
+                {
+                    _logger.LogInformation("No element found");
+                    return NotFound($"No element found");
+                }
+                request.EnergyCentrePlantData?.EnergyCentreStatus = NetworkDetailsStatus.Complete;
+
+                elementToUpdate.EnergyCentrePlantData = request.EnergyCentrePlantData;
+
+                await _hnService.UpdateAsync(request.HnId, existingHeatNetwork);                
+
+                _logger.LogInformation("Updated EnergyCentrePlantData for HnId: {HnId}", request.HnId.ToSafeLog());
+                var response = CreatedAtAction(nameof(UpdateEnergyCentrePlantData), new { id = existingHeatNetwork.Id }, existingHeatNetwork);
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while updating EnergyCentrePlantData for HnId: {HnId}", request.HnId.ToSafeLog());
+                return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while updating the heat network.");
+            }
+        }
+
         private async Task NotificationHistoryForAddingHeatNetwork(HeatNetwork heatNetwork, UserDetailsResult user)
         {
-            var userRole = user.Roles?.FirstOrDefault();
+            UserRole userRole;
+            var orgId = string.Empty;
+            if (user.Roles!.Contains(UserRole.ResponsibleParty))
+            {
+                userRole = UserRole.ResponsibleParty;
+                orgId = user.Organisation?.OrgId!;
+            }
+            else
+            {
+                userRole = UserRole.NetworkManager;
+                orgId = user.ActiveContributingOrgId!;
+            }
             var actorIds = new List<string>() { user.Id };
             var eligibleRoles = new List<string>();
             var description = $"{heatNetwork.HnId} - {heatNetwork.Name} registered";
@@ -431,7 +507,7 @@ namespace HNTAS.Core.Api.Controllers
             }
             else
             {
-                var invitation = await _invitationService.GetByInvitedEmailAsync(user.EmailId!);
+                var invitation = await _invitationService.GetByInvitedEmailAndOrgAsync(user.EmailId!, orgId);
                 if (invitation != null)
                     actorIds.Add(invitation.InviterUserId);
                 eligibleRoles.Add(UserRole.ResponsibleParty.ToString());
@@ -448,48 +524,12 @@ namespace HNTAS.Core.Api.Controllers
                 Action = NotificationHistoryActions.HeatNetworkDetails,
                 EligibleRoles = eligibleRoles,
                 HeatNetworkId = heatNetwork.HnId,
-                CreatedBy = user.Id
+                CreatedBy = user.Id,
+                OrgId = orgId
             };
 
             await _notificationHistoryService.CreateAsync(notificationHistory);
-        }
-
-        private NetworkElements GenerateElementsInstances(NetworkElements networkElements)
-        {
-            var elementGroups = networkElements.ElementsGroup;
-            var elementInstances = new List<Element>();
-            var instanceCounter = 1;
-            var index = 1;
-            foreach (var element in elementGroups!)
-            {
-
-                if (element.Count == 1)
-                {
-                    var ele = new Element();
-                    ele.ElementId = (index).ToString("D5");
-                    ele.ElementType = element.ElementType;
-                    ele.NetworkElementInstanceName = GetNetworkElementLabelByElementType(element.ElementDisplayType);
-                    elementInstances.Add(ele);
-                    index++;
-                    continue;
-                }
-                instanceCounter = 1;
-                for (int i = 0; i < element.Count; i++)
-                {
-                    elementInstances.Add(
-                        new Element
-                        {
-                            ElementId = (index).ToString("D5"),
-                            ElementType = element.ElementType,
-                            NetworkElementInstanceName = GetNetworkElementLabelByElementType(element.ElementDisplayType) + " - " + instanceCounter
-                        });
-                    index++;
-                    instanceCounter++;
-                }
-            }
-            networkElements.Elements = elementInstances;
-            return networkElements;
-        }
+        }        
 
         public static string GetNetworkElementLabelByElementType(HeatNetworkElementType elementType)
         {
@@ -502,19 +542,6 @@ namespace HNTAS.Core.Api.Controllers
                 HeatNetworkElementType.CommunalDistribution => "Communal Distribution Network",
                 _ => throw new ArgumentOutOfRangeException(nameof(elementType), $"Not expected heat network element ID value: {elementType}")
             };
-        }
-
-        //public static string GetNetworkElementLabelByElementType(string elementType)
-        //{
-        //    return elementType switch
-        //    {
-        //        "EC" => "Energy Centre",
-        //        "SS" => "Substation",
-        //        "DDN" => "District Distribution Network",
-        //        "CC" => "Consumer Connection",
-        //        "CDN" => "Communal Distribution Network",
-        //        _ => throw new ArgumentOutOfRangeException(nameof(elementType), $"Not expected heat network element ID value: {elementType}")
-        //    };
-        //}
+        }        
     }
 }

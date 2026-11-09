@@ -19,6 +19,8 @@ namespace HNTAS.Core.Api.Models.Users
         public string? MobileNumber { get; set; }
         public string? ContactNumberExtension { get; set; }
         public string? OrgId { get; set; }
+
+        public string? WorkingOrgName { get; set; }
         public List<UserRole>? Roles { get; set; }
         public UserStatus Status { get; set; }
         public List<HnRoleMapping>? HnRoleMappings { get; set; }

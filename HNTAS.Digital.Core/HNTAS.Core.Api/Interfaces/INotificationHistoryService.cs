@@ -9,5 +9,6 @@ namespace HNTAS.Core.Api.Interfaces
         Task CreateAsync(NotificationHistory notificationHistory);
         Task<NotificationHistoryResponse> GetNotificationHistory(NotificationHistoryRequest notificatoinHistoryRequest);
         Task<int> GetNotificationHistoryCount(string userId);
+        Task<int> GetNotificationHistoryCount(string userId, string orgId);
     }
 }

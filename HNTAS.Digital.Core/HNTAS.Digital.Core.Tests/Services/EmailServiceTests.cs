@@ -213,12 +213,13 @@ namespace HNTAS.Digital.Core.Tests.Services
             var email = "test@gmail.com";
             var hnId = "HN100";
             var hnName = "Test";
+            var orgName = "Test Organisation";
 
             _mockGovUkNotifyService.Setup(s => s.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Dictionary<string, dynamic>>(), It.IsAny<string>()))
                 .Returns(Task.FromResult(true));
 
             // Act
-            await _sut.TrySendHeatNetworkRegistrationEmailAsync(email, fullName, hnId, hnName);
+            await _sut.TrySendHeatNetworkRegistrationEmailAsync(email, fullName, hnId, hnName, orgName);
 
             // Assert
             _mockLogger.Verify(
@@ -239,12 +240,13 @@ namespace HNTAS.Digital.Core.Tests.Services
             var email = "test@gmail.com";
             var hnId = "HN100";
             var hnName = "Test";
+            var orgName = "Test Organisation";
 
             _mockGovUkNotifyService.Setup(s => s.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Dictionary<string, dynamic>>(), It.IsAny<string>()))
                 .Returns(Task.FromResult(false));
 
             // Act
-            await _sut.TrySendHeatNetworkRegistrationEmailAsync(email, fullName, hnId, hnName);
+            await _sut.TrySendHeatNetworkRegistrationEmailAsync(email, fullName, hnId, hnName, orgName);
 
             // Assert
             _mockLogger.Verify(
@@ -269,12 +271,13 @@ namespace HNTAS.Digital.Core.Tests.Services
             };
             var token = "test-token";
             var hnName = "hn";
+            var organisationName = "Test Org";
 
             _mockGovUkNotifyService.Setup(s => s.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Dictionary<string, dynamic>>(), It.IsAny<string>()))
                 .Returns(Task.FromResult(true));
 
             // Act
-            await _sut.TrySendHeatNetworkInvitationEmailAsync(invitation, token, hnName);
+            await _sut.TrySendHeatNetworkInvitationEmailAsync(invitation, token, hnName, organisationName);
 
             // Assert
             _mockLogger.Verify(
@@ -299,12 +302,13 @@ namespace HNTAS.Digital.Core.Tests.Services
             };
             var token = "test-token";
             var hnName = "hn";
+            var orgName = "Test Org";
 
             _mockGovUkNotifyService.Setup(s => s.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Dictionary<string, dynamic>>(), It.IsAny<string>()))
                 .Returns(Task.FromResult(false));
 
             // Act
-            await _sut.TrySendHeatNetworkInvitationEmailAsync(invitation, token, hnName);
+            await _sut.TrySendHeatNetworkInvitationEmailAsync(invitation, token, hnName, orgName);
 
             // Assert
             _mockLogger.Verify(
@@ -324,9 +328,10 @@ namespace HNTAS.Digital.Core.Tests.Services
             Invitation invitation = null;
             var token = "test-token";
             var hnName = "hn";
+            var orgName = "Test Org";
 
             // Act
-            await _sut.TrySendHeatNetworkInvitationEmailAsync(invitation, token, hnName);
+            await _sut.TrySendHeatNetworkInvitationEmailAsync(invitation, token, hnName, orgName);
 
             // Assert
             _mockLogger.Verify(

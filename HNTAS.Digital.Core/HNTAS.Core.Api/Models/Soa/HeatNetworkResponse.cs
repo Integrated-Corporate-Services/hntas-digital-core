@@ -1,7 +1,5 @@
 ﻿using HNTAS.Core.Api.Data.Models;
 using HNTAS.Core.Api.Enums;
-using MongoDB.Bson;
-using MongoDB.Bson.Serialization.Attributes;
 using System.Diagnostics.CodeAnalysis;
 
 namespace HNTAS.Core.Api.Models.Soa
@@ -14,6 +12,9 @@ namespace HNTAS.Core.Api.Models.Soa
         public string HnId { get; set; } = null!;
         public string? OrgId { get; set; }
         public bool SuppliesSixOrMoreUnits { get; set; }
+        public NetworkBuildStatus? NetworkBuildStatus { get; set; }
+        public int? NoOfResponsibleCommunalBuilding { get; set; }
+        public int? NoOfResponsibleDistrictNetwork { get; set; }
         public bool HasAddressAndPostcode { get; set; }
         public ECDetails? ECDetails { get; set; } = null!;
         public RegisteredAddress? Address { get; set; }
@@ -25,7 +26,8 @@ namespace HNTAS.Core.Api.Models.Soa
         public string CreatedBy { get; set; } = null!;
         public DateTime CreatedAt { get; set; }
         public string? Phase { get; set; } = null;
-        public HeatNetworkType? HeatNetworkType { get; set; }
+        public HeatNetworkType? HeatNetworkType { get; set; }        
+        public EnergyCentreType? EnergyCentreType { get; set; }
         public bool HasOwnEnergyCentre { get; set; }
         public HeatNetworkConnections? HeatNetworkConnections { get; set; } = new();
         public NetworkElementsResponse? NetworkElements { get; set; }
@@ -121,10 +123,12 @@ namespace HNTAS.Core.Api.Models.Soa
 
     [ExcludeFromCodeCoverage]
     public class NetworkElementsResponse : NetworkDetailsResponseBase {
-        public NetworkDetailsStatus NetworkElementStatus { get; set; }
-        public NetworkDetailsStatus ElementSoaStatus { get; set; }
-        //public string? ElementType { get; set; }
+        public NetworkDetailsStatus? NetworkElementStatus { get; set; }
+        public NetworkDetailsStatus? ElementSoaStatus { get; set; }
+        public NetworkDetailsStatus? EcPlantDataStatus { get; set; }
         public List<ElementGroup> ElementsGroup { get; set; } = [];
+        public List<Element> Elements { get; set; } = [];
+        public bool IsExistingEnergyCentreSupplyNewBuildings { get; set; }
     }
 
     [ExcludeFromCodeCoverage]

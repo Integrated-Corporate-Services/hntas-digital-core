@@ -5,6 +5,7 @@ using HNTAS.Core.Api.Data.Models.External;
 using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Interfaces;
 using HNTAS.Core.Api.Models;
+using HNTAS.Core.Api.Models.EcPlantData;
 using HNTAS.Core.Api.Models.HeatNetwork;
 using HNTAS.Core.Api.Models.Soa;
 using HNTAS.Core.Api.Models.Users;
@@ -712,6 +713,66 @@ namespace HNTAS.Digital.Core.Tests.Controllers
             Assert.NotNull(result);
             var resultValue = Assert.IsType<ObjectResult>(result.Result);
             Assert.Equal(StatusCodes.Status500InternalServerError, resultValue.StatusCode);
+        }
+
+        [Fact]
+        public async Task UpdateEnergyCentrePlantData_ReturnsOk_WhenElementIsUpdated()
+        {
+            var hnId = "HN0000001";
+            var elementId = "EC1";
+
+            var request = new EcPlantDataRequest
+            {
+                HnId = hnId,
+                ElementId = elementId,
+                EnergyCentrePlantData = new EnergyCentrePlantData()
+            };
+
+            var existingNetwork = SampleHeatNetwork("1", hnId);
+            existingNetwork.NetworkElements = new NetworkElements
+            {
+                Elements = new List<Element>
+                {
+                    new Element { ElementId = elementId, ElementType = ElementTypeInShort.EC }
+                }
+            };
+
+            var updatedNetwork = SampleHeatNetwork("1", hnId);
+
+            _mockHnService.Setup(s => s.GetByHnIdAsync(hnId)).ReturnsAsync(existingNetwork);
+            _mockHnService
+                .Setup(s => s.UpdateEnergyCentrePlantDataAsync(hnId, elementId, It.IsAny<EnergyCentrePlantData>()))
+                .ReturnsAsync(updatedNetwork);
+
+            var result = await _controller.UpdateEnergyCentrePlantData(request);
+
+            Assert.IsType<OkObjectResult>(result.Result);
+            _mockHnService.Verify(s => s.UpdateAsync(It.IsAny<string>(), It.IsAny<HeatNetwork>()), Times.Never);
+            _mockHnService.Verify(s => s.UpdateEnergyCentrePlantDataAsync(hnId, elementId,
+                It.Is<EnergyCentrePlantData>(data => data.EnergyCentreStatus == NetworkDetailsStatus.Complete)), Times.Once);
+        }
+
+        [Fact]
+        public async Task UpdateEnergyCentrePlantData_ReturnsNotFound_WhenElementIsMissing()
+        {
+            var hnId = "HN0000001";
+            var elementId = "EC404";
+
+            var request = new EcPlantDataRequest
+            {
+                HnId = hnId,
+                ElementId = elementId,
+                EnergyCentrePlantData = new EnergyCentrePlantData()
+            };
+
+            _mockHnService.Setup(s => s.GetByHnIdAsync(hnId)).ReturnsAsync(SampleHeatNetwork("1", hnId));
+            _mockHnService
+                .Setup(s => s.UpdateEnergyCentrePlantDataAsync(hnId, elementId, It.IsAny<EnergyCentrePlantData>()))
+                .ReturnsAsync((HeatNetwork)null!);
+
+            var result = await _controller.UpdateEnergyCentrePlantData(request);
+
+            Assert.IsType<NotFoundObjectResult>(result.Result);
         }
 
         #region GetHeatNetworksByUserIdPaginated Tests

@@ -2,11 +2,13 @@
 
 namespace HNTAS.Core.Api.Data.Models
 {
-    public class HeatAndFuelBase
+    public class FuelBase
     {
+        [BsonElement("id")]
+        public string? Id { get; set; }
         [BsonElement("maximumHeatOutput")]
         public int? MaximumHeatOutput { get; set; }        
-        [BsonElement("fuelOrHeatSource")]
-        public int? FuelOrHeatSource { get; set; }
+        [BsonElement("fuelId")]
+        public int? FuelId { get; set; }
     }
 }

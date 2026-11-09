@@ -2,7 +2,7 @@
 
 namespace HNTAS.Core.Api.Data.Models
 {
-    public class BoilerPlant : HeatAndFuelBase
+    public class BoilerPlant : FuelBase
     {        
     }
 }

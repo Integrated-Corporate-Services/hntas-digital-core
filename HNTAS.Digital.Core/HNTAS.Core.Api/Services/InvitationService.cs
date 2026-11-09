@@ -141,23 +141,28 @@ namespace HNTAS.Core.Api.Services
                 .ToListAsync();
         }
 
-        public async Task<(List<ManagedUserResponse> items, long totalCount)> GetInvitedUsersDdhAndContributorsAsync(string inviterOrgId,string invitedEmailId,List<string> invitedRoles, int pageNumber,
+        public async Task<(List<ManagedUserResponse> items, long totalCount)> GetInvitedUsersDdhAndContributorsAsync(
+            string inviterOrgId,
+            string invitedEmailId,
+            List<string> invitedRoles,
+            int pageNumber,
             int pageSize,
             string sortBy,
             string sortDirection)
-        {           
+        {
+            var filter = new BsonDocument
+            {
+                { "invitedOrgId", inviterOrgId },
+                { "invitedEmail", invitedEmailId },
+                { "invitedRoles", new BsonDocument("$in", new BsonArray(invitedRoles)) }
+            };
 
             var pipeline = new[]
             {
-                // Match invitations sent by the specified user and the invited roles are either DesignatedDutyHolder or Contributor
-                new BsonDocument("$match", new BsonDocument
-                {
-                    { "invitedOrgId", inviterOrgId },
-                    { "invitedEmail", invitedEmailId},
-                    { "invitedRoles", new BsonDocument("$in", new BsonArray(invitedRoles)) }
-                }),
+                // Match invitations
+                new BsonDocument("$match", filter),
 
-                // Lookup heat network name using invitedHnId
+                // Lookup heat network details
                 new BsonDocument("$lookup", new BsonDocument
                 {
                     { "from", "heat_networks" },
@@ -166,32 +171,51 @@ namespace HNTAS.Core.Api.Services
                     { "as", "heatNetworkDetails" }
                 }),
 
-                // Sort by invitedAt descending
-                new BsonDocument("$sort", new BsonDocument(sortBy, sortDirection == "asc" ? 1 : -1)),
+                // Sort
+                new BsonDocument("$sort",
+                    new BsonDocument(sortBy, sortDirection.Equals("asc", StringComparison.OrdinalIgnoreCase) ? 1 : -1)),
 
+                // Paging
                 new BsonDocument("$skip", (pageNumber - 1) * pageSize),
                 new BsonDocument("$limit", pageSize),
 
-                // Project into RegisteredUserResponse shape
+                // Projection
                 new BsonDocument("$project", new BsonDocument
                 {
                     { "_id", new BsonDocument("$toString", "$_id") },
-                    { "name", new BsonDocument("$concat", new BsonArray { "$firstName", " ", "$lastName" }) },
+                    {
+                        "name",
+                        new BsonDocument("$trim",
+                            new BsonDocument("input",
+                                new BsonDocument("$concat",
+                                    new BsonArray
+                                    {
+                                        new BsonDocument("$ifNull", new BsonArray { "$firstName", "" }),
+                                        " ",
+                                        new BsonDocument("$ifNull", new BsonArray { "$lastName", "" })
+                                    })))
+                    },
                     { "emailId", "$invitedEmail" },
                     { "invitedAt", "$invitedAt" },
                     { "status", new BsonDocument("$toString", "$status") },
-                    { "roles", new BsonDocument("$map", new BsonDocument
+                    {
+                        "roles",
+                        new BsonDocument("$map", new BsonDocument
                         {
                             { "input", "$invitedRoles" },
                             { "as", "role" },
                             { "in", new BsonDocument("$toString", "$$role") }
                         })
                     },
-                    { "heatNetworks", new BsonDocument("$map", new BsonDocument
+                    {
+                        "heatNetworks",
+                        new BsonDocument("$map", new BsonDocument
                         {
                             { "input", "$heatNetworkDetails" },
                             { "as", "hn" },
-                            { "in", new BsonDocument
+                            {
+                                "in",
+                                new BsonDocument
                                 {
                                     { "hnId", "$$hn.hnId" },
                                     { "name", "$$hn.name" }
@@ -202,17 +226,13 @@ namespace HNTAS.Core.Api.Services
                 })
             };
 
-            
-            
-            var totalCountResult = await _invitationsCollection.CountDocumentsAsync(new BsonDocument
-            {
-                { "invitedOrgId", inviterOrgId },
-                { "invitedRoles", new BsonDocument("$in", new BsonArray(invitedRoles)) }
-            });                
+            var totalCountResult = await _invitationsCollection.CountDocumentsAsync(filter);
 
-            return (await _invitationsCollection
+            var items = await _invitationsCollection
                 .Aggregate<ManagedUserResponse>(pipeline)
-                .ToListAsync(), totalCountResult);
+                .ToListAsync();
+
+            return (items, totalCountResult);
         }
 
         // Get invitation by invitedEmailId, invitedHnId, invitedRole
@@ -622,116 +642,129 @@ namespace HNTAS.Core.Api.Services
 
 
         public async Task<PagedResult<ContributorResult>> GetGroupedDdhAndContributorsByOrganisationIdAsync(
-        string organisationId,
-        int pageNumber,
-        int pageSize,
-        string? sortBy = "name",
-        string sortDirection = "asc")
+            string organisationId,
+            int pageNumber,
+            int pageSize,
+            string? sortBy = "name",
+            string sortDirection = "asc")
         {
-                if (pageNumber < 1) pageNumber = 1;
-
-                var sortField = sortBy?.ToLower() switch
-                {
-                    "email" => "Email",
-                    _ => "Name"
-                };
-
-                var matchStage = new BsonDocument("$match", new BsonDocument
-                {
-                    { "invitedOrgId", organisationId },
-                    {
-                        "invitedRoles",
-                        new BsonDocument("$elemMatch",
-                            new BsonDocument("$in", new BsonArray
-                            {
-                                UserRole.DesignatedDutyHolder.ToString(),
-                                UserRole.Contributor.ToString()
-                            }))
-                    }
-                });
-
-                var groupStage = new BsonDocument("$group", new BsonDocument
-                {
-                    {
-                        "_id", new BsonDocument
-                        {
-                            { "firstName", "$firstName" },
-                            { "lastName", "$lastName" },
-                            { "email", "$invitedEmail" }
-                        }
-                    },
-                    {
-                        "UserId",
-                        new BsonDocument("$first",
-                            new BsonDocument("$toString", "$_id"))
-                    },
-                    {
-                        "Name",
-                        new BsonDocument("$first",
-                            new BsonDocument("$concat",
-                                new BsonArray
-                                {
-                                    "$firstName",
-                                    " ",
-                                    "$lastName"
-                                }))
-                    },
-                    { "Email", new BsonDocument("$first", "$invitedEmail") },
-                    { "OrganisationId", new BsonDocument("$first", "$invitedOrgId") },
-                    { "WorkingOrgName", new BsonDocument("$first", "$invitedOrgName") }
-                });
-
-                var projectStage = new BsonDocument("$project", new BsonDocument
-                {
-                    { "_id", 0 },
-                    { "UserId", 1 },
-                    { "Name", 1 },
-                    { "Email", 1 },
-                    { "OrganisationId", 1 },
-                    { "WorkingOrgName", 1 }
-                });
-
-                var sortStage = new BsonDocument("$sort",
-                    new BsonDocument(sortField, sortDirection.ToLower() == "asc" ? 1 : -1));
-
-                var skipStage = new BsonDocument("$skip", (pageNumber - 1) * pageSize);
-
-                var limitStage = new BsonDocument("$limit", pageSize);
-
-                // Count query
-                var countPipeline = new[]
-                {
-                    matchStage,
-                    groupStage
-                };
-
-                var totalCount = (await _invitationsCollection
-                    .Aggregate<BsonDocument>(countPipeline)
-                    .ToListAsync())
-                    .Count;
-
-                // Data query
-                var dataPipeline = new[]
-                {
-                    matchStage,
-                    groupStage,
-                    projectStage,
-                    sortStage,
-                    skipStage,
-                    limitStage
-                };
-
-                var contributors = await _invitationsCollection
-                    .Aggregate<ContributorResult>(dataPipeline)
-                    .ToListAsync();
-
-                return new PagedResult<ContributorResult>
-                {
-                    Items = contributors,
-                    TotalCount = totalCount,
-                    PageNumber = pageNumber,
-                    PageSize = pageSize
-                };
+            if (pageNumber < 1)
+            {
+                pageNumber = 1;
             }
+
+            if (pageSize < 1)
+            {
+                pageSize = 10;
+            }
+
+            var sortField = sortBy?.ToLowerInvariant() switch
+            {
+                "email" => "Email",
+                _ => "Name"
+            };
+
+            var matchStage = new BsonDocument("$match", new BsonDocument
+            {
+                { "invitedOrgId", organisationId },
+                {
+                    "invitedRoles",
+                    new BsonDocument("$elemMatch",
+                        new BsonDocument("$in", new BsonArray
+                        {
+                            UserRole.DesignatedDutyHolder.ToString(),
+                            UserRole.Contributor.ToString()
+                        }))
+                }
+            });
+
+            var groupStage = new BsonDocument("$group", new BsonDocument
+            {
+                {
+                    "_id", new BsonDocument
+                    {
+                        { "firstName", "$firstName" },
+                        { "lastName", "$lastName" },
+                        { "email", "$invitedEmail" }
+                    }
+                },
+                {
+                    "UserId",
+                    new BsonDocument("$first",
+                        new BsonDocument("$toString", "$_id"))
+                },
+                {
+                    "Name",
+                    new BsonDocument("$first",
+                        new BsonDocument("$concat",
+                            new BsonArray
+                            {
+                                "$firstName",
+                                " ",
+                                "$lastName"
+                            }))
+                },
+                { "Email", new BsonDocument("$first", "$invitedEmail") },
+                { "OrganisationId", new BsonDocument("$first", "$invitedOrgId") },
+                { "WorkingOrgName", new BsonDocument("$first", "$invitedOrgName") }
+            });
+
+                    var projectStage = new BsonDocument("$project", new BsonDocument
+            {
+                { "_id", 0 },
+                { "UserId", 1 },
+                { "Name", 1 },
+                { "Email", 1 },
+                { "OrganisationId", 1 },
+                { "WorkingOrgName", 1 }
+            });
+
+            var sortStage = new BsonDocument(
+                "$sort",
+                new BsonDocument(sortField,
+                    string.Equals(sortDirection, "asc", StringComparison.OrdinalIgnoreCase) ? 1 : -1));
+
+            var skipStage = new BsonDocument("$skip", (pageNumber - 1) * pageSize);
+
+            var limitStage = new BsonDocument("$limit", pageSize);
+
+            // Count query
+            var countPipeline = new[]
+            {
+                matchStage,
+                groupStage,
+                new BsonDocument("$count", "count")
+            };
+
+            var countResult = await _invitationsCollection
+                .Aggregate<BsonDocument>(countPipeline)
+                .FirstOrDefaultAsync();
+
+            var totalCount = countResult?.GetValue("count", 0).ToInt32() ?? 0;
+
+            // Data query
+            var dataPipeline = new[]
+            {
+                matchStage,
+                groupStage,
+                projectStage,
+                sortStage,
+                skipStage,
+                limitStage
+            };
+
+            var contributors = await _invitationsCollection
+                .Aggregate<ContributorResult>(dataPipeline)
+                .ToListAsync();
+
+            return new PagedResult<ContributorResult>
+            {
+                Items = contributors,
+                TotalCount = totalCount,
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize)
+            };
         }
+    }
 }

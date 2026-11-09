@@ -1,6 +1,7 @@
 ﻿using HNTAS.Core.Api.Configuration;
 using HNTAS.Core.Api.Constants;
 using HNTAS.Core.Api.Data.Models;
+using HNTAS.Core.Api.Data.Models.Arms.Submission;
 using HNTAS.Core.Api.Data.Models.External;
 using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Helpers;
@@ -69,6 +70,76 @@ namespace HNTAS.Core.Api.Services
 
         public async Task UpdateAsync(string hnId, HeatNetwork updatedHn) =>
             await _hnCollection.ReplaceOneAsync(hn => hn.HnId == hnId, updatedHn);
+
+        public async Task<HeatNetwork?> UpdateEnergyCentrePlantDataAsync(string hnId, string elementId, EnergyCentrePlantData? energyCentrePlantData)
+        {
+            var filter = Builders<HeatNetwork>.Filter.And(
+                Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
+                Builders<HeatNetwork>.Filter.ElemMatch(hn => hn.NetworkElements!.Elements,
+                    element => element.ElementId == elementId && element.ElementType == ElementTypeInShort.EC));
+
+            BsonValue updatedPlantData = energyCentrePlantData is null
+                ? BsonNull.Value
+                : energyCentrePlantData.ToBsonDocument();
+
+            var ecElementsFilter = new BsonDocument("$filter", new BsonDocument
+            {
+                { "input", new BsonDocument("$ifNull", new BsonArray { "$networkElements.elements", new BsonArray() }) },
+                { "as", "element" },
+                { "cond", new BsonDocument("$eq", new BsonArray { "$$element.elementType", ElementTypeInShort.EC.ToString() }) }
+            });
+
+            var updatePipeline = new[]
+            {
+                new BsonDocument("$set", new BsonDocument("networkElements.elements", new BsonDocument("$map", new BsonDocument
+                {
+                    { "input", new BsonDocument("$ifNull", new BsonArray { "$networkElements.elements", new BsonArray() }) },
+                    { "as", "element" },
+                    {
+                        "in", new BsonDocument("$cond", new BsonArray
+                        {
+                            new BsonDocument("$eq", new BsonArray { "$$element.elementId", elementId }),
+                            new BsonDocument("$mergeObjects", new BsonArray
+                            {
+                                "$$element",
+                                new BsonDocument("energyCentrePlantData", updatedPlantData)
+                            }),
+                            "$$element"
+                        })
+                    }
+                }))),
+                new BsonDocument("$set", new BsonDocument("networkElements.ecPlantDataStatus", new BsonDocument("$cond", new BsonArray
+                {
+                    new BsonDocument("$and", new BsonArray
+                    {
+                        new BsonDocument("$gt", new BsonArray
+                        {
+                            new BsonDocument("$size", ecElementsFilter),
+                            0
+                        }),
+                        new BsonDocument("$allElementsTrue", new BsonDocument("$map", new BsonDocument
+                        {
+                            { "input", ecElementsFilter },
+                            { "as", "ecElement" },
+                            { "in", new BsonDocument("$ne", new BsonArray { "$$ecElement.energyCentrePlantData", BsonNull.Value }) }
+                        }))
+                    }),
+                    NetworkDetailsStatus.Complete.ToString(),
+                    NetworkDetailsStatus.InProgress.ToString()
+                })))
+            };
+
+            var pipelineUpdate = Builders<HeatNetwork>.Update.Pipeline(
+                PipelineDefinition<HeatNetwork, HeatNetwork>.Create(updatePipeline));
+
+            var updateResult = await _hnCollection.UpdateOneAsync(filter, pipelineUpdate);
+            if (updateResult.ModifiedCount == 0)
+            {
+                return null;
+            }
+
+            return await _hnCollection.Find(hn => hn.HnId == hnId).FirstOrDefaultAsync();
+        }
 
         public async Task<List<HeatNetwork>> GetAsync()
         {

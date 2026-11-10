@@ -2,11 +2,11 @@
 
 namespace HNTAS.Core.Api.Data.Models
 {
-    public class CombinedHeatAndPowerSystem : HeatAndFuelBase
+    public class CombinedHeatAndPowerSystem : FuelBase
     {        
         [BsonElement("maximumElectricOutput")]
         public int? MaximumElectricOutput { get; set; }        
-        [BsonElement("operationalMode")]
-        public string? OperationalMode { get; set; }
+        [BsonElement("percentageOfElectricityExported")]
+        public int? PercentageOfElectricityExported { get; set; }
     }
 }

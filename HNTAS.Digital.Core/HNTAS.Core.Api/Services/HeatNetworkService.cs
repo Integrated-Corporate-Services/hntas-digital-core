@@ -72,45 +72,59 @@ namespace HNTAS.Core.Api.Services
             await _hnCollection.ReplaceOneAsync(hn => hn.HnId == hnId, updatedHn);
 
         public async Task<HeatNetwork?> UpdateEnergyCentrePlantDataAsync(string hnId, string elementId, EnergyCentrePlantData? energyCentrePlantData)
-        {
-            var filter = Builders<HeatNetwork>.Filter.And(
-                Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
-                Builders<HeatNetwork>.Filter.ElemMatch(hn => hn.NetworkElements!.Elements,
-                    element => element.ElementId == elementId && element.ElementType == ElementTypeInShort.EC));
-
-            var elementUpdate = Builders<HeatNetwork>.Update
-                .Set("networkElements.elements.$.energyCentrePlantData", energyCentrePlantData);
-
-            var updateResult = await _hnCollection.UpdateOneAsync(filter, elementUpdate);
-            if (updateResult.ModifiedCount == 0)
+        {            
+            var currentHeatNetwork = await _hnCollection.Find(hn => hn.HnId == hnId).FirstOrDefaultAsync();
+            if (currentHeatNetwork?.NetworkElements?.Elements is null)
             {
                 return null;
             }
 
-            var updatedHeatNetwork = await _hnCollection.Find(hn => hn.HnId == hnId).FirstOrDefaultAsync();
-            if (updatedHeatNetwork?.NetworkElements?.Elements is null)
+            var elementsSnapshot = currentHeatNetwork.NetworkElements.Elements;
+            var targetElementExists = elementsSnapshot.Any(element =>
+                element.ElementId == elementId && element.ElementType == ElementTypeInShort.EC);
+
+            if (!targetElementExists)
             {
-                return updatedHeatNetwork;
+                return null;
             }
 
-            var ecElements = updatedHeatNetwork.NetworkElements.Elements
+            var ecElements = elementsSnapshot
                 .Where(element => element.ElementType == ElementTypeInShort.EC)
                 .ToList();
 
-            var ecPlantDataStatus = ecElements.Count > 0 && ecElements.All(element => element.EnergyCentrePlantData is not null)
+            var ecPlantDataStatus = ecElements.Count > 0 && ecElements.All(element =>
+                (element.ElementId == elementId ? energyCentrePlantData : element.EnergyCentrePlantData) is not null)
                 ? NetworkDetailsStatus.Complete
                 : NetworkDetailsStatus.InProgress;
 
-            updatedHeatNetwork.NetworkElements.EcPlantDataStatus = ecPlantDataStatus;
+            var snapshotBson = new BsonArray(elementsSnapshot.Select(element => element.ToBsonDocument()));
 
-            var statusUpdate = Builders<HeatNetwork>.Update
+            var guardedFilter = Builders<HeatNetwork>.Filter.And(
+                Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
+                Builders<HeatNetwork>.Filter.Eq("networkElements.elements", snapshotBson),
+                Builders<HeatNetwork>.Filter.ElemMatch(
+                    hn => hn.NetworkElements!.Elements,
+                    element => element.ElementId == elementId && element.ElementType == ElementTypeInShort.EC));
+
+            var combinedUpdate = Builders<HeatNetwork>.Update
+                .Set("networkElements.elements.$[target].energyCentrePlantData", energyCentrePlantData)
                 .Set("networkElements.ecPlantDataStatus", ecPlantDataStatus);
 
-            await _hnCollection.UpdateOneAsync(
-                Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
-                statusUpdate);
+            var updateOptions = new UpdateOptions
+            {
+                ArrayFilters =
+                [
+                    new BsonDocumentArrayFilterDefinition<BsonDocument>(new BsonDocument
+                    {
+                        { "target.elementId", elementId },
+                        { "target.elementType", ElementTypeInShort.EC.ToString() }
+                    })
+                ]
+            };
 
-            return updatedHeatNetwork;
+            var updateResult = await _hnCollection.UpdateOneAsync(guardedFilter, combinedUpdate, updateOptions);                       
+
+            return await _hnCollection.Find(hn => hn.HnId == hnId).FirstOrDefaultAsync();
         }
 
         public async Task<List<HeatNetwork>> GetAsync()

@@ -438,6 +438,11 @@ namespace HNTAS.Core.Api.Controllers
                 _logger.LogWarning("UpdateEnergyCentrePlantData called with empty HnId.");
                 return BadRequest("Please provide a valid heat network HnId.");
             }
+            if (string.IsNullOrWhiteSpace(request.ElementId))
+            {
+                _logger.LogWarning("UpdateEnergyCentrePlantData called with empty ElementId for HnId: {HnId}", request.HnId.ToSafeLog());
+                return BadRequest("Please provide a valid element id.");
+            }
 
             try
             {
@@ -446,32 +451,23 @@ namespace HNTAS.Core.Api.Controllers
                 {
                     _logger.LogInformation("No heat network found for HnId: {HnId}", request.HnId.ToSafeLog());
                     return NotFound($"No heat network found for HnId '{request.HnId}'.");
-                }                
-
-                var elementToUpdate = existingHeatNetwork.NetworkElements?.Elements?.FirstOrDefault(e => e.ElementId == request.ElementId);
-                var otherElements = existingHeatNetwork.NetworkElements?.Elements?.Where(e => e.ElementId != request.ElementId && e.ElementType == ElementTypeInShort.EC).ToList();
-
-                var isOtherElementsPlantDataNotCompleted = true;
-                if (otherElements != null)
-                {
-                    isOtherElementsPlantDataNotCompleted = otherElements.Any(e => e.EnergyCentrePlantData == null);
                 }
 
-                existingHeatNetwork.NetworkElements!.EcPlantDataStatus = isOtherElementsPlantDataNotCompleted ? NetworkDetailsStatus.InProgress : NetworkDetailsStatus.Complete;
+                request.EnergyCentrePlantData?.EnergyCentreStatus = NetworkDetailsStatus.Complete;
 
-                if (elementToUpdate == null)
+                var updatedHeatNetwork = await _hnService.UpdateEnergyCentrePlantDataAsync(
+                    request.HnId,
+                    request.ElementId,
+                    request.EnergyCentrePlantData);
+
+                if (updatedHeatNetwork == null)
                 {
                     _logger.LogInformation("No element found");
                     return NotFound($"No element found");
                 }
-                request.EnergyCentrePlantData?.EnergyCentreStatus = NetworkDetailsStatus.Complete;
-
-                elementToUpdate.EnergyCentrePlantData = request.EnergyCentrePlantData;
-
-                await _hnService.UpdateAsync(request.HnId, existingHeatNetwork);                
 
                 _logger.LogInformation("Updated EnergyCentrePlantData for HnId: {HnId}", request.HnId.ToSafeLog());
-                var response = CreatedAtAction(nameof(UpdateEnergyCentrePlantData), new { id = existingHeatNetwork.Id }, existingHeatNetwork);
+                var response = CreatedAtAction(nameof(UpdateEnergyCentrePlantData), new { id = updatedHeatNetwork.Id }, updatedHeatNetwork);
                 return Ok(response);
             }
             catch (Exception ex)

@@ -78,67 +78,39 @@ namespace HNTAS.Core.Api.Services
                 Builders<HeatNetwork>.Filter.ElemMatch(hn => hn.NetworkElements!.Elements,
                     element => element.ElementId == elementId && element.ElementType == ElementTypeInShort.EC));
 
-            BsonValue updatedPlantData = energyCentrePlantData is null
-                ? BsonNull.Value
-                : energyCentrePlantData.ToBsonDocument();
+            var elementUpdate = Builders<HeatNetwork>.Update
+                .Set("networkElements.elements.$.energyCentrePlantData", energyCentrePlantData);
 
-            var ecElementsFilter = new BsonDocument("$filter", new BsonDocument
-            {
-                { "input", new BsonDocument("$ifNull", new BsonArray { "$networkElements.elements", new BsonArray() }) },
-                { "as", "element" },
-                { "cond", new BsonDocument("$eq", new BsonArray { "$$element.elementType", ElementTypeInShort.EC.ToString() }) }
-            });
-
-            var updatePipeline = new[]
-            {
-                new BsonDocument("$set", new BsonDocument("networkElements.elements", new BsonDocument("$map", new BsonDocument
-                {
-                    { "input", new BsonDocument("$ifNull", new BsonArray { "$networkElements.elements", new BsonArray() }) },
-                    { "as", "element" },
-                    {
-                        "in", new BsonDocument("$cond", new BsonArray
-                        {
-                            new BsonDocument("$eq", new BsonArray { "$$element.elementId", elementId }),
-                            new BsonDocument("$mergeObjects", new BsonArray
-                            {
-                                "$$element",
-                                new BsonDocument("energyCentrePlantData", updatedPlantData)
-                            }),
-                            "$$element"
-                        })
-                    }
-                }))),
-                new BsonDocument("$set", new BsonDocument("networkElements.ecPlantDataStatus", new BsonDocument("$cond", new BsonArray
-                {
-                    new BsonDocument("$and", new BsonArray
-                    {
-                        new BsonDocument("$gt", new BsonArray
-                        {
-                            new BsonDocument("$size", ecElementsFilter),
-                            0
-                        }),
-                        new BsonDocument("$allElementsTrue", new BsonDocument("$map", new BsonDocument
-                        {
-                            { "input", ecElementsFilter },
-                            { "as", "ecElement" },
-                            { "in", new BsonDocument("$ne", new BsonArray { "$$ecElement.energyCentrePlantData", BsonNull.Value }) }
-                        }))
-                    }),
-                    NetworkDetailsStatus.Complete.ToString(),
-                    NetworkDetailsStatus.InProgress.ToString()
-                })))
-            };
-
-            var pipelineUpdate = Builders<HeatNetwork>.Update.Pipeline(
-                PipelineDefinition<HeatNetwork, HeatNetwork>.Create(updatePipeline));
-
-            var updateResult = await _hnCollection.UpdateOneAsync(filter, pipelineUpdate);
+            var updateResult = await _hnCollection.UpdateOneAsync(filter, elementUpdate);
             if (updateResult.ModifiedCount == 0)
             {
                 return null;
             }
 
-            return await _hnCollection.Find(hn => hn.HnId == hnId).FirstOrDefaultAsync();
+            var updatedHeatNetwork = await _hnCollection.Find(hn => hn.HnId == hnId).FirstOrDefaultAsync();
+            if (updatedHeatNetwork?.NetworkElements?.Elements is null)
+            {
+                return updatedHeatNetwork;
+            }
+
+            var ecElements = updatedHeatNetwork.NetworkElements.Elements
+                .Where(element => element.ElementType == ElementTypeInShort.EC)
+                .ToList();
+
+            var ecPlantDataStatus = ecElements.Count > 0 && ecElements.All(element => element.EnergyCentrePlantData is not null)
+                ? NetworkDetailsStatus.Complete
+                : NetworkDetailsStatus.InProgress;
+
+            updatedHeatNetwork.NetworkElements.EcPlantDataStatus = ecPlantDataStatus;
+
+            var statusUpdate = Builders<HeatNetwork>.Update
+                .Set("networkElements.ecPlantDataStatus", ecPlantDataStatus);
+
+            await _hnCollection.UpdateOneAsync(
+                Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
+                statusUpdate);
+
+            return updatedHeatNetwork;
         }
 
         public async Task<List<HeatNetwork>> GetAsync()

@@ -276,10 +276,15 @@ public class UsersController : ControllerBase
             {
                 _logger.LogWarning("User with ID {Id} not found.", oneLoginId.ToSafeLog());
                 return NotFound();
-            }
+            }            
 
             _logger.LogInformation("Successfully retrieved user with ID: {Id}", oneLoginId.ToSafeLog());
             var userResponse = _mapper.Map<UserResponse>(user);
+            if (!string.IsNullOrEmpty(user.ActiveContributingOrgId))
+            {
+                var invitation = await _invitationService.GetByInvitedEmailAndOrgAsync(user.EmailId, user.ActiveContributingOrgId);
+                userResponse.InvitedRole = invitation.InvitedRoles.FirstOrDefault();
+            }
             return Ok(userResponse);
         }
         catch (Exception ex)

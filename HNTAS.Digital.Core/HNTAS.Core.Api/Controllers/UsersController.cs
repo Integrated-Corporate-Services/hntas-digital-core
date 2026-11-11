@@ -279,6 +279,40 @@ public class UsersController : ControllerBase
             }            
 
             _logger.LogInformation("Successfully retrieved user with ID: {Id}", oneLoginId.ToSafeLog());
+            var userResponse = _mapper.Map<UserResponse>(user);            
+            return Ok(userResponse);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving user by OneLogin ID: {Id}", oneLoginId.ToSafeLog());
+            return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while retrieving the user.");
+        }
+    }
+
+    /// <summary>
+    /// Get a UserCurrentRole by their OneLogin ID
+    /// </summary>
+    /// <param name="oneLoginId"></param>
+    /// <returns></returns>
+    [HttpGet("userCurrentRole/{oneLoginId}", Name = "GetUserCurrentRole")]
+    [ProducesResponseType(typeof(UserResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<UserResponse>> GetUserCurrentRole(string oneLoginId)
+    {
+        _logger.LogInformation("Attempting to retrieve user with ID: {Id}", oneLoginId.ToSafeLog());
+
+        try
+        {
+            var user = await _userService.GetByUserOneLoginIdAsync(oneLoginId);
+
+            if (user == null)
+            {
+                _logger.LogWarning("User with ID {Id} not found.", oneLoginId.ToSafeLog());
+                return NotFound();
+            }
+
+            _logger.LogInformation("Successfully retrieved user with ID: {Id}", oneLoginId.ToSafeLog());
             var userResponse = _mapper.Map<UserResponse>(user);
             if (!string.IsNullOrEmpty(user.ActiveContributingOrgId))
             {
@@ -293,7 +327,7 @@ public class UsersController : ControllerBase
             return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while retrieving the user.");
         }
     }
-    
+
 
     /// <summary>
     /// Register initial user after login

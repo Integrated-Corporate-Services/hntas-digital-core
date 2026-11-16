@@ -14,6 +14,7 @@ namespace HNTAS.Core.Api.Interfaces
         Task<HeatNetwork> GetByHnIdAsync(string hnId);
         Task CreateAsync(HeatNetwork newHeatNetwork, bool isNewHeatNetwork = false);
         Task UpdateAsync(string id, HeatNetwork updatedHn);
+        Task<HeatNetwork?> UpdateEnergyCentrePlantDataAsync(string hnId, string elementId, EnergyCentrePlantData? energyCentrePlantData);
         Task<List<HeatNetwork>> GetByDateRangeAsync(DateTime fromDate, DateTime toDate);
 
 

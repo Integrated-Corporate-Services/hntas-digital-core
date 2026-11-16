@@ -41,6 +41,7 @@ namespace HNTAS.Core.Api.Helpers
                 nameof(ElementTypeInShort.DDN) => "District distribution network",
                 nameof(ElementTypeInShort.CC) => "Consumer connections",
                 nameof(ElementTypeInShort.CDN) => "Communal distribution network",
+                nameof(ElementTypeInShort.NDCC) => "Non-domestic consumer connections",
                 _ => throw new ArgumentOutOfRangeException(elementType, $"Not expected heat network element type value: {elementType}")
             };
         }

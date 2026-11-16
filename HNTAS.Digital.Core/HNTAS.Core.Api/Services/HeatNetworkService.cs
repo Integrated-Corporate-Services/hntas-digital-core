@@ -1,6 +1,7 @@
 ﻿using HNTAS.Core.Api.Configuration;
 using HNTAS.Core.Api.Constants;
 using HNTAS.Core.Api.Data.Models;
+using HNTAS.Core.Api.Data.Models.Arms.Submission;
 using HNTAS.Core.Api.Data.Models.External;
 using HNTAS.Core.Api.Enums;
 using HNTAS.Core.Api.Helpers;
@@ -60,7 +61,7 @@ namespace HNTAS.Core.Api.Services
                     elementName: "All Elements",
                     phase: newHeatNetwork.Phase,
                     stage: HeatNetworkHelper.GetStageFromPhase(newHeatNetwork.Phase)
-                );                
+                );
             }
 
             _logger.LogInformation("New heat network initially registered...");
@@ -69,6 +70,62 @@ namespace HNTAS.Core.Api.Services
 
         public async Task UpdateAsync(string hnId, HeatNetwork updatedHn) =>
             await _hnCollection.ReplaceOneAsync(hn => hn.HnId == hnId, updatedHn);
+
+        public async Task<HeatNetwork?> UpdateEnergyCentrePlantDataAsync(string hnId, string elementId, EnergyCentrePlantData? energyCentrePlantData)
+        {
+            var currentHeatNetwork = await _hnCollection.Find(hn => hn.HnId == hnId).FirstOrDefaultAsync();
+            if (currentHeatNetwork?.NetworkElements?.Elements is null)
+            {
+                return null;
+            }
+
+            var elementsSnapshot = currentHeatNetwork.NetworkElements.Elements;
+            var targetElementExists = elementsSnapshot.Any(element =>
+                element.ElementId == elementId && element.ElementType == ElementTypeInShort.EC);
+
+            if (!targetElementExists)
+            {
+                return null;
+            }
+
+            var ecElements = elementsSnapshot
+                .Where(element => element.ElementType == ElementTypeInShort.EC)
+                .ToList();
+
+            var ecPlantDataStatus = ecElements.Count > 0 && ecElements.All(element =>
+                (element.ElementId == elementId ? energyCentrePlantData : element.EnergyCentrePlantData) is not null)
+                ? NetworkDetailsStatus.Complete
+                : NetworkDetailsStatus.InProgress;
+
+            var snapshotBson = new BsonArray(elementsSnapshot.Select(element => element.ToBsonDocument()));
+
+            var guardedFilter = Builders<HeatNetwork>.Filter.And(
+                Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
+                Builders<HeatNetwork>.Filter.Eq("networkElements.elements", snapshotBson),
+                Builders<HeatNetwork>.Filter.ElemMatch(
+                    hn => hn.NetworkElements!.Elements,
+                    element => element.ElementId == elementId && element.ElementType == ElementTypeInShort.EC));
+
+            var combinedUpdate = Builders<HeatNetwork>.Update
+                .Set("networkElements.elements.$[target].energyCentrePlantData", energyCentrePlantData)
+                .Set("networkElements.ecPlantDataStatus", ecPlantDataStatus);
+
+            var updateOptions = new UpdateOptions
+            {
+                ArrayFilters =
+                [
+                    new BsonDocumentArrayFilterDefinition<BsonDocument>(new BsonDocument
+                    {
+                        { "target.elementId", elementId },
+                        { "target.elementType", ElementTypeInShort.EC.ToString() }
+                    })
+                ]
+            };
+
+            var updateResult = await _hnCollection.UpdateOneAsync(guardedFilter, combinedUpdate, updateOptions);
+
+            return await _hnCollection.Find(hn => hn.HnId == hnId).FirstOrDefaultAsync();
+        }
 
         public async Task<List<HeatNetwork>> GetAsync()
         {
@@ -139,157 +196,10 @@ namespace HNTAS.Core.Api.Services
             {
                 return await cursor.ToListAsync();
             }
-        }
-
-        //public async Task UpdateMeteringAndMonitoringStrategyAsync(string hnId, NetworkDetailsDocument document)
-        //{
-        //    var updateFilter = Builders<HeatNetwork>.Filter.And(
-        //        Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
-        //        Builders<HeatNetwork>.Filter.ElemMatch(
-        //            hn => hn.MeteringAndMonitoringStrategy!.Documents,
-        //            doc => doc.S3Key != null
-        //        ));
-
-        //    var update = Builders<HeatNetwork>.Update
-        //        .Set("meteringAndMonitoringStrategy.documents.$", document)
-        //        .Set(hn => hn.MeteringAndMonitoringStrategy!.UpdatedAt, DateTime.UtcNow)
-        //        .Set(hn => hn.MeteringAndMonitoringStrategy.UpdatedBy, document.UploadedBy)
-        //        .Set(hn => hn.MeteringAndMonitoringStrategy.Status, NetworkDetailsStatus.Complete);
-
-        //    var result = await _hnCollection.UpdateOneAsync(updateFilter, update);
-
-        //    if (result.ModifiedCount == 0)
-        //    {
-        //        var initFilter = Builders<HeatNetwork>.Filter.And(
-        //            Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
-        //            Builders<HeatNetwork>.Filter.Eq(hn => hn.MeteringAndMonitoringStrategy, null)
-        //        );
-
-        //        var initUpdate = Builders<HeatNetwork>.Update.Set(
-        //            hn => hn.MeteringAndMonitoringStrategy,
-        //            new MeteringAndMonitoringStrategy
-        //            {
-        //                CreatedAt = DateTime.UtcNow,
-        //                CreatedBy = document.UploadedBy,
-        //                Status = NetworkDetailsStatus.Complete,
-        //                Documents = new List<NetworkDetailsUploadedDocument>()
-        //            }
-        //        );
-
-        //        await _hnCollection.UpdateOneAsync(initFilter, initUpdate);
-
-        //        var insertFilter = Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId);
-
-        //        var insertUpdate = Builders<HeatNetwork>.Update
-        //            .Push("meteringAndMonitoringStrategy.documents", document)
-        //            .Set(hn => hn.MeteringAndMonitoringStrategy!.UpdatedAt, DateTime.UtcNow)
-        //            .Set(hn => hn.MeteringAndMonitoringStrategy.UpdatedBy, document.UploadedBy)
-        //            .Set(hn => hn.MeteringAndMonitoringStrategy.Status, NetworkDetailsStatus.Complete);
-
-        //        await _hnCollection.UpdateOneAsync(insertFilter, insertUpdate);
-        //    }
-        //}
-
-        //public async Task UpdateAssessmentPlanAsync(string hnId, NetworkDetailsDocument document)
-        //{
-        //    var updateFilter = Builders<HeatNetwork>.Filter.And(
-        //        Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
-        //        Builders<HeatNetwork>.Filter.ElemMatch(
-        //            hn => hn.AssessmentPlan!.Documents,
-        //            doc => doc.S3Key != null
-        //        ));
-
-        //    var update = Builders<HeatNetwork>.Update
-        //        .Set("assessmentPlan.documents.$", document)
-        //        .Set(hn => hn.AssessmentPlan!.UpdatedAt, DateTime.UtcNow)
-        //        .Set(hn => hn.AssessmentPlan.UpdatedBy, document.UploadedBy)
-        //        .Set(hn => hn.AssessmentPlan.Status, NetworkDetailsStatus.Complete);
-
-        //    var result = await _hnCollection.UpdateOneAsync(updateFilter, update);
-
-        //    if (result.ModifiedCount == 0)
-        //    {
-        //        var initFilter = Builders<HeatNetwork>.Filter.And(
-        //            Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
-        //            Builders<HeatNetwork>.Filter.Eq(hn => hn.AssessmentPlan, null)
-        //        );
-
-        //        var initUpdate = Builders<HeatNetwork>.Update.Set(
-        //            hn => hn.AssessmentPlan,
-        //            new AssessmentPlan
-        //            {
-        //                CreatedAt = DateTime.UtcNow,
-        //                CreatedBy = document.UploadedBy,
-        //                Status = NetworkDetailsStatus.Complete,
-        //                Documents = new List<NetworkDetailsUploadedDocument>()
-        //            }
-        //        );
-
-        //        await _hnCollection.UpdateOneAsync(initFilter, initUpdate);
-
-        //        var insertFilter = Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId);
-
-        //        var insertUpdate = Builders<HeatNetwork>.Update
-        //            .Push("assessmentPlan.documents", document)
-        //            .Set(hn => hn.AssessmentPlan!.UpdatedAt, DateTime.UtcNow)
-        //            .Set(hn => hn.AssessmentPlan.UpdatedBy, document.UploadedBy)
-        //            .Set(hn => hn.AssessmentPlan.Status, NetworkDetailsStatus.Complete);
-
-        //        await _hnCollection.UpdateOneAsync(insertFilter, insertUpdate);
-        //    }
-        //}
-
-        //public async Task UpdateDesignConstructionLogAsync(string hnId, NetworkDetailsDocument document)
-        //{
-        //    var updateFilter = Builders<HeatNetwork>.Filter.And(
-        //        Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
-        //        Builders<HeatNetwork>.Filter.ElemMatch(
-        //            hn => hn.DesignConstructionLog!.Documents,
-        //            doc => doc.S3Key != null
-        //        ));
-
-        //    var update = Builders<HeatNetwork>.Update
-        //        .Set("designConstructionLog.documents.$", document)
-        //        .Set(hn => hn.DesignConstructionLog!.UpdatedAt, DateTime.UtcNow)
-        //        .Set(hn => hn.DesignConstructionLog.UpdatedBy, document.UploadedBy)
-        //        .Set(hn => hn.DesignConstructionLog.Status, NetworkDetailsStatus.Complete);
-
-        //    var result = await _hnCollection.UpdateOneAsync(updateFilter, update);
-
-        //    if (result.ModifiedCount == 0)
-        //    {
-        //        var initFilter = Builders<HeatNetwork>.Filter.And(
-        //            Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId),
-        //            Builders<HeatNetwork>.Filter.Eq(hn => hn.DesignConstructionLog, null)
-        //        );
-
-        //        var initUpdate = Builders<HeatNetwork>.Update.Set(
-        //            hn => hn.DesignConstructionLog,
-        //            new DesignConstructionLog
-        //            {
-        //                CreatedAt = DateTime.UtcNow,
-        //                CreatedBy = document.UploadedBy,
-        //                Status = NetworkDetailsStatus.Complete,
-        //                Documents = new List<NetworkDetailsUploadedDocument>()
-        //            }
-        //        );
-
-        //        await _hnCollection.UpdateOneAsync(initFilter, initUpdate);
-
-        //        var insertFilter = Builders<HeatNetwork>.Filter.Eq(hn => hn.HnId, hnId);
-
-        //        var insertUpdate = Builders<HeatNetwork>.Update
-        //            .Push("designConstructionLog.documents", document)
-        //            .Set(hn => hn.DesignConstructionLog!.UpdatedAt, DateTime.UtcNow)
-        //            .Set(hn => hn.DesignConstructionLog.UpdatedBy, document.UploadedBy)
-        //            .Set(hn => hn.DesignConstructionLog.Status, NetworkDetailsStatus.Complete);
-
-        //        await _hnCollection.UpdateOneAsync(insertFilter, insertUpdate);
-        //    }
-        //}
+        }       
 
         public async Task<AssignedAssessorResponse> GetAssignedAssessors(AssignedAssessorRequest request)
-        {            
+        {
             // Build filter for elements with assigned assessors
             var filter = Builders<HeatNetwork>.Filter.ElemMatch(
                 hn => hn.NetworkElements!.ElementsGroup,
@@ -298,7 +208,7 @@ namespace HNTAS.Core.Api.Services
 
             try
             {
-                var heatNetworks = await _hnCollection.Find(filter).ToListAsync();                
+                var heatNetworks = await _hnCollection.Find(filter).ToListAsync();
 
                 var assignedAssessors = new List<AssignedAssessor>();
                 var elements = heatNetworks.SelectMany(hn => hn.NetworkElements?.ElementsGroup ?? Enumerable.Empty<ElementGroup>());
@@ -321,7 +231,7 @@ namespace HNTAS.Core.Api.Services
                                 });
                             }
                         }
-                    }                    
+                    }
                 }
 
                 // Group by HeatNetwork and Assessor, then aggregate element assignments

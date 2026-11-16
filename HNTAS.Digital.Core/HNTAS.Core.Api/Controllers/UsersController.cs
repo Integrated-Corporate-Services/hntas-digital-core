@@ -276,10 +276,10 @@ public class UsersController : ControllerBase
             {
                 _logger.LogWarning("User with ID {Id} not found.", oneLoginId.ToSafeLog());
                 return NotFound();
-            }
+            }            
 
             _logger.LogInformation("Successfully retrieved user with ID: {Id}", oneLoginId.ToSafeLog());
-            var userResponse = _mapper.Map<UserResponse>(user);
+            var userResponse = _mapper.Map<UserResponse>(user);            
             return Ok(userResponse);
         }
         catch (Exception ex)

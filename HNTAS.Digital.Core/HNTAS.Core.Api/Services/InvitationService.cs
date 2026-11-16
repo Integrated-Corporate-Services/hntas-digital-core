@@ -272,7 +272,7 @@ namespace HNTAS.Core.Api.Services
             var heatNetwork = await _heatNetworkService.GetByHnIdAsync(invitation.InvitedHnId!);
             // HnId can be null in case of network manager, they will have invited orgId - check and fix
 
-
+           
             // User exists
             if (invitedUser != null)
             {
@@ -709,7 +709,7 @@ namespace HNTAS.Core.Api.Services
                 { "WorkingOrgName", new BsonDocument("$first", "$invitedOrgName") }
             });
 
-            var projectStage = new BsonDocument("$project", new BsonDocument
+                    var projectStage = new BsonDocument("$project", new BsonDocument
             {
                 { "_id", 0 },
                 { "UserId", 1 },

@@ -6,17 +6,40 @@ namespace HNTAS.Core.Api.Enums
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public enum ContributorRole
     {
-        [Description("Designated duty holder")]
-        DesignatedDutyHolder = 1,
-        [Description("Contributor")]
-        Contributor = 2,        
-        [Description("Assessor")]
-        Assessor = 3,
-        [Description("Certifier")]
-        Certifier = 4,
-        [Description("Network Manager")]
-        NetworkManager = 5,
+        /// <summary>
+        /// Represents a responsible party role.
+        /// </summary>
         [Description("Responsible Party")]
-        ResponsibleParty = 6
+        ResponsibleParty = 1,
+
+        /// <summary>
+        /// Represents a Network Manager role.
+        /// </summary>
+        [Description("Network Manager")]
+        NetworkManager = 2,
+
+        /// <summary>
+        /// Represents a Designated Duty Holder user role.
+        /// </summary>
+        [Description("Designated Duty Holder")]
+        DesignatedDutyHolder = 3,
+
+        /// <summary>
+        /// Represents a contributor user role.
+        /// </summary>
+        [Description("Contributor")]
+        Contributor = 4,
+
+        /// <summary>
+        /// Represents a assessor user role.
+        /// </summary>
+        [Description("Assessor")]
+        Assessor = 5,
+
+        /// <summary>
+        /// Represents a certifier user role.
+        /// </summary>
+        [Description("Certifier")]
+        Certifier = 6
     }
 }

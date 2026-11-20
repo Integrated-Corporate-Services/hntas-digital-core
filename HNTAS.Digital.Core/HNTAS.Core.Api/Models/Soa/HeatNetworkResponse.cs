@@ -13,6 +13,8 @@ namespace HNTAS.Core.Api.Models.Soa
         public string? OrgId { get; set; }
         public bool SuppliesSixOrMoreUnits { get; set; }
         public NetworkBuildStatus? NetworkBuildStatus { get; set; }
+        public string? MainEnergyCentreName { get; set; }
+        public MainEnergyCentreStatus? MainEnergyCentreStatus { get; set; }
         public int? NoOfResponsibleCommunalBuilding { get; set; }
         public int? NoOfResponsibleDistrictNetwork { get; set; }
         public bool HasAddressAndPostcode { get; set; }

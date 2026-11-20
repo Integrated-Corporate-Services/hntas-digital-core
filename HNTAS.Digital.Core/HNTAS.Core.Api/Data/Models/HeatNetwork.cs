@@ -33,6 +33,14 @@ namespace HNTAS.Core.Api.Data.Models
         [BsonRepresentation(BsonType.String)]
         public EnergyCentreType? EnergyCentreType { get; set; }
 
+        [BsonElement("mainEnergyCentreName")]
+        [BsonRepresentation(BsonType.String)]
+        public string? MainEnergyCentreName { get; set; }
+
+        [BsonElement("mainEnergyCentreStatus")]
+        [BsonRepresentation(BsonType.String)]
+        public MainEnergyCentreStatus? MainEnergyCentreStatus { get; set; }
+
         [BsonElement("name")]
         public string Name { get; set; } = string.Empty;
         [BsonElement("additionalDescription")]

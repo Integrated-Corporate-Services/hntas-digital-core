@@ -174,7 +174,9 @@ builder.Services.AddSingleton<IHeatRecoverySourceService, HeatRecoverySourceServ
 builder.Services.AddScoped<IDataMigration, SeedCountriesAndTerritories>();
 builder.Services.AddScoped<IDataMigration, SeedFuelTypes>();
 builder.Services.AddScoped<IDataMigration, SeedHeatRecoverySources>();
-if (!builder.Environment.IsEnvironment("prod"))
+
+if (!builder.Environment.IsEnvironment("prod") &&
+    !builder.Environment.IsEnvironment("qa"))
 {
     builder.Services.AddScoped<IDataMigration, SeedAssessors>();
 }

@@ -94,8 +94,8 @@ namespace HNTAS.Core.Api.Services
 
             var ecPlantDataStatus = ecElements.Count > 0 && ecElements.All(element =>
                 (element.ElementId == elementId ? energyCentrePlantData : element.EnergyCentrePlantData) is not null)
-                ? NetworkDetailsStatus.Complete
-                : NetworkDetailsStatus.InProgress;
+                ? NetworkDetailsStatus.Complete.ToString()
+                : NetworkDetailsStatus.InProgress.ToString();
 
             var snapshotBson = new BsonArray(elementsSnapshot.Select(element => element.ToBsonDocument()));
 

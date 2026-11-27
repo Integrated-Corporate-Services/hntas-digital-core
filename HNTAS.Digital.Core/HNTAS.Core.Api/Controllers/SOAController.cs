@@ -225,54 +225,7 @@ namespace HNTAS.Core.Api.Controllers
                 StringFormatter.Sanitize(request.HnId), StringFormatter.Sanitize(request.UpdatedBy));
                 return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while assigning assessor to the existing network.");
             }
-        }
-
-
-        [HttpPut("update-soa-status")]
-        [ProducesResponseType(StatusCodes.Status204NoContent)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> UpdateSoaStatus([FromBody] UpdateSoaStatusRequest request)
-        {
-            _logger.LogInformation("Updating SOA status to {Status} for HN ID: {HnId} by {UpdatedBy}", request.Status, request.HnId.ToSafeLog(), request.UpdatedBy.ToSafeLog());
-
-            if (string.IsNullOrWhiteSpace(request.HnId))
-                return BadRequest("Heat Network ID is required.");
-
-            if (string.IsNullOrWhiteSpace(request.HnName))
-                return BadRequest("Heat Network Name is required.");
-
-            if (string.IsNullOrWhiteSpace(request.UpdatedBy))
-                return BadRequest("UpdatedBy is required.");
-
-            if (!Enum.IsDefined(typeof(SoaStatus), request.Status))
-                return BadRequest($"Invalid SOA status: {request.Status}");
-
-            var soa = await _soaService.UpdateStatusAsync(request.HnId, request.Status, request.UpdatedBy);
-            var user = await _userService.GetUserWithDetailsAsync(request.UpdatedBy);
-
-            if (soa == null)
-            {
-                _logger.LogWarning("No SOA found to update for HN ID: {HnId}", request.HnId.ToSafeLog());
-                return BadRequest("SOA not found.");
-            }
-
-            var users = await _userService.GetAssessorsByHnIdAsync(request.HnId);
-            var assessor = users.FirstOrDefault();
-            if (assessor == null)
-            {
-                _logger.LogWarning("No assessor found for HN ID: {HnId}", request.HnId.ToSafeLog());
-                return NotFound();
-            }
-            
-            await _emailService.TrySendAssessorEmailAsync(
-                     emailAddress: assessor.EmailId,
-                     hnName: request.HnName,
-                     hnId: request.HnId,
-                     contributorName: user?.FullName
-                 );            
-
-            return NoContent();
-        }        
+        }                
 
         private async Task NotificationHistoryForAssigningAssessor(ElementSoaAssignAssessorRequest request, HeatNetwork heatNetwork)
         {
